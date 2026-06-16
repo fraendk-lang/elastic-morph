@@ -16,11 +16,16 @@
   a{color:inherit; text-decoration:none;}
   canvas#stars{position:fixed; inset:0; z-index:0; display:block;}
   .wrap{position:relative; z-index:1;}
-  header{display:flex; align-items:center; justify-content:space-between; padding:22px 6vw;}
+  header{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:22px 6vw;}
   .brand{display:flex; align-items:center; gap:10px;}
   .mark{font-size:20px; color:var(--eu-green); filter:drop-shadow(0 0 6px rgba(31,224,138,.5));}
   .brand b{font-weight:700; letter-spacing:.3px;} .brand b em{font-style:normal; color:var(--accent);}
+  .head-right{display:flex; align-items:center; gap:14px;}
   header a.eu{font-size:12px; color:var(--dim);} header a.eu:hover{color:var(--eu-green);}
+  .lang-btn{display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; font-size:11px; font-weight:600;}
+  .lang-btn button{background:none; border:0; color:var(--dim); padding:5px 11px; cursor:pointer; font:inherit; transition:color .15s, background .15s;}
+  .lang-btn button.on{color:#0a0a0f; background:linear-gradient(135deg,var(--accent),var(--accent2));}
+  .lang-btn button:not(.on):hover{color:var(--text);}
   .pill{display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:13px 26px; font-weight:600; font-size:15px; cursor:pointer; border:1px solid var(--line); background:rgba(18,18,28,.6); transition:transform .12s, box-shadow .2s;}
   .pill:hover{transform:translateY(-2px);}
   .pill.primary{border-color:transparent; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0a0a0f; box-shadow:0 8px 28px rgba(177,75,255,.25);}
@@ -46,32 +51,79 @@
 <div class="wrap">
   <header>
     <div class="brand"><span class="mark">◉</span><b>Elastic <em>Morph</em></b></div>
-    <a class="eu" href="https://elasticuniverse.app" target="_blank" rel="noopener">part of Elastic Universe ↗</a>
+    <div class="head-right">
+      <a class="eu" href="https://elasticuniverse.app" target="_blank" rel="noopener">part of Elastic Universe ↗</a>
+      <div class="lang-btn" role="group" aria-label="Language">
+        <button id="langDe" data-lang="de">DE</button>
+        <button id="langEn" data-lang="en">EN</button>
+      </div>
+    </div>
   </header>
 
   <section class="hero">
     <div class="eyebrow">Elastic Universe — Visual Computing</div>
     <h1>ELASTIC<br>MORPH</h1>
-    <p class="lead">Aus deinem Track wird ein <b style="color:var(--text)">einzigartiges Visual</b> — die Form entsteht aus dem Fingerabdruck des Songs. Im Browser, ohne Vorkenntnisse, exportierbar bis 4K.</p>
+    <p class="lead" data-i18n-html="lead"></p>
     <div class="cta">
-      <a class="pill primary" href="elastic-morph.html">App starten →</a>
-      <a class="pill" href="https://elasticuniverse.app" target="_blank" rel="noopener">Mehr aus dem Universe ↗</a>
+      <a class="pill primary" href="elastic-morph.html" data-i18n="cta1"></a>
+      <a class="pill" href="https://elasticuniverse.app" target="_blank" rel="noopener" data-i18n="cta2"></a>
     </div>
   </section>
 
   <section class="feat">
-    <div class="card"><div class="n">01</div><h3>Visual DNA</h3><p>Jeder Song bekommt seine eigene Form — deterministisch aus dem Track-Fingerabdruck. Vier Render-Engines, von flüssig bis fraktal.</p><div class="tags"><span class="tag">Filament</span><span class="tag">Attractor</span><span class="tag">Fractal Flame</span></div></div>
-    <div class="card"><div class="n">02</div><h3>Shader & FX</h3><p>WebGL-Shader (Fluid, Metaballs, Tunnel) plus zwei FX-Racks — Pixel/Farbe und Geometrie — alle audioreaktiv und stapelbar.</p><div class="tags"><span class="tag">WebGL</span><span class="tag">GLSL</span><span class="tag">20 FX</span></div></div>
-    <div class="card"><div class="n">03</div><h3>Set Editor</h3><p>Marker auf der Wellenform setzen, die Szenen und Effekte abrufen — ein vorbereitetes Set, das deterministisch abläuft, auch im Export.</p><div class="tags"><span class="tag">Timeline</span><span class="tag">Cues</span><span class="tag">MIDI</span></div></div>
-    <div class="card"><div class="n">04</div><h3>HQ Export</h3><p>Frame-genauer Offline-Export als MP4 bis 4K, mit Ton — keine Frame-Drops, exakt reproduzierbar. Plus PNG-Stills.</p><div class="tags"><span class="tag">MP4</span><span class="tag">4K</span><span class="tag">WebCodecs</span></div></div>
+    <div class="card"><div class="n">01</div><h3>Visual DNA</h3><p data-i18n="f1"></p><div class="tags"><span class="tag">Filament</span><span class="tag">Attractor</span><span class="tag">Fractal Flame</span></div></div>
+    <div class="card"><div class="n">02</div><h3>Shader &amp; FX</h3><p data-i18n="f2"></p><div class="tags"><span class="tag">WebGL</span><span class="tag">GLSL</span><span class="tag">20 FX</span></div></div>
+    <div class="card"><div class="n">03</div><h3>Set Editor</h3><p data-i18n="f3"></p><div class="tags"><span class="tag">Timeline</span><span class="tag">Cues</span><span class="tag">MIDI</span></div></div>
+    <div class="card"><div class="n">04</div><h3>HQ Export</h3><p data-i18n="f4"></p><div class="tags"><span class="tag">MP4</span><span class="tag">4K</span><span class="tag">WebCodecs</span></div></div>
   </section>
 
-  <footer>
-    <b style="color:var(--text)">Elastic Morph</b> · part of <a href="https://elasticuniverse.app" target="_blank" rel="noopener">Elastic Universe</a> — Visual Computing Ecosystem
-  </footer>
+  <footer data-i18n-html="footer"></footer>
 </div>
 
 <script>
+  const I18N = {
+    de: {
+      title: "Elastic Morph — Aus deinem Track wird ein Visual",
+      lead: 'Aus deinem Track wird ein <b style="color:var(--text)">einzigartiges Visual</b> — die Form entsteht aus dem Fingerabdruck des Songs. Im Browser, ohne Vorkenntnisse, exportierbar bis 4K.',
+      cta1: "App starten →",
+      cta2: "Mehr aus dem Universe ↗",
+      f1: "Jeder Song bekommt seine eigene Form — deterministisch aus dem Track-Fingerabdruck. Vier Render-Engines, von flüssig bis fraktal.",
+      f2: "WebGL-Shader (Fluid, Metaballs, Tunnel) plus zwei FX-Racks — Pixel/Farbe und Geometrie — alle audioreaktiv und stapelbar.",
+      f3: "Marker auf der Wellenform setzen, die Szenen und Effekte abrufen — ein vorbereitetes Set, das deterministisch abläuft, auch im Export.",
+      f4: "Frame-genauer Offline-Export als MP4 bis 4K, mit Ton — keine Frame-Drops, exakt reproduzierbar. Plus PNG-Stills.",
+      footer: '<b style="color:var(--text)">Elastic Morph</b> · Teil von <a href="https://elasticuniverse.app" target="_blank" rel="noopener">Elastic Universe</a> — Visual Computing Ecosystem'
+    },
+    en: {
+      title: "Elastic Morph — Your track becomes a visual",
+      lead: 'Your track becomes a <b style="color:var(--text)">unique visual</b> — its shape is born from the song’s fingerprint. In the browser, no skills needed, exportable up to 4K.',
+      cta1: "Launch app →",
+      cta2: "More from the Universe ↗",
+      f1: "Every song gets its own shape — deterministically from the track fingerprint. Four render engines, from fluid to fractal.",
+      f2: "WebGL shaders (fluid, metaballs, tunnel) plus two FX racks — pixel/colour and geometry — all audio-reactive and stackable.",
+      f3: "Drop markers on the waveform that recall scenes and effects — a prepared set that plays back deterministically, including in the export.",
+      f4: "Frame-accurate offline export as MP4 up to 4K, with audio — no dropped frames, exactly reproducible. Plus PNG stills.",
+      footer: '<b style="color:var(--text)">Elastic Morph</b> · part of <a href="https://elasticuniverse.app" target="_blank" rel="noopener">Elastic Universe</a> — Visual Computing Ecosystem'
+    }
+  };
+  function setLang(lang){
+    if (!I18N[lang]) lang = "en";
+    const d = I18N[lang];
+    document.documentElement.lang = lang;
+    document.title = d.title;
+    document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = d[el.dataset.i18n] || el.textContent);
+    document.querySelectorAll("[data-i18n-html]").forEach(el => el.innerHTML = d[el.dataset.i18nHtml] || el.innerHTML);
+    document.getElementById("langDe").classList.toggle("on", lang === "de");
+    document.getElementById("langEn").classList.toggle("on", lang === "en");
+    try { localStorage.setItem("em-lang", lang); } catch(e){}
+  }
+  (function initLang(){
+    let lang; try { lang = localStorage.getItem("em-lang"); } catch(e){}
+    if (!lang) lang = (navigator.language || "en").toLowerCase().startsWith("de") ? "de" : "en";
+    setLang(lang);
+  })();
+  document.getElementById("langDe").addEventListener("click", () => setLang("de"));
+  document.getElementById("langEn").addEventListener("click", () => setLang("en"));
+
   // subtle blue/teal pixel starfield (Elastic Universe motif)
   const cv = document.getElementById("stars"), c = cv.getContext("2d");
   let stars = [];
