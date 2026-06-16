@@ -1,0 +1,18 @@
+{
+  "name": "Elastic Morph",
+  "short_name": "Elastic Morph",
+  "description": "Aus deinem Track wird ein einzigartiges Visual. Teil von Elastic Universe.",
+  "lang": "de",
+  "categories": ["music", "graphics", "entertainment"],
+  "start_url": "elastic-morph.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
+  "orientation": "any",
+  "background_color": "#050507",
+  "theme_color": "#050507",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
