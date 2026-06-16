@@ -44,10 +44,30 @@
   .card .tag{font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--dim); border:1px solid var(--line); border-radius:20px; padding:2px 8px;}
   footer{text-align:center; padding:40px 6vw 60px; color:var(--dim); font-size:12px; border-top:1px solid var(--line);}
   footer a{color:var(--eu-green);}
+
+  /* ---- motion ---- */
+  @keyframes riseIn { from{opacity:0; transform:translateY(20px);} to{opacity:1; transform:none;} }
+  @keyframes sheen { from{background-position:0% 50%;} to{background-position:200% 50%;} }
+  @keyframes nebulaDrift { 0%,100%{transform:translate(-50%,-50%) scale(1); opacity:.9;} 50%{transform:translate(-47%,-54%) scale(1.18); opacity:1;} }
+  .reveal{opacity:0; animation:riseIn .8s cubic-bezier(.2,.7,.2,1) forwards;}
+  .d1{animation-delay:.05s} .d2{animation-delay:.16s} .d3{animation-delay:.28s}
+  .d4{animation-delay:.40s} .d5{animation-delay:.52s} .d6{animation-delay:.64s}
+  .nebula{position:fixed; left:50%; top:44%; width:82vw; height:82vw; max-width:1100px; max-height:1100px; z-index:0; pointer-events:none;
+    background:radial-gradient(circle at 50% 50%, rgba(177,75,255,.20), rgba(217,70,239,.07) 42%, transparent 68%);
+    filter:blur(24px); transform:translate(-50%,-50%); animation:nebulaDrift 18s ease-in-out infinite;}
+  .hero h1{background-size:220% auto; animation:riseIn .9s cubic-bezier(.2,.7,.2,1) forwards, sheen 9s linear 1s infinite alternate;}
+  .card{transition:transform .18s ease, border-color .2s ease, box-shadow .25s ease;}
+  .card:hover{transform:translateY(-4px); border-color:var(--accent); box-shadow:0 14px 40px rgba(177,75,255,.16);}
+  .card:hover::before{box-shadow:0 0 14px var(--accent);}
+  @media (prefers-reduced-motion: reduce){
+    .reveal, .hero h1{animation:none !important; opacity:1 !important;}
+    .nebula{animation:none;}
+  }
 </style>
 </head>
 <body>
 <canvas id="stars"></canvas>
+<div class="nebula"></div>
 <div class="wrap">
   <header>
     <div class="brand"><span class="mark">◉</span><b>Elastic <em>Morph</em></b></div>
@@ -61,20 +81,20 @@
   </header>
 
   <section class="hero">
-    <div class="eyebrow">Elastic Universe — Visual Computing</div>
+    <div class="eyebrow reveal d1">Elastic Universe — Visual Computing</div>
     <h1>ELASTIC<br>MORPH</h1>
-    <p class="lead" data-i18n-html="lead"></p>
-    <div class="cta">
+    <p class="lead reveal d3" data-i18n-html="lead"></p>
+    <div class="cta reveal d4">
       <a class="pill primary" href="elastic-morph.html" data-i18n="cta1"></a>
       <a class="pill" href="https://elasticuniverse.app" target="_blank" rel="noopener" data-i18n="cta2"></a>
     </div>
   </section>
 
   <section class="feat">
-    <div class="card"><div class="n">01</div><h3>Visual DNA</h3><p data-i18n="f1"></p><div class="tags"><span class="tag">Filament</span><span class="tag">Attractor</span><span class="tag">Fractal Flame</span></div></div>
-    <div class="card"><div class="n">02</div><h3>Shader &amp; FX</h3><p data-i18n="f2"></p><div class="tags"><span class="tag">WebGL</span><span class="tag">GLSL</span><span class="tag">20 FX</span></div></div>
-    <div class="card"><div class="n">03</div><h3>Set Editor</h3><p data-i18n="f3"></p><div class="tags"><span class="tag">Timeline</span><span class="tag">Cues</span><span class="tag">MIDI</span></div></div>
-    <div class="card"><div class="n">04</div><h3>HQ Export</h3><p data-i18n="f4"></p><div class="tags"><span class="tag">MP4</span><span class="tag">4K</span><span class="tag">WebCodecs</span></div></div>
+    <div class="card reveal d3"><div class="n">01</div><h3>Visual DNA</h3><p data-i18n="f1"></p><div class="tags"><span class="tag">Filament</span><span class="tag">Attractor</span><span class="tag">Fractal Flame</span></div></div>
+    <div class="card reveal d4"><div class="n">02</div><h3>Shader &amp; FX</h3><p data-i18n="f2"></p><div class="tags"><span class="tag">WebGL</span><span class="tag">GLSL</span><span class="tag">20 FX</span></div></div>
+    <div class="card reveal d5"><div class="n">03</div><h3>Set Editor</h3><p data-i18n="f3"></p><div class="tags"><span class="tag">Timeline</span><span class="tag">Cues</span><span class="tag">MIDI</span></div></div>
+    <div class="card reveal d6"><div class="n">04</div><h3>HQ Export</h3><p data-i18n="f4"></p><div class="tags"><span class="tag">MP4</span><span class="tag">4K</span><span class="tag">WebCodecs</span></div></div>
   </section>
 
   <footer data-i18n-html="footer"></footer>
@@ -124,15 +144,35 @@
   document.getElementById("langDe").addEventListener("click", () => setLang("de"));
   document.getElementById("langEn").addEventListener("click", () => setLang("en"));
 
-  // subtle blue/teal pixel starfield (Elastic Universe motif)
+  // blue/teal pixel starfield with gentle drift, mouse parallax & occasional shooting stars
   const cv = document.getElementById("stars"), c = cv.getContext("2d");
-  let stars = [];
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let stars = [], shoot = [], mx = 0, my = 0, pmx = 0, pmy = 0;
   function resize(){ cv.width = innerWidth; cv.height = innerHeight; const n = Math.round(innerWidth*innerHeight/14000);
-    stars = Array.from({length:n}, () => ({ x:Math.random()*cv.width, y:Math.random()*cv.height, s:Math.random()<.12?2:1, a:Math.random(), tw:0.3+Math.random()*1.4, hue:Math.random()<.5?195:160 })); }
+    stars = Array.from({length:n}, () => ({ x:Math.random()*cv.width, y:Math.random()*cv.height, s:Math.random()<.12?2:1, a:Math.random(), tw:0.3+Math.random()*1.4, hue:Math.random()<.5?195:160, z:0.3+Math.random()*0.9, vy:4+Math.random()*10 })); }
   addEventListener("resize", resize); resize();
-  let t=0;
-  (function loop(){ requestAnimationFrame(loop); t+=0.016; c.clearRect(0,0,cv.width,cv.height);
-    for(const st of stars){ const a = 0.25 + 0.55*(0.5+0.5*Math.sin(t*st.tw + st.x)); c.fillStyle = `hsla(${st.hue},70%,70%,${a*st.a})`; c.fillRect(st.x, st.y, st.s, st.s); } })();
+  addEventListener("pointermove", e => { mx = e.clientX/innerWidth - 0.5; my = e.clientY/innerHeight - 0.5; });
+  function spawnShoot(){ shoot.push({ x:-40, y:Math.random()*cv.height*0.55, vx:520+Math.random()*440, vy:110+Math.random()*120, life:1 }); }
+  let t=0, last=performance.now();
+  (function loop(now){ requestAnimationFrame(loop); const dt=Math.min(0.05,(now-last)/1000); last=now; t+=dt;
+    pmx += (mx-pmx)*0.05; pmy += (my-pmy)*0.05;
+    c.clearRect(0,0,cv.width,cv.height);
+    for(const st of stars){
+      if(!reduced){ st.y -= st.vy*dt; if(st.y < -2){ st.y = cv.height+2; st.x = Math.random()*cv.width; } }
+      const px = st.x + pmx*42*st.z, py = st.y + pmy*42*st.z;
+      const a = reduced ? 0.5 : 0.25 + 0.55*(0.5+0.5*Math.sin(t*st.tw + st.x));
+      c.fillStyle = `hsla(${st.hue},70%,70%,${a*st.a})`; c.fillRect(px, py, st.s, st.s);
+    }
+    if(!reduced){
+      if(Math.random() < dt*0.22) spawnShoot();
+      for(let i=shoot.length-1;i>=0;i--){ const sh=shoot[i]; sh.x+=sh.vx*dt; sh.y+=sh.vy*dt; sh.life-=dt*0.5;
+        if(sh.life<=0 || sh.x>cv.width+60){ shoot.splice(i,1); continue; }
+        const g=c.createLinearGradient(sh.x,sh.y, sh.x-72, sh.y-20);
+        g.addColorStop(0,`rgba(174,240,208,${0.85*sh.life})`); g.addColorStop(1,"rgba(174,240,208,0)");
+        c.strokeStyle=g; c.lineWidth=2; c.beginPath(); c.moveTo(sh.x,sh.y); c.lineTo(sh.x-72, sh.y-20); c.stroke();
+      }
+    }
+  })(performance.now());
 </script>
 </body>
 </html>
