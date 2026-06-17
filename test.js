@@ -162,6 +162,37 @@ if (F) {
   let hyOk = true;
   for (let ty = 0; ty < 4; ty++) [7.3, 120.5, 451, 888.8].forEach(s => { const r = hyper(ty, s); if (r.bad > 0 || r.mxN > 6 || !isFinite(r.mxN)) hyOk = false; });
   ok("hyperspace 3D attractor finite & bounded (all types/seeds)", hyOk);
+
+  // v37: reaction-diffusion (Gray-Scott) stays finite, bounded [0,1] and actually grows pattern
+  const reaction = () => {
+    const gw = 60, gh = 40, n = gw * gh;
+    let U = new Float32Array(n).fill(1), V = new Float32Array(n), U2 = new Float32Array(n), V2 = new Float32Array(n);
+    for (let b = 0; b < 12; b++) {           // seed small blobs (radius 2), like the engine
+      const cx = (5 + b * 5) % gw, cy = (5 + b * 3) % gh;
+      for (let yy = -2; yy <= 2; yy++) for (let xx = -2; xx <= 2; xx++) {
+        const px = cx + xx, py = cy + yy; if (px < 0 || py < 0 || px >= gw || py >= gh || xx * xx + yy * yy > 4) continue;
+        V[py * gw + px] = 0.9;
+      }
+    }
+    const feed = 0.034, kill = 0.057, dA = 1.0, dB = 0.5;   // the engine's default regime
+    for (let it = 0; it < 500; it++) {
+      for (let y = 0; y < gh; y++) {
+        const ym = (y - 1 + gh) % gh, yp = (y + 1) % gh;
+        for (let x = 0; x < gw; x++) {
+          const xm = (x - 1 + gw) % gw, xp = (x + 1) % gw, i = y * gw + x, u = U[i], v = V[i];
+          const lU = (U[ym * gw + x] + U[yp * gw + x] + U[y * gw + xm] + U[y * gw + xp]) * 0.2 + (U[ym * gw + xm] + U[ym * gw + xp] + U[yp * gw + xm] + U[yp * gw + xp]) * 0.05 - u;
+          const lV = (V[ym * gw + x] + V[yp * gw + x] + V[y * gw + xm] + V[y * gw + xp]) * 0.2 + (V[ym * gw + xm] + V[ym * gw + xp] + V[yp * gw + xm] + V[yp * gw + xp]) * 0.05 - v;
+          const uvv = u * v * v; let nu = u + (dA * lU - uvv + feed * (1 - u)), nv = v + (dB * lV + uvv - (kill + feed) * v);
+          U2[i] = nu < 0 ? 0 : nu > 1 ? 1 : nu; V2[i] = nv < 0 ? 0 : nv > 1 ? 1 : nv;
+        }
+      }
+      const tU = U; U = U2; U2 = tU; const tV = V; V = V2; V2 = tV;
+    }
+    let bad = 0, alive = 0; for (let i = 0; i < n; i++) { if (!isFinite(V[i]) || V[i] < 0 || V[i] > 1.0001) bad++; if (V[i] > 0.1) alive++; }
+    return { bad, alive };
+  };
+  const rr = reaction();
+  ok("reaction-diffusion finite, bounded [0,1] & pattern persists", rr.bad === 0 && rr.alive > 5);
 }
 
 /* ---------------- summary ---------------- */
