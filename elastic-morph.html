@@ -5436,8 +5436,12 @@ $("exportBtn").addEventListener("click", () => {
     const fmt = document.querySelector(".fmt.active");
     // recording should capture the music: start playback if a track is loaded
     if (audioEl.src && !S.micMode && !S.playing) play();
-    // capture at the canvas's current (display) resolution — robust and light.
-    // The aspect ratio is already applied by the chosen Creator format.
+    // Record at the chosen format's TRUE resolution (e.g. 1920×1080) — not the smaller
+    // on-screen canvas. This restores full export quality regardless of window size.
+    // (Backing res is fixed BEFORE the stream is created; changing it mid-record would
+    //  freeze captureStream, which the resize() guard prevents.)
+    const res = (fmt && fmt.dataset.res) ? fmt.dataset.res.split("x").map(Number) : null;
+    if (res && res.length === 2 && res[0] > 0 && res[1] > 0) { S.exportRes = res; resize(); }
     const stream = canvas.captureStream(30);
     // tap whichever audio source is live (microphone in live mode, else the file)
     const audioSrc = S.micMode ? micSrc : srcNode;
@@ -5450,7 +5454,11 @@ $("exportBtn").addEventListener("click", () => {
     const mime = pickExportMime();
     const ext = mime.includes("mp4") ? "mp4" : "webm";
     chunks = [];
-    recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+    // Generous bitrate scaled to the real pixel count — dark, gradient-heavy glow frames
+    // need headroom to avoid banding. ~16 Mbit/s at 1080p, scaled & capped for other sizes.
+    const px = (canvas.width * canvas.height) || (1920 * 1080);
+    const vbps = Math.max(12_000_000, Math.min(48_000_000, Math.round(px / (1920 * 1080) * 16_000_000)));
+    recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: vbps });
     recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
     recorder.onstop = () => {
       if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
@@ -5468,6 +5476,7 @@ $("exportBtn").addEventListener("click", () => {
       chunks = [];
       $("exportBtn").textContent = "● Export";
       $("exportBtn").classList.remove("recording");
+      S.exportRes = null; resize();   // back to on-screen display resolution
     };
     recorder.start(1000);   // flush data every 1s — keeps the encoder healthy
     $("exportBtn").classList.add("recording");
@@ -5807,6 +5816,10 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v32.1: realtime export quality fix — the normal (MediaRecorder) export now records at the
+        chosen format's TRUE resolution (e.g. 1920×1080) instead of the smaller on-screen canvas,
+        and uses a resolution-scaled bitrate (~16 Mbit/s at 1080p, capped). Backing res is reset
+        on stop. Fixes washed-out/tiny exports (~1.7 Mbit/s effective) regardless of window size.
    v32: DNA engine "Hyperspace" — a 3D strange attractor (Lorenz / Aizawa / Thomas /
         Halvorsen, chosen from the track seed), RK4-integrated fresh each frame from a fixed
         start, rotated in 3D (S.time-driven) and perspective-projected; depth drives hue,
