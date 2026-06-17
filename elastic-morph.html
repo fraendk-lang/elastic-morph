@@ -1094,6 +1094,10 @@
       <option value="fluid" selected>Style: Fluid / Liquid</option>
       <option value="metaballs">Style: Metaballs / Plasma</option>
       <option value="tunnel">Style: Tunnel / Kaleidoscope</option>
+      <option value="aurora">Style: Aurora / Polarlicht</option>
+      <option value="electric">Style: Electric / Blitz</option>
+      <option value="chrome">Style: Liquid Chrome</option>
+      <option value="gyroid">Style: Gyroid (3D Raymarch)</option>
     </select>
     <select id="shBlend" class="pm-select" style="margin-top:8px">
       <option value="lighter" selected>Blend: Add</option>
@@ -2119,6 +2123,82 @@ vec3 tunnelStyle(vec2 uv){
   return col;
 }
 
+// ---- v33 styles ----
+vec3 auroraStyle(vec2 uv){
+  float t = uTime*0.12;
+  vec3 col = vec3(0.0);
+  for(int i=0;i<4;i++){
+    float fi = float(i);
+    float depth = 0.6 + fi*0.35;
+    float sway = fbm(vec2(uv.x*1.2 + fi*3.1, t*0.6 + fi))*0.5;
+    float xpos = uv.x*1.4 + sway*(0.8 + uMids);
+    float flow = fbm(vec2(xpos*2.0 + fi*5.0, uv.y*1.5 - t*(1.0 + uBass*1.5) + fi));
+    float band = smoothstep(0.2, 1.0, flow);
+    float vfade = smoothstep(-1.0, 0.85, uv.y);
+    float inten = band * vfade / depth * (0.7 + uLoud*0.8 + uBeat*0.5);
+    float hue = uHue + 0.08*fi + 0.12*flow + uHighs*0.1;
+    col += hsv2rgb(vec3(fract(hue), 0.70 + 0.20*uMids, inten*(0.5 + uIntensity)));
+  }
+  float stars = pow(hash(floor(uv*60.0)), 40.0);
+  col += vec3(stars)*0.4*(1.0 - uBeat);
+  return col;
+}
+vec3 electricStyle(vec2 uv){
+  float t = uTime*0.5;
+  vec2 p = uv*2.0;
+  p += 0.6*vec2(fbm(p*1.5 + t), fbm(p*1.5 - t + 3.0));
+  float n = fbm(p*1.8 + vec2(0.0, t*2.0));
+  float ridge = 1.0 - abs(2.0*n - 1.0);
+  ridge = pow(ridge, 3.0 + 6.0*(1.0 - uIntensity));
+  float bolt = pow(ridge, 2.5) * (1.2 + uBeat*3.0 + uBass*1.5);
+  float hue = uHue + 0.05 + 0.15*n + uHighs*0.15;
+  vec3 col = hsv2rgb(vec3(fract(hue), 0.55, bolt));
+  col += vec3(0.6,0.8,1.0) * pow(ridge, 8.0) * (0.5 + uBeat*2.0);   // hot blue-white core
+  col += hsv2rgb(vec3(fract(uHue+0.55), 0.4, uBeat*0.25));          // beat flash
+  return col;
+}
+vec3 chromeStyle(vec2 uv){
+  float t = uTime*0.15;
+  vec2 p = uv*1.6;
+  vec2 q = vec2(fbm(p + t), fbm(p + vec2(5.2,1.3) - t));
+  float e = 0.012, w = 1.2 + uBass*1.5;
+  float h  = fbm(p + q*w);
+  float hx = fbm(p + vec2(e,0.0) + q*w);
+  float hy = fbm(p + vec2(0.0,e) + q*w);
+  vec3 nrm = normalize(vec3((h-hx)/e, (h-hy)/e, 1.0));
+  vec3 ld = normalize(vec3(0.6,0.7,0.8)), vd = vec3(0.0,0.0,1.0);
+  float spec = pow(max(dot(reflect(-ld, nrm), vd), 0.0), 24.0);
+  float fres = pow(1.0 - max(nrm.z, 0.0), 3.0);
+  float hue = uHue + 0.5*nrm.x + 0.3*h + fres*0.3 + uHighs*0.1;
+  vec3 base = hsv2rgb(vec3(fract(hue), 0.5 + 0.3*uMids, 0.35 + 0.4*h));
+  vec3 col = base*(0.5 + uLoud*0.4) + vec3(spec)*(1.2 + uBeat*1.5)
+           + hsv2rgb(vec3(fract(hue+0.3), 0.6, fres*0.6));
+  return col;
+}
+float gyroid(vec3 p){ return dot(sin(p), cos(p.yzx)); }
+vec3 gyroidStyle(vec2 uv){
+  vec3 ro = vec3(0.0, 0.0, -3.0);
+  vec3 rd = normalize(vec3(uv, 1.6));
+  float a = uTime*0.15 + uBass*0.3;
+  mat2 R = mat2(cos(a), -sin(a), sin(a), cos(a));
+  float scale = 3.0 + uMids*2.0;
+  float glow = 0.0, t = 0.0;
+  for(int i=0;i<40;i++){
+    vec3 p = ro + rd*t;
+    p.xz = R*p.xz;
+    float g = abs(gyroid(p*scale))/scale;          // ~distance to the lattice surface
+    float shell = exp(-g*22.0);                     // glow only on the thin gyroid shell
+    glow += shell * exp(-t*0.16) * (0.9 + uBeat*0.8);
+    t += 0.16;                                      // fixed march through the volume
+  }
+  glow *= 0.08;
+  float hue = uHue + glow*0.15 + uHighs*0.1 + uMids*0.05;
+  float v = glow * (0.7 + uIntensity*0.6) * (0.7 + uLoud*0.6);
+  vec3 col = hsv2rgb(vec3(fract(hue), 0.72, v));
+  col += hsv2rgb(vec3(fract(hue+0.12), 0.5, pow(glow, 3.0)*0.6));   // bright cores
+  return col;
+}
+
 void main(){
   vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);
   uv *= 1.0 - uBeat*0.10;                                  // beat zoom-in punch
@@ -2127,7 +2207,11 @@ void main(){
   vec3 col;
   if(uStyle < 0.5)      col = fluidStyle(uv*1.4);
   else if(uStyle < 1.5) col = metaStyle(uv*1.4);
-  else                  col = tunnelStyle(uv);
+  else if(uStyle < 2.5) col = tunnelStyle(uv);
+  else if(uStyle < 3.5) col = auroraStyle(uv*1.2);
+  else if(uStyle < 4.5) col = electricStyle(uv*1.2);
+  else if(uStyle < 5.5) col = chromeStyle(uv*1.2);
+  else                  col = gyroidStyle(uv);
   // gentle vignette + filmic-ish tone
   float vig = 1.0 - dot(uv,uv)*0.35;
   col *= clamp(vig,0.0,1.0);
@@ -2190,7 +2274,7 @@ function initGL(){
   }catch(e){ console.warn("WebGL init failed:", e); GL.ok = false; return false; }
 }
 
-const SHADER_STYLE_ID = { fluid:0, metaballs:1, tunnel:2 };
+const SHADER_STYLE_ID = { fluid:0, metaballs:1, tunnel:2, aurora:3, electric:4, chrome:5, gyroid:6 };
 
 /* render the shader to its own canvas and composite onto the 2D context */
 function renderShader(W, H, hue){
@@ -5816,6 +5900,11 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v33: Shader Engine expansion — 4 new GLSL styles (uStyle 3..6): Aurora/Polarlicht (flowing
+        fbm light curtains + stars), Electric/Blitz (ridged-noise plasma bolts + beat flash),
+        Liquid Chrome (domain-warped reflective metal w/ specular + fresnel), Gyroid (3D raymarched
+        minimal-surface lattice, shell-glow + depth fade). Wired via SHADER_STYLE_ID + <option>s.
+        test.js +8 (style/option/GLSL-balance/fn checks). GLSL verified: parses + JS-port render.
    v32.1: realtime export quality fix — the normal (MediaRecorder) export now records at the
         chosen format's TRUE resolution (e.g. 1920×1080) instead of the smaller on-screen canvas,
         and uses a resolution-scaled bitrate (~16 Mbit/s at 1080p, capped). Backing res is reset

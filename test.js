@@ -56,8 +56,19 @@ const fx2DefKeys = [...fx2Defs.matchAll(/\["(\w+)"/g)].map(x => x[1]);
 ok("fx2 state keys match FX2_DEFS", fx2StateKeys.length === 10 && fx2StateKeys.every(k => fx2DefKeys.includes(k)));
 
 /* engines referenced in drawScene branch exist as functions */
-["drawFilaments", "drawAttractor", "drawFlame", "drawScene", "renderExportFrame", "exportHQ", "buildFeatureTimeline", "fftRadix2"].forEach(fn =>
+["drawFilaments", "drawAttractor", "drawFlame", "drawHyperspace", "drawScene", "renderExportFrame", "exportHQ", "buildFeatureTimeline", "fftRadix2"].forEach(fn =>
   ok("function " + fn + " defined", script.includes("function " + fn + "(")));
+
+/* shader styles: SHADER_STYLE_ID, the <option>s and the GLSL share the same set */
+const styleIds = (() => { const m = script.match(/SHADER_STYLE_ID = \{([^}]+)\}/); return m ? [...m[1].matchAll(/(\w+):/g)].map(x => x[1]) : []; })();
+const styleOpts = [...html.matchAll(/<option value="(fluid|metaballs|tunnel|aurora|electric|chrome|gyroid)"/g)].map(m => m[1]);
+ok("shader styles ≥ 7 defined", styleIds.length >= 7, styleIds.join(","));
+ok("every shader style has an <option>", styleIds.every(s => styleOpts.includes(s)), styleIds.filter(s => !styleOpts.includes(s)).join(","));
+const frag = (script.match(/SHADER_FRAG = `([\s\S]*?)`;/) || [])[1] || "";
+const balanced = (str, o, c) => (str.split(o).length === str.split(c).length);
+ok("GLSL braces & parens balanced", frag.length > 0 && balanced(frag, "{", "}") && balanced(frag, "(", ")"));
+["auroraStyle", "electricStyle", "chromeStyle", "gyroidStyle"].forEach(fn =>
+  ok("GLSL " + fn + " defined & called", (frag.split(fn).length - 1) >= 2));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
 section("Unit tests — pure functions");
