@@ -1478,6 +1478,29 @@ const PRESETS = [
     motion: "orbit", flowBias: 0, constellation: false, bloom: 0.6, waveRing: false,
     engine: "flame",
     gradient: ["#0a1430", "#5a2a8e", "#9ad0ff"]
+  },
+  /* v32: HYPERSPACE — 3D strange attractor, rotated & perspective-projected */
+  {
+    id: "hyperspace", name: "DNA Hyperspace",
+    desc: "Ein 3D-Strange-Attractor aus dem Track-Fingerprint — rotierende Lichtgalaxie in Tiefe. Techno, Trance, Cinematic.",
+    hue: 268, hueEnd: 322, sat: 86, bgFade: 0.06,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.65, waveRing: false,
+    engine: "hyperspace",
+    gradient: ["#0a0518", "#5b1fb0", "#d946ef"]
+  },
+  {
+    id: "hyperspacecool", name: "Hyperspace Nova",
+    desc: "3D-Attractor im kühlen Spektrum mit Spiegelung — weite, kristalline Galaxie. IDM, Deep, Ambient.",
+    hue: 186, hueEnd: 300, sat: 82, bgFade: 0.06,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 2,
+    verticalStretch: 1.1, grain: 0, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.6, waveRing: false,
+    engine: "hyperspace",
+    gradient: ["#04121f", "#1f6ea8", "#9af0ff"]
   }
 ];
 
@@ -2350,6 +2373,86 @@ function drawFlame(base, hue, growthF, energySize, seed) {
   FLAME.x = x; FLAME.y = y; FLAME.col = col;
 }
 
+/* --- v32: HYPERSPACE — 3D strange attractor, RK4-integrated, rotated & projected ---
+   The attractor type (Lorenz / Aizawa / Thomas / Halvorsen) is chosen from the track
+   seed (unique per song). A single long trajectory is integrated fresh every frame
+   (deterministic from a fixed start), rotated in 3D as a function of S.time and
+   perspective-projected — front points glow brighter/larger, depth drives the hue.
+   No Math.random in the path → frame-exact reproducible in the offline export. */
+const ATTR3D = { D: [0, 0, 0] };
+function attr3dDeriv(type, x, y, z, p, out) {
+  switch (type) {
+    case 0: // Lorenz
+      out[0] = p.a * (y - x); out[1] = x * (p.b - z) - y; out[2] = x * y - p.c * z; break;
+    case 1: // Aizawa
+      out[0] = (z - 0.7) * x - p.d * y;
+      out[1] = p.d * x + (z - 0.7) * y;
+      out[2] = 0.6 + p.a * z - z * z * z / 3 - (x * x + y * y) * (1 + 0.25 * z) + 0.1 * z * x * x * x;
+      break;
+    case 2: // Thomas
+      out[0] = Math.sin(y) - p.b * x; out[1] = Math.sin(z) - p.b * y; out[2] = Math.sin(x) - p.b * z; break;
+    default: // Halvorsen
+      out[0] = -p.a * x - 4 * y - 4 * z - y * y;
+      out[1] = -p.a * y - 4 * z - 4 * x - z * z;
+      out[2] = -p.a * z - 4 * x - 4 * y - x * x;
+  }
+}
+function drawHyperspace(base, hue, growthF, energySize, seed) {
+  const P = currentDNA();
+  const type = Math.floor(fract1(Math.sin(seed * 2.17 + 0.3) * 4391.7) * 4) & 3;
+  // per-type integration step, normalization scale & center (so all land in ~unit space)
+  const CFG = [
+    { dt: 0.005, sc: 24, cz: 25, x: 0.1, y: 0, z: 0 },   // Lorenz
+    { dt: 0.011, sc: 1.5, cz: 0.6, x: 0.1, y: 0, z: 0 },  // Aizawa
+    { dt: 0.040, sc: 4.6, cz: 0, x: 0.1, y: 0.2, z: 0.3 },// Thomas
+    { dt: 0.006, sc: 13, cz: -2.5, x: -1.48, y: -1.51, z: 2.04 } // Halvorsen
+  ][type];
+  // params, gently breathing with audio (kept small to preserve the attractor topology)
+  const p = type === 0 ? { a: 10, b: 28 + S.bass * 4, c: 2.667 }
+    : type === 1 ? { a: 0.95 + S.mids * 0.03, d: 3.5 }
+    : type === 2 ? { b: 0.1998 + S.bass * 0.004 }
+    : { a: 1.89 + S.mids * 0.02 };
+  const dt = CFG.dt, sc = CFG.sc, cz = CFG.cz, D = ATTR3D.D, h2 = dt / 2;
+  let x = CFG.x, y = CFG.y, z = CFG.z;
+  const stepRK = () => {
+    attr3dDeriv(type, x, y, z, p, D); const k1x = D[0], k1y = D[1], k1z = D[2];
+    attr3dDeriv(type, x + k1x * h2, y + k1y * h2, z + k1z * h2, p, D); const k2x = D[0], k2y = D[1], k2z = D[2];
+    attr3dDeriv(type, x + k2x * h2, y + k2y * h2, z + k2z * h2, p, D); const k3x = D[0], k3y = D[1], k3z = D[2];
+    attr3dDeriv(type, x + k3x * dt, y + k3y * dt, z + k3z * dt, p, D);
+    x += dt / 6 * (k1x + 2 * k2x + 2 * k3x + D[0]);
+    y += dt / 6 * (k1y + 2 * k2y + 2 * k3y + D[1]);
+    z += dt / 6 * (k1z + 2 * k2z + 2 * k3z + D[2]);
+  };
+  for (let i = 0; i < 400; i++) { stepRK(); if (!isFinite(x + y + z)) { x = CFG.x; y = CFG.y; z = CFG.z; } } // warm-up onto the attractor
+  // 3D rotation (track-seeded phase + slow audio-eased spin)
+  const rotY = S.time * 0.16 * (0.5 + ctrl.camDrift) + seed;
+  const rotX = 0.5 + Math.sin(S.time * 0.06) * 0.35 * (0.4 + ctrl.camDrift);
+  const cyR = Math.cos(rotY), syR = Math.sin(rotY), cxR = Math.cos(rotX), sxR = Math.sin(rotX);
+  const persp = 2.7, screen = base * 0.92 * growthF * energySize, vs = P.verticalStretch;
+  const span = (P.hueEnd != null ? P.hueEnd - P.hue : 60);
+  const sym = P.symmetry > 1 ? 2 : 1;
+  const pulse = 1 + S.beat * 0.6 + S.transient * 0.4;
+  const N = Math.max(1800, Math.round(7200 * (0.5 + ctrl.density) * (S.exporting ? S.exportScale : S.perfScale)));
+  for (let i = 0; i < N; i++) {
+    stepRK();
+    if (!isFinite(x + y + z)) { x = CFG.x; y = CFG.y; z = CFG.z; continue; }
+    const nx = x / sc, ny = (y) / sc, nz = (z - cz) / sc;
+    // rotate around Y then X
+    let X = nx * cyR + nz * syR, Z = -nx * syR + nz * cyR;
+    let Y = ny * cxR - Z * sxR; Z = ny * sxR + Z * cxR;
+    const d = persp / (persp - Z * 0.9);          // perspective depth factor (~0.66..1.95)
+    const dn = Math.max(0, Math.min(1, (d - 0.66) / 1.3));
+    const hh = (hue + dn * span + nz * 24 + 360) % 360;
+    const a = (0.035 + dn * 0.06) * (0.6 + ctrl.density * 0.7);
+    const sz = (0.7 + dn * 1.3) * pulse;
+    ctx.fillStyle = `hsla(${hh}, ${P.sat}%, ${48 + dn * 30 + S.highs * 14}%, ${a})`;
+    for (let q = 0; q < sym; q++) {
+      const px = (q === 0 ? X : -X) * d * screen;
+      ctx.fillRect(px, Y * d * screen * vs, sz, sz);
+    }
+  }
+}
+
 /* ============================================================
    v26: OFFLINE PER-FRAME AUDIO ANALYSIS (export foundation, Stage 1)
    In-place radix-2 FFT + a per-frame band timeline computed from the decoded
@@ -2686,6 +2789,8 @@ function drawScene(dt) {
     drawAttractor(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "flame") {
     drawFlame(base, hue, growthF, energySize, seed);
+  } else if (dnaEngine === "hyperspace") {
+    drawHyperspace(base, hue, growthF, energySize, seed);
   } else {
   for (let L = 0; L < P.layers; L++) {
     const lf = 1 - L / P.layers * 0.45;
@@ -3901,6 +4006,22 @@ function renderPreviews() {
         if (i < 20) continue;
         c.fillStyle = `hsla(${(hue + col * 130) % 360}, ${p.sat}%, 60%, 0.14)`;
         c.fillRect(x * R * 0.5, y * R * 0.5, 1, 1);
+      }
+    } else if (p.engine === "hyperspace") {
+      const ty = Math.floor(fract1(Math.sin(pv.seed * 2.17 + 0.3) * 4391.7) * 4) & 3;
+      const cfg = [{ dt: 0.006, sc: 24, cz: 25 }, { dt: 0.012, sc: 1.5, cz: 0.6 }, { dt: 0.05, sc: 4.6, cz: 0 }, { dt: 0.007, sc: 13, cz: -2.5 }][ty];
+      const pp = ty === 0 ? { a: 10, b: 28, c: 2.667 } : ty === 1 ? { a: 0.95, d: 3.5 } : ty === 2 ? { b: 0.1998 } : { a: 1.89 };
+      let x = 0.1, y = 0.12, z = 0.1; const D = [0, 0, 0];
+      for (let i = 0; i < 200; i++) { attr3dDeriv(ty, x, y, z, pp, D); x += D[0] * cfg.dt; y += D[1] * cfg.dt; z += D[2] * cfg.dt; }
+      const ry = t * 0.4 + pv.seed, cyr = Math.cos(ry), syr = Math.sin(ry), cxr = Math.cos(0.6), sxr = Math.sin(0.6);
+      for (let i = 0; i < 820; i++) {
+        attr3dDeriv(ty, x, y, z, pp, D); x += D[0] * cfg.dt; y += D[1] * cfg.dt; z += D[2] * cfg.dt;
+        if (!isFinite(x + y + z)) { x = 0.1; y = 0.12; z = 0.1; continue; }
+        const nx = x / cfg.sc, ny = y / cfg.sc, nz = (z - cfg.cz) / cfg.sc;
+        let X = nx * cyr + nz * syr, Z = -nx * syr + nz * cyr; let Y = ny * cxr - Z * sxr; Z = ny * sxr + Z * cxr;
+        const dd = 2.7 / (2.7 - Z * 0.9), dn = Math.max(0, Math.min(1, (dd - 0.66) / 1.3));
+        c.fillStyle = `hsla(${(hue + dn * (p.hueEnd - p.hue) + 360) % 360}, ${p.sat}%, ${56 + dn * 24}%, ${0.1 + dn * 0.12})`;
+        c.fillRect(X * dd * R * 0.9, Y * dd * R * 0.9, 1, 1);
       }
     } else {
       c.beginPath();
@@ -5686,6 +5807,12 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v32: DNA engine "Hyperspace" — a 3D strange attractor (Lorenz / Aizawa / Thomas /
+        Halvorsen, chosen from the track seed), RK4-integrated fresh each frame from a fixed
+        start, rotated in 3D (S.time-driven) and perspective-projected; depth drives hue,
+        brightness & point size, audio breathes the params. Deterministic → export-safe.
+        Two presets (DNA Hyperspace = violet→magenta, Hyperspace Nova = cool, mirrored).
+        test.js +1 (RK4 trajectory finite & bounded across all types/seeds).
    v26: [PRO] export foundation — keep decoded AudioBuffer + offline per-frame audio analysis
         (radix-2 FFT → bass/mids/highs/loud timeline) for deterministic export. Stage 1 of offline export.
    v26.1: [PRO] render decoupling (Stage 2a) — scene draw extracted into drawScene(dt), callable

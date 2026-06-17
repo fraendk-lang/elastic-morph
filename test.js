@@ -62,7 +62,7 @@ ok("fx2 state keys match FX2_DEFS", fx2StateKeys.length === 10 && fx2StateKeys.e
 /* ---------------- 2) unit tests on pure functions ---------------- */
 section("Unit tests — pure functions");
 let F;
-try { F = loadFns(["fftRadix2", "buildFeatureTimeline", "flameVary", "noise2", "fmtTime"]); ok("extract pure functions", true); }
+try { F = loadFns(["fftRadix2", "buildFeatureTimeline", "flameVary", "noise2", "fmtTime", "attr3dDeriv"]); ok("extract pure functions", true); }
 catch (e) { ok("extract pure functions", false, e.message); F = null; }
 
 if (F) {
@@ -126,6 +126,31 @@ if (F) {
   let flOk = true;
   [3, 77, 210, 888, 41].forEach(s => { if (!flame(s)) flOk = false; });
   ok("flame chaos game stays alive (reset guard works)", flOk);
+
+  // v32: hyperspace 3D attractor — RK4 trajectory stays finite & bounded across all 4 types/seeds
+  const hyper = (type, seed) => {
+    const CFG = [{ dt: 0.005, sc: 24, cz: 25, x: 0.1, y: 0, z: 0 }, { dt: 0.011, sc: 1.5, cz: 0.6, x: 0.1, y: 0, z: 0 },
+    { dt: 0.040, sc: 4.6, cz: 0, x: 0.1, y: 0.2, z: 0.3 }, { dt: 0.006, sc: 13, cz: -2.5, x: -1.48, y: -1.51, z: 2.04 }][type];
+    const p = type === 0 ? { a: 10, b: 28, c: 2.667 } : type === 1 ? { a: 0.95, d: 3.5 } : type === 2 ? { b: 0.1998 } : { a: 1.89 };
+    const dt = CFG.dt, h2 = dt / 2, D = [0, 0, 0];
+    let x = CFG.x, y = CFG.y, z = CFG.z, bad = 0, mxN = 0;
+    const step = () => {
+      F.attr3dDeriv(type, x, y, z, p, D); const k1x = D[0], k1y = D[1], k1z = D[2];
+      F.attr3dDeriv(type, x + k1x * h2, y + k1y * h2, z + k1z * h2, p, D); const k2x = D[0], k2y = D[1], k2z = D[2];
+      F.attr3dDeriv(type, x + k2x * h2, y + k2y * h2, z + k2z * h2, p, D); const k3x = D[0], k3y = D[1], k3z = D[2];
+      F.attr3dDeriv(type, x + k3x * dt, y + k3y * dt, z + k3z * dt, p, D);
+      x += dt / 6 * (k1x + 2 * k2x + 2 * k3x + D[0]); y += dt / 6 * (k1y + 2 * k2y + 2 * k3y + D[1]); z += dt / 6 * (k1z + 2 * k2z + 2 * k3z + D[2]);
+    };
+    for (let i = 0; i < 4000; i++) {
+      step();
+      if (!isFinite(x + y + z)) { x = CFG.x; y = CFG.y; z = CFG.z; bad++; continue; }
+      mxN = Math.max(mxN, Math.abs((x) / CFG.sc), Math.abs((y) / CFG.sc), Math.abs((z - CFG.cz) / CFG.sc));
+    }
+    return { bad, mxN };
+  };
+  let hyOk = true;
+  for (let ty = 0; ty < 4; ty++) [7.3, 120.5, 451, 888.8].forEach(s => { const r = hyper(ty, s); if (r.bad > 0 || r.mxN > 6 || !isFinite(r.mxN)) hyOk = false; });
+  ok("hyperspace 3D attractor finite & bounded (all types/seeds)", hyOk);
 }
 
 /* ---------------- summary ---------------- */
