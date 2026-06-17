@@ -1289,7 +1289,7 @@
         <h4>Get started</h4>
         <p>Drop an audio file on the canvas (or <b>Upload Audio</b>). The visual is born from your sound, analyses the song structure and evolves across it. No file? <b>🎤 Live Input</b> visualises your mic / line-in.</p>
         <h4>Layers (stackable)</h4>
-        <p><b>⚡ Shader Engine</b> = GPU-rendered light bed (Fluid, Metaballs/Plasma, Tunnel/Kaleidoscope) — toggle with <b>G</b>. <b>Visual DNA</b> = the core organism (10 presets, blend two of them). <b>Particle Mode</b> = 8 patterns. <b>Layer B</b> = 10 geometric/spectral overlays. <b>Image A & B</b> = your photos, modulated, with Ken Burns + A↔B interplay. <b>FX Rack I</b> = 10 pixel/colour effects (keys 1–0); <b>FX Rack II</b> = 10 geometry/space effects (Ctrl+1–0).</p>
+        <p><b>⚡ Shader Engine</b> = GPU-rendered light bed (Fluid, Metaballs/Plasma, Tunnel/Kaleidoscope) — toggle with <b>G</b>. <b>Visual DNA</b> = the core organism (10 presets, blend two of them). <b>Particle Mode</b> = 8 patterns. <b>Layer B</b> = 16 geometric/spectral overlays. <b>Image A & B</b> = your photos, modulated, with Ken Burns + A↔B interplay. <b>FX Rack I</b> = 10 pixel/colour effects (keys 1–0); <b>FX Rack II</b> = 10 geometry/space effects (Ctrl+1–0).</p>
         <h4>Text & Lyrics</h4>
         <p>Creator Cuts → Text Designer (style, animation). The <b>Lyrics</b> tab imports .lrc or tap-syncs your own lines to the beat.</p>
       </div>
@@ -3677,13 +3677,28 @@ const LAYERB_TYPES = [
   ["bars",         "Spectrum Bars"],
   ["rays",         "Light Rays"],
   ["gridwave",     "Grid Wave"],
-  ["spiral",       "Spiral"]
+  ["spiral",       "Spiral"],
+  /* v40: richer overlays */
+  ["radialWave",   "Radial Waveform"],
+  ["constellation","Constellation"],
+  ["pulseRings",   "Pulse Rings"],
+  ["helix",        "DNA Helix"],
+  ["hexgrid",      "Hex Grid"],
+  ["orbits",       "Orbits"]
 ];
 let sbStars = [];
 function initStars() {
   sbStars = [];
   for (let i = 0; i < 280; i++) sbStars.push({ x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: Math.random() * 0.9 + 0.1 });
 }
+/* v40: constellation points (seeded) + pulse-ring pool */
+let lbStars2 = [];
+function initConst() {
+  lbStars2 = [];
+  let s = 7.13; const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  for (let i = 0; i < 46; i++) lbStars2.push({ x: rnd() * 1.7 - 0.85, y: rnd() * 1.7 - 0.85, seed: rnd() * 100, px: 0, py: 0 });
+}
+let lbRings = [], lbRingT = 0, lbRingLast = 0;
 // per-bar spectrum value; uses real FFT when playing, else an animated synth
 function specAt(i, n) {
   if (analyser && (S.playing || S.micMode)) {
@@ -3705,6 +3720,7 @@ function drawLayerB(W, H, hue, dt) {
   ctx.globalAlpha = LB.opacity;
   ctx.globalCompositeOperation = LB.blend;
   ctx.lineWidth = Math.max(1, mn * 0.005);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";   // v40: smoother strokes across all types
 
   // v20: global liveliness — beat scale-pulse + slow drift rotation (reacts to stereo)
   const lbPulse = 1 + (S.beat * 0.07 + S.bass * 0.05) * (0.5 + ctrl.pulse);
@@ -3867,6 +3883,104 @@ function drawLayerB(W, H, hue, dt) {
         ctx.beginPath();
         ctx.arc(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad, s, 0, Math.PI * 2);
         ctx.fill();
+      }
+      break;
+    }
+    case "radialWave": {
+      // oscilloscope wrapped around a circle — a glowing audio-reactive loop
+      const n = 200, R = mn * 0.22 * sc;
+      ctx.lineWidth = Math.max(1.4, mn * 0.0045);
+      ctx.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const a = i / n * Math.PI * 2 - Math.PI / 2;
+        let s;
+        if (timeData && (S.playing || S.micMode)) { const idx = Math.floor(i / n * timeData.length) % timeData.length; s = (timeData[idx] - 128) / 128; }
+        else s = Math.sin(i * 0.3 + S.time * 3) * (0.2 + S.loudness * 0.6);
+        const rr = R + s * mn * 0.13 * (0.6 + ctrl.pulse) + S.bass * mn * 0.03;
+        const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = colr(0.5, 0.6 + S.highs * 0.3);
+      ctx.stroke();
+      break;
+    }
+    case "constellation": {
+      if (!lbStars2.length) initConst();
+      const pts = lbStars2, R = mn * 0.5 * sc;
+      for (const p of pts) {
+        p.px = cx + (p.x + noise2(p.seed, S.time * 0.2) * 0.12) * R;
+        p.py = cy + (p.y + noise2(p.seed + 5, S.time * 0.2) * 0.12) * R;
+      }
+      const maxd = mn * 0.17 * (0.8 + S.loudness * 0.6);
+      ctx.lineWidth = Math.max(0.6, mn * 0.0016);
+      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].px - pts[j].px, dy = pts[i].py - pts[j].py, d = Math.hypot(dx, dy);
+        if (d < maxd) { ctx.strokeStyle = colr(i / pts.length, (1 - d / maxd) * 0.4); ctx.beginPath(); ctx.moveTo(pts[i].px, pts[i].py); ctx.lineTo(pts[j].px, pts[j].py); ctx.stroke(); }
+      }
+      for (const p of pts) { ctx.fillStyle = colr(0.5, 0.55 + S.beat * 0.3); ctx.beginPath(); ctx.arc(p.px, p.py, mn * 0.003 * (1 + S.beat), 0, Math.PI * 2); ctx.fill(); }
+      break;
+    }
+    case "pulseRings": {
+      lbRingT += dt;
+      if (lbRingT > 0.5 || (S.beat > 0.6 && lbRingLast < 0.3)) { lbRings.push({ r: 0 }); lbRingT = 0; }
+      lbRingLast = S.beat;
+      ctx.lineWidth = Math.max(1.5, mn * 0.006);
+      for (let i = lbRings.length - 1; i >= 0; i--) {
+        const ring = lbRings[i];
+        if (!S.frozen) ring.r += dt * (0.25 + S.loudness * 0.5);
+        if (ring.r > 1.2) { lbRings.splice(i, 1); continue; }
+        const rad = ring.r * mn * 0.55 * sc;
+        ctx.strokeStyle = colr(ring.r, (1 - ring.r / 1.2) * 0.6);
+        ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (lbRings.length > 40) lbRings.splice(0, lbRings.length - 40);
+      break;
+    }
+    case "helix": {
+      const turns = 3, n = 130, R = mn * 0.16 * sc, Hh = mn * 0.62 * sc, rot = S.time * 0.8;
+      const amp = R * (0.6 + S.loudness * 0.5);
+      ctx.lineWidth = Math.max(1.4, mn * 0.004);
+      for (let strand = 0; strand < 2; strand++) {
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) {
+          const t = i / n, ang = t * Math.PI * 2 * turns + rot + strand * Math.PI;
+          const x = cx + Math.cos(ang) * amp, y = cy + (t - 0.5) * Hh;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = colr(strand ? 0.2 : 0.6, 0.5 + S.highs * 0.3); ctx.stroke();
+      }
+      for (let i = 0; i <= n; i += 6) {
+        const t = i / n, ang = t * Math.PI * 2 * turns + rot;
+        const y = cy + (t - 0.5) * Hh;
+        ctx.strokeStyle = colr(t, 0.18 + S.beat * 0.3);
+        ctx.beginPath(); ctx.moveTo(cx + Math.cos(ang) * amp, y); ctx.lineTo(cx + Math.cos(ang + Math.PI) * amp, y); ctx.stroke();
+      }
+      break;
+    }
+    case "hexgrid": {
+      const R = mn * 0.05 * sc, hw = R * Math.sqrt(3), vh2 = R * 1.5;
+      const cols = Math.ceil(W / hw) + 1, rows = Math.ceil(H / vh2) + 1;
+      for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
+        const x = col * hw + (row % 2) * hw / 2, y = row * vh2;
+        const v = specAt((col + row * 3) % 48, 48) * (0.5 + 0.5 * Math.sin(col * 0.6 + row * 0.5 + S.time * 2));
+        if (v < 0.18) continue;
+        ctx.fillStyle = colr(col / cols, 0.06 + v * 0.5);
+        ctx.beginPath();
+        for (let s = 0; s < 6; s++) { const a = Math.PI / 180 * (60 * s + 30); const px = x + Math.cos(a) * R * 0.9, py = y + Math.sin(a) * R * 0.9; if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); }
+        ctx.closePath(); ctx.fill();
+      }
+      break;
+    }
+    case "orbits": {
+      const n = 5;
+      for (let i = 0; i < n; i++) {
+        const rad = mn * (0.1 + i * 0.07) * sc, spd = (i % 2 ? -1 : 1) * (0.3 + i * 0.15), a = S.time * spd + i;
+        ctx.strokeStyle = colr(i / n, 0.12); ctx.lineWidth = Math.max(1, mn * 0.0015);
+        ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
+        const x = cx + Math.cos(a) * rad, y = cy + Math.sin(a) * rad;
+        const s = mn * 0.01 * (1 + S.beat * 0.8 + specAt(i, n));
+        ctx.fillStyle = colr(i / n, 0.7); ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
       }
       break;
     }
@@ -6326,6 +6440,9 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v40: Layer B expansion — 6 new overlays (Radial Waveform, Constellation network, Pulse Rings,
+        DNA Helix, Hex Grid, Orbits) → 16 total; all strokes now round-joined/capped for smoother,
+        higher-quality lines. New seeded constellation points + pulse-ring pool.
    v39: alpha + GIF export — "Transparenter Hintergrund" toggle renders the scene with a
         transparent background (destination-out trail decay) and records WebM/VP9 with alpha for
         compositing; GIF button captures a ~3 s loop via gifenc (dynamic import). Format presets
