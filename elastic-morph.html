@@ -1274,6 +1274,27 @@
       <label>Scale <span class="val" id="lbScaleVal">100</span></label>
       <input type="range" id="lbScale" min="40" max="180" value="100">
     </div>
+    <div class="slider-row">
+      <label>Beat Pulse <span class="val" id="lbPulseVal">100</span></label>
+      <input type="range" id="lbPulse" min="0" max="300" value="100">
+    </div>
+    <div class="slider-row">
+      <label>Spin <span class="val" id="lbSpinVal">0</span></label>
+      <input type="range" id="lbSpin" min="-100" max="100" value="0">
+    </div>
+    <div class="slider-row">
+      <label>Sway <span class="val" id="lbSwayVal">100</span></label>
+      <input type="range" id="lbSway" min="0" max="300" value="100">
+    </div>
+    <div class="slider-row">
+      <label>Hue Drift <span class="val" id="lbHueVal">0</span></label>
+      <input type="range" id="lbHue" min="0" max="100" value="0">
+    </div>
+    <select id="lbMirror" class="pm-select" style="margin-top:8px">
+      <option value="off" selected>Mirror: Off</option>
+      <option value="h">Mirror: Horizontal</option>
+      <option value="quad">Mirror: 4-way (Kaleido)</option>
+    </select>
   </div>
 
   <!-- ============ SONG MAP ============ -->
@@ -1719,7 +1740,8 @@ const S = {
   // v12: synced lyrics / timed text
   lyrics: { on: false, cues: [], index: -1, offset: 0, tap: { active: false, lines: [], next: 0 } },
   // v13: second visual layer (geometric / spectral overlay)
-  layerB: { on: false, type: "spectrumRing", opacity: 0.8, blend: "lighter", color: "dna", scale: 1 },
+  layerB: { on: false, type: "spectrumRing", opacity: 0.8, blend: "lighter", color: "dna", scale: 1,
+            pulse: 1, spin: 0, sway: 1, hueDrift: 0, mirror: "off", _spin: 0, _hue: 0 },   // v43: modulation
   // v15: reactivity gain, auto-quality, auto-VJ
   gain: 1,
   autoQuality: false,
@@ -3886,9 +3908,11 @@ function drawLayerB(W, H, hue, dt) {
   const LB = S.layerB;
   if (!LB.on) return;
   const cx = W / 2, cy = H / 2, mn = Math.min(W, H), sc = LB.scale;
+  // v43: continuous modulation accumulators (dt-driven → deterministic in export)
+  if (!S.frozen) { LB._spin = (LB._spin || 0) + dt * LB.spin * 1.4; LB._hue = (LB._hue || 0) + dt * LB.hueDrift * 60; }
   const colr = (t, a) => {
     if (LB.color === "white") return `rgba(255,255,255,${a})`;
-    const h = LB.color === "rainbow" ? (t * 300 + S.time * 30) : (hue + t * 50);
+    const h = (LB.color === "rainbow" ? (t * 300 + S.time * 30) : (hue + t * 50)) + (LB._hue || 0);
     return `hsla(${((h % 360) + 360) % 360}, 82%, 63%, ${a})`;
   };
   ctx.save();
@@ -3897,13 +3921,20 @@ function drawLayerB(W, H, hue, dt) {
   ctx.lineWidth = Math.max(1, mn * 0.005);
   ctx.lineJoin = "round"; ctx.lineCap = "round";   // v40: smoother strokes across all types
 
-  // v20: global liveliness — beat scale-pulse + slow drift rotation (reacts to stereo)
-  const lbPulse = 1 + (S.beat * 0.07 + S.bass * 0.05) * (0.5 + ctrl.pulse);
+  // v20/v43: global liveliness — beat scale-pulse (depth = lbPulse), drift sway + continuous spin
+  const lbPulse = 1 + (S.beat * 0.07 + S.bass * 0.05) * (0.5 + ctrl.pulse) * LB.pulse;
+  const baseRot = Math.sin(S.time * 0.15) * 0.06 * LB.sway + S.stereo * 0.05 + (LB._spin || 0);
   ctx.translate(cx, cy);
   ctx.scale(lbPulse, lbPulse);
-  ctx.rotate(Math.sin(S.time * 0.15) * 0.06 + S.stereo * 0.05);
+  ctx.rotate(baseRot);
   ctx.translate(-cx, -cy);
 
+  // v43: optional kaleidoscopic mirror — render the chosen type once per reflection pass
+  const passes = LB.mirror === "quad" ? [[1, 1], [-1, 1], [1, -1], [-1, -1]]
+    : LB.mirror === "h" ? [[1, 1], [-1, 1]] : [[1, 1]];
+  for (const mp of passes) {
+    ctx.save();
+    if (mp[0] !== 1 || mp[1] !== 1) { ctx.translate(cx, cy); ctx.scale(mp[0], mp[1]); ctx.translate(-cx, -cy); }
   switch (LB.type) {
     case "spectrumRing": {
       const n = 76, R = mn * 0.26 * sc;
@@ -4160,6 +4191,8 @@ function drawLayerB(W, H, hue, dt) {
       break;
     }
   }
+    ctx.restore();   // end mirror pass
+  }                  // end mirror-passes loop
   ctx.restore();
   ctx.globalCompositeOperation = "source-over";
 }
@@ -5205,7 +5238,7 @@ function projectData() {
             shadow: S.textShadow, plateColor: S.textPlateColor, plateOpacity: S.textPlateOpacity,
             custom2: S.textCustom2, gradDir: S.textGradDir, circle: S.textCircle },
     lyrics: { on: S.lyrics.on, cues: S.lyrics.cues, offset: S.lyrics.offset },
-    layerB: { ...S.layerB },
+    layerB: (() => { const { _spin, _hue, ...rest } = S.layerB; return rest; })(),
     shader: { ...S.shader },
     aspect: [...S.aspect], quality: S.quality
   };
@@ -5367,10 +5400,22 @@ function applyProject(o, fromScene) {
   Object.assign(S.layerB, lb);
   S.layerB.opacity = clamp01(S.layerB.opacity);
   S.layerB.scale = Math.max(0.4, Math.min(1.8, +S.layerB.scale || 1));
+  // v43: modulation params (default to neutral when absent)
+  S.layerB.pulse = lb.pulse != null ? +lb.pulse : 1;
+  S.layerB.spin = lb.spin != null ? +lb.spin : 0;
+  S.layerB.sway = lb.sway != null ? +lb.sway : 1;
+  S.layerB.hueDrift = lb.hueDrift != null ? +lb.hueDrift : 0;
+  S.layerB.mirror = ["off", "h", "quad"].includes(lb.mirror) ? lb.mirror : "off";
+  S.layerB._spin = 0; S.layerB._hue = 0;
   $("lbOn").checked = !!S.layerB.on;
   $("lbType").value = S.layerB.type; $("lbBlend").value = S.layerB.blend; $("lbColor").value = S.layerB.color;
   $("lbOp").value = Math.round(S.layerB.opacity * 100); $("lbOpVal").textContent = Math.round(S.layerB.opacity * 100);
   $("lbScale").value = Math.round(S.layerB.scale * 100); $("lbScaleVal").textContent = Math.round(S.layerB.scale * 100);
+  $("lbPulse").value = Math.round(S.layerB.pulse * 100); $("lbPulseVal").textContent = Math.round(S.layerB.pulse * 100);
+  $("lbSpin").value = Math.round(S.layerB.spin * 100); $("lbSpinVal").textContent = Math.round(S.layerB.spin * 100);
+  $("lbSway").value = Math.round(S.layerB.sway * 100); $("lbSwayVal").textContent = Math.round(S.layerB.sway * 100);
+  $("lbHue").value = Math.round(S.layerB.hueDrift * 100); $("lbHueVal").textContent = Math.round(S.layerB.hueDrift * 100);
+  $("lbMirror").value = S.layerB.mirror;
   if (S.layerB.type === "starfield") initStars();
 
   if (o.shader) {
@@ -5485,6 +5530,11 @@ function buildLayerB() {
   $("lbColor").addEventListener("change", e => S.layerB.color = e.target.value);
   $("lbOp").addEventListener("input", e => { S.layerB.opacity = e.target.value / 100; $("lbOpVal").textContent = e.target.value; });
   $("lbScale").addEventListener("input", e => { S.layerB.scale = e.target.value / 100; $("lbScaleVal").textContent = e.target.value; });
+  $("lbPulse").addEventListener("input", e => { S.layerB.pulse = e.target.value / 100; $("lbPulseVal").textContent = e.target.value; });
+  $("lbSpin").addEventListener("input", e => { S.layerB.spin = e.target.value / 100; $("lbSpinVal").textContent = e.target.value; });
+  $("lbSway").addEventListener("input", e => { S.layerB.sway = e.target.value / 100; $("lbSwayVal").textContent = e.target.value; });
+  $("lbHue").addEventListener("input", e => { S.layerB.hueDrift = e.target.value / 100; $("lbHueVal").textContent = e.target.value; });
+  $("lbMirror").addEventListener("change", e => S.layerB.mirror = e.target.value);
 }
 
 /* ---- Shader Engine controls ---- */
@@ -6644,6 +6694,10 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v43: Layer B modulation — per-layer Beat Pulse (scale-pulse depth), Spin (continuous rotation),
+        Sway (drift-wobble amount), Hue Drift (animated colour rotation) and Mirror (off / horizontal /
+        4-way kaleido, re-renders the type per reflection pass). Applied centrally so all 16 types
+        react; dt-accumulated (_spin/_hue, excluded from save/history) → deterministic in export.
    v42: Dance Visual Mode — new DNA engine "dance" (preset.danceStyle) with 3 looks for disco/house:
         "retro" (synthwave grid floor + neon sun + stars), "disco" (mirror-ball sparkle + rotating
         rays + beat strobe), "club" (spectrum EQ + sweeping laser fans + four-on-the-floor pulse).
