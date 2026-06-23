@@ -839,7 +839,12 @@
             <option value="serif">Light Serif</option>
             <option value="mono">Mono / Tech</option>
             <option value="poster">Black Poster</option>
+            <option value="custom" id="fontCustomOpt" disabled>Eigene Schrift…</option>
           </select>
+        </div>
+        <div class="opt"><span>Font laden</span>
+          <button class="btn" id="fontUploadBtn" style="flex:1">.ttf / .otf / .woff</button>
+          <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2,font/*" hidden>
         </div>
         <div class="opt"><span>Render</span>
           <select id="textStyle">
@@ -965,6 +970,11 @@
         </select>
       </div>
       <label class="check" style="margin-bottom:8px"><input type="checkbox" id="hqDraft"> Draft (720p, schneller Vorschau-Export)</label>
+      <label class="check" style="margin-bottom:6px"><input type="checkbox" id="rangeOn"> Nur Bereich exportieren (Sek.)</label>
+      <div class="opt" style="margin-bottom:8px"><span>Von / Bis</span>
+        <input type="number" id="rangeStart" min="0" step="1" value="0" style="width:60px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px">
+        <input type="number" id="rangeEnd" min="0" step="1" value="0" placeholder="Ende" style="width:60px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px">
+      </div>
       <button class="btn primary" id="hqExportBtn" style="margin-bottom:8px">⤓ HQ Export (MP4 · deterministisch)</button>
       <button class="btn" id="hqCancelBtn" style="margin-bottom:8px; display:none; border-color:var(--amber); color:var(--amber)">■ Export abbrechen</button>
       <p class="note" style="margin-bottom:14px">
@@ -1100,6 +1110,18 @@
         <span class="val" id="gainVal">1.0×</span>
         <label class="check"><input type="checkbox" id="autoQ"> Auto quality</label>
         <label class="check"><input type="checkbox" id="autoExp" checked> Auto-exposure (prevent whiteout)</label>
+        <label class="check"><input type="checkbox" id="reduceFlash"> Flackern reduzieren (Photosensitivität-Schutz)</label>
+      </div>
+
+      <h3>Audio Mixer</h3>
+      <p class="note" style="margin-bottom:8px">Feinabstimmung der Reaktion — pro Band, Glättung und Beat-Empfindlichkeit. Auto-Pegel hebt leise Tracks an.</p>
+      <div class="text-opts" style="max-width:420px">
+        <div class="opt"><span>Bass</span><input type="range" id="mixBass" min="0" max="300" value="100"><span class="val" id="mixBassVal">100</span></div>
+        <div class="opt"><span>Mid</span><input type="range" id="mixMid" min="0" max="300" value="100"><span class="val" id="mixMidVal">100</span></div>
+        <div class="opt"><span>High</span><input type="range" id="mixHigh" min="0" max="300" value="100"><span class="val" id="mixHighVal">100</span></div>
+        <div class="opt"><span>Glättung</span><input type="range" id="mixSmooth" min="0" max="100" value="0"><span class="val" id="mixSmoothVal">0</span></div>
+        <div class="opt"><span>Beat-Empf.</span><input type="range" id="mixBeat" min="1" max="20" value="4"><span class="val" id="mixBeatVal">4</span></div>
+        <div class="opt"><span>Auto-Pegel</span><label class="check" style="flex:1"><input type="checkbox" id="mixAuto"> leise Tracks anheben</label></div>
       </div>
 
       <h3>MIDI Control</h3>
@@ -1167,6 +1189,14 @@
       <div class="bar"><i id="mEnergy"></i><span>NRG</span></div>
     </div>
     <div id="bpmLabel">BPM: <b>—</b></div>
+    <div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn" id="bpmTapBtn" style="flex:1;min-width:54px">Tap</button>
+      <input type="number" id="bpmInput" min="40" max="240" placeholder="BPM"
+             style="width:62px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px">
+      <button class="btn" id="bpmNudgeL" title="Beat früher" style="padding:5px 9px">◀</button>
+      <button class="btn" id="bpmNudgeR" title="Beat später" style="padding:5px 9px">▶</button>
+      <button class="btn" id="bpmAuto" title="Auto-Erkennung wiederherstellen" style="padding:5px 9px">Auto</button>
+    </div>
     <div class="divider"></div>
     <h3>FX Rack</h3>
     <div id="fxChips"></div>
@@ -1250,6 +1280,41 @@
       <label>Überblendung <span class="val" id="introFadeVal">1.5s</span></label>
       <input type="range" id="introFade" min="0.3" max="5" step="0.1" value="1.5">
     </div>
+
+    <div class="divider"></div>
+    <h3>End-/Credits-Karte</h3>
+    <p class="note" style="margin-bottom:8px">Blendet am Songende das <b>Image A</b> wieder ein — schöner Abschluss.</p>
+    <label class="check" style="margin-bottom:10px"><input type="checkbox" id="outroOn"> End-Cover aktivieren</label>
+    <div class="slider-row">
+      <label>Haltedauer <span class="val" id="outroDurVal">2.0s</span></label>
+      <input type="range" id="outroDur" min="0" max="10" step="0.5" value="2">
+    </div>
+    <div class="slider-row">
+      <label>Überblendung <span class="val" id="outroFadeVal">1.5s</span></label>
+      <input type="range" id="outroFade" min="0.3" max="5" step="0.1" value="1.5">
+    </div>
+
+    <div class="divider"></div>
+    <h3>Logo / Wasserzeichen</h3>
+    <button class="btn" id="logoBtn" style="width:100%;margin-bottom:8px">Logo laden (PNG)</button>
+    <input type="file" id="logoInput" accept="image/*" hidden>
+    <label class="check" style="margin-bottom:10px"><input type="checkbox" id="logoOn"> Logo anzeigen</label>
+    <select id="logoPos" class="pm-select">
+      <option value="br" selected>Position: unten rechts</option>
+      <option value="bl">Position: unten links</option>
+      <option value="tr">Position: oben rechts</option>
+      <option value="tl">Position: oben links</option>
+      <option value="c">Position: Mitte</option>
+    </select>
+    <div class="slider-row" style="margin-top:10px">
+      <label>Größe <span class="val" id="logoSizeVal">12</span></label>
+      <input type="range" id="logoSize" min="4" max="40" value="12">
+    </div>
+    <div class="slider-row">
+      <label>Deckkraft <span class="val" id="logoOpVal">85</span></label>
+      <input type="range" id="logoOp" min="0" max="100" value="85">
+    </div>
+    <button class="btn" id="logoClear" style="width:100%;font-size:11px">Logo entfernen</button>
 
     <div class="divider"></div>
     <h3>A ↔ B Interplay</h3>
@@ -1706,7 +1771,7 @@ const S = {
   // audio features
   bass: 0, mids: 0, highs: 0, loudness: 0,
   energyAvg: 0, transient: 0,
-  bpm: 0, beatTime0: 0, beat: 0,
+  bpm: 0, beatTime0: 0, beat: 0, bpmAuto: 0, beatTime0Auto: 0,
   // fingerprint
   fpHue: 0,
   // morph memory
@@ -1724,7 +1789,10 @@ const S = {
   // v36: background video layer (drawn as the base, under the visual)
   bgVid: { on: false, el: null, src: null, opacity: 0.7, blend: "source-over", cover: true },
   alphaExport: false,     // v39: render transparent bg for alpha (WebM/VP9) export
+  exportRange: { on: false, start: 0, end: 0 },   // v51: HQ export only a section (seconds; end 0 = full)
+  logo: { on: false, img: null, src: null, pos: "br", size: 0.12, opacity: 0.85 },   // v52: watermark/logo
   intro: { on: false, dur: 3, fade: 1.5, hold: false },   // v41/v45: intro cover card; hold = cover for the whole song
+  outro: { on: false, dur: 2, fade: 1.5 },                 // v50: end card — cover fades back in at the end
 
   // visual evolution
   hueShift: 0,
@@ -1777,8 +1845,10 @@ const S = {
             pulse: 1, spin: 0, sway: 1, hueDrift: 0, mirror: "off", _spin: 0, _hue: 0 },   // v43: modulation
   // v15: reactivity gain, auto-quality, auto-VJ
   gain: 1,
+  mix: { bass: 1, mid: 1, high: 1, smooth: 0, beatThresh: 0.04, autoLevel: false }, _lvlPeak: 0.3,   // v48: audio mixer
   autoQuality: false,
   autoExposure: true, lumAvg: 0,   // v25: global whiteout guard (auto-exposure)
+  reduceFlash: false, _lumPrev: 0,  // v49: photosensitivity flash limiter
   exporting: false,                // v26: offline (deterministic) HQ export in progress
   perfScale: 1,                    // v27: adaptive work scale for heavy engines (FPS guardrail)
   exportScale: 1,                  // v29.2: render scale used during export (1 = full, <1 = draft)
@@ -1861,13 +1931,18 @@ function updateAudioFeatures(dt) {
     /* --- real analysis: file playback or live input --- */
     analyser.getByteFrequencyData(freqData);
     analyser.getByteTimeDomainData(timeData);
-    const g = S.gain;
-    S.bass  = Math.min(1, bandEnergy(20, 160) * g);
-    S.mids  = Math.min(1, bandEnergy(160, 2500) * g);
-    S.highs = Math.min(1, bandEnergy(2500, 12000) * g);
+    const g = S.gain, M = S.mix;
+    let eb = bandEnergy(20, 160) * g, em = bandEnergy(160, 2500) * g, eh = bandEnergy(2500, 12000) * g;
+    // auto-level: normalise by a slowly-decaying loudness peak so quiet tracks still react
+    const rawL = eb * 0.5 + em * 0.35 + eh * 0.15;
+    S._lvlPeak = Math.max(rawL, (S._lvlPeak || 0.3) * 0.999);
+    const norm = M.autoLevel ? 1 / Math.max(0.25, S._lvlPeak) : 1;
+    const tb = Math.min(1, eb * M.bass * norm), tm = Math.min(1, em * M.mid * norm), th = Math.min(1, eh * M.high * norm);
+    const a = 1 - (M.smooth || 0) * 0.8;   // smoothing: 0 = instant, 1 = very smooth
+    S.bass += (tb - S.bass) * a; S.mids += (tm - S.mids) * a; S.highs += (th - S.highs) * a;
     S.loudness = Math.min(1, (S.bass * 0.5 + S.mids * 0.35 + S.highs * 0.15));
     const jump = Math.max(0, S.loudness - prevLoud);
-    S.transient = Math.max(S.transient * 0.88, jump > 0.04 ? Math.min(1, jump * 8) : 0);
+    S.transient = Math.max(S.transient * 0.88, jump > (M.beatThresh || 0.04) ? Math.min(1, jump * 8) : 0);
     prevLoud = prevLoud * 0.7 + S.loudness * 0.3;
     S.energyAvg += (S.loudness - S.energyAvg) * 0.01;
 
@@ -1966,6 +2041,8 @@ async function analyzeTrack(file) {
     /* --- 4) BPM + beat phase (onset autocorrelation) --- */
     const bpmRes = detectBPM(ch, sr);
     S.bpm = bpmRes.bpm; S.beatTime0 = bpmRes.t0;
+    S.bpmAuto = bpmRes.bpm; S.beatTime0Auto = bpmRes.t0;   // remember auto values for the "Auto" button
+    if ($("bpmInput")) $("bpmInput").value = S.bpm || "";
 
     $("bpmLabel").innerHTML = S.bpm ? `BPM: <b>${S.bpm}</b>` : "BPM: <b>—</b>";
     label.textContent = file.name;
@@ -2879,7 +2956,7 @@ function drawDance(base, hue, growthF, energySize, seed) {
       const s = 2 + tw * 2.5; ctx.fillRect(x, y, s, s);
     }
     // beat strobe
-    if (S.beat > 0.82 || S.dropFlash > 0.6) { ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = `rgba(255,255,255,${Math.min(0.45, (S.beat - 0.6) * 0.9 + S.dropFlash * 0.3)})`; ctx.fillRect(0, 0, W, H); }
+    if (!S.reduceFlash && (S.beat > 0.82 || S.dropFlash > 0.6)) { ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = `rgba(255,255,255,${Math.min(0.45, (S.beat - 0.6) * 0.9 + S.dropFlash * 0.3)})`; ctx.fillRect(0, 0, W, H); }
   } else { // club
     ctx.globalCompositeOperation = "lighter";
     // sweeping laser fans from the top corners
@@ -3036,9 +3113,12 @@ function buildFeatureTimeline(buf, fps) {
 /* deterministic per-frame state for the offline export (mirrors the live updateAudioFeatures math,
    but fed from the precomputed timeline + a synthetic clock instead of the realtime analyser) */
 const EXP = { time: 0, prevLoud: 0 };
-function renderExportFrame(i, fps, feat, dur) {
-  const dt = 1 / fps, t = i / fps;
-  S.bass = feat.bass[i] || 0; S.mids = feat.mids[i] || 0; S.highs = feat.highs[i] || 0; S.loudness = feat.loud[i] || 0;
+function renderExportFrame(i, fps, feat, dur, t0) {
+  const dt = 1 / fps, t = (t0 || 0) + i / fps;
+  const fi = Math.max(0, Math.min(feat.frames - 1, Math.round(t * fps)));   // v51: feature index by absolute time (range export)
+  const Mx = S.mix;   // v48: apply the audio-mixer band gains to the export too
+  S.bass = Math.min(1, (feat.bass[fi] || 0) * Mx.bass); S.mids = Math.min(1, (feat.mids[fi] || 0) * Mx.mid); S.highs = Math.min(1, (feat.highs[fi] || 0) * Mx.high);
+  S.loudness = Math.min(1, S.bass * 0.5 + S.mids * 0.35 + S.highs * 0.15);
   S.energyAvg += (S.loudness - S.energyAvg) * 0.05;
   const jump = Math.max(0, S.loudness - EXP.prevLoud);
   EXP.prevLoud = EXP.prevLoud * 0.7 + S.loudness * 0.3;
@@ -3093,7 +3173,15 @@ async function exportHQ() {
   const [aw, ah] = S.aspect;
   const Wpx = Math.round(Hpx * aw / ah / 2) * 2;   // even dimensions
   const bitrate = Math.min(80_000_000, Math.round(Wpx * Hpx * fps * 0.13));   // scales with resolution & fps
-  const buf = S.audioBuffer, dur = buf.duration, total = Math.max(1, Math.round(dur * fps));
+  const buf = S.audioBuffer, dur = buf.duration;
+  // v51: optional export range (in/out) — render & encode only a section
+  let startT = 0, endT = dur;
+  if (S.exportRange && S.exportRange.on) {
+    startT = Math.max(0, Math.min(dur, S.exportRange.start || 0));
+    endT = S.exportRange.end > 0 ? Math.min(dur, S.exportRange.end) : dur;
+    if (endT <= startT + 0.2) { startT = 0; endT = dur; }
+  }
+  const rangeDur = endT - startT, total = Math.max(1, Math.round(rangeDur * fps));
   const numCh = Math.min(2, buf.numberOfChannels);
   const fmtETA = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
 
@@ -3128,7 +3216,7 @@ async function exportHQ() {
     for (let i = 0; i < total; i++) {
       if (encErr) throw encErr;
       if (S.exportCancel) throw new Error("__cancel__");
-      renderExportFrame(i, fps, feat, dur);
+      renderExportFrame(i, fps, feat, dur, startT);
       const vf = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
       vEnc.encode(vf, { keyFrame: i % (fps * 2) === 0 });
       vf.close();
@@ -3144,13 +3232,14 @@ async function exportHQ() {
     // 2) audio — feed the decoded buffer in 1s blocks (planar f32), yielding regularly
     btn.textContent = "Audio…";
     const blk = buf.sampleRate;
+    const sStart = Math.floor(startT * buf.sampleRate), sEnd = Math.min(buf.length, Math.ceil(endT * buf.sampleRate));
     let ab = 0;
-    for (let off = 0; off < buf.length; off += blk) {
+    for (let off = sStart; off < sEnd; off += blk) {
       if (encErr) throw encErr;
-      const n = Math.min(blk, buf.length - off);
+      const n = Math.min(blk, sEnd - off);
       const data = new Float32Array(n * numCh);
       for (let c = 0; c < numCh; c++) data.set(buf.getChannelData(c).subarray(off, off + n), c * n);
-      const ad = new AudioData({ format: "f32-planar", sampleRate: buf.sampleRate, numberOfFrames: n, numberOfChannels: numCh, timestamp: Math.round(off / buf.sampleRate * 1e6), data });
+      const ad = new AudioData({ format: "f32-planar", sampleRate: buf.sampleRate, numberOfFrames: n, numberOfChannels: numCh, timestamp: Math.round((off - sStart) / buf.sampleRate * 1e6), data });
       aEnc.encode(ad); ad.close();
       if ((++ab % 6) === 0) await new Promise(r => setTimeout(r, 0));                 // don't block the main thread
     }
@@ -3243,9 +3332,20 @@ function introAlpha() {
   const x = (tt - d) / f;
   return 1 - x * x * (3 - 2 * x);   // smoothstep fade-out
 }
-function drawIntroCover(W, H) {
-  const a = introAlpha(); if (a <= 0.001) return;
-  const img = S.image.img;
+/* v50: outro card — fades the cover back in over the final seconds, then holds it */
+function outroAlpha() {
+  if (!S.outro.on || !audioEl.src) return 0;
+  const img = S.image && S.image.img; if (!img) return 0;
+  const dur = audioEl.duration; if (!dur || !isFinite(dur)) return 0;
+  const tt = S.exporting ? (S.virtualT || 0) : playPos();
+  const rem = dur - tt, d = S.outro.dur, f = Math.max(0.1, S.outro.fade);
+  if (rem <= d) return 1;
+  if (rem < d + f) { const x = (rem - d) / f; return 1 - x * x * (3 - 2 * x); }
+  return 0;
+}
+function drawCoverImage(W, H, a) {
+  if (a <= 0.001) return;
+  const img = S.image && S.image.img; if (!img) return;
   const iw = img.naturalWidth || img.width || 1, ih = img.naturalHeight || img.height || 1;
   const scale = Math.max(W / iw, H / ih), dw = iw * scale, dh = ih * scale;
   ctx.save();
@@ -3254,6 +3354,21 @@ function drawIntroCover(W, H) {
   ctx.globalAlpha = a;
   ctx.fillStyle = "#050507"; ctx.fillRect(0, 0, W, H);
   ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  ctx.restore();
+}
+function drawIntroCover(W, H) { drawCoverImage(W, H, Math.max(introAlpha(), outroAlpha())); }
+/* v52: logo / watermark — small persistent mark in a corner */
+function drawLogo(W, H) {
+  const L = S.logo; if (!L.on || !L.img) return;
+  const mn = Math.min(W, H), w = mn * L.size, ar = (L.img.naturalHeight || 1) / (L.img.naturalWidth || 1), h = w * ar, m = mn * 0.03;
+  let x = W - w - m, y = H - h - m;
+  if (L.pos === "tl") { x = m; y = m; } else if (L.pos === "tr") { x = W - w - m; y = m; }
+  else if (L.pos === "bl") { x = m; y = H - h - m; } else if (L.pos === "c") { x = (W - w) / 2; y = (H - h) / 2; }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = L.opacity;
+  try { ctx.drawImage(L.img, x, y, w, h); } catch (e) { }
   ctx.restore();
 }
 function drawScene(dt) {
@@ -3593,6 +3708,9 @@ function drawScene(dt) {
 
   /* --- text layer (screen space) --- */
   drawTextLayer(W, H, hue, P);
+
+  /* --- v52: logo / watermark (above everything) --- */
+  drawLogo(W, H);
 
   /* --- export fade (very last, so it dips the whole composed frame) --- */
   drawExportFade(W, H);
@@ -4649,7 +4767,7 @@ function applyPostFX2(W, H, dt) {
    additive effects stacked), eases a black overlay over the top to pull it
    back. Smoothed over time so it never pumps/flickers. */
 function applyAutoExposure(W, H) {
-  if (!S.autoExposure) return;
+  if (!S.autoExposure && !S.reduceFlash) return;
   try {
     const sw = 32, sh = 18;
     chctx.globalCompositeOperation = "copy"; chctx.globalAlpha = 1; chctx.imageSmoothingEnabled = true;
@@ -4658,8 +4776,18 @@ function applyAutoExposure(W, H) {
     let lum = 0;
     for (let i = 0; i < d.length; i += 4) lum += d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
     lum = lum / 255 / (d.length / 4);                 // 0..1 mean luminance
-    S.lumAvg += (lum - S.lumAvg) * 0.25;              // smooth → no flicker
-    const dim = Math.max(0, Math.min(0.72, (S.lumAvg - 0.45) * 1.7));
+    let dim = 0;
+    if (S.autoExposure) {
+      S.lumAvg += (lum - S.lumAvg) * 0.25;            // smooth → no flicker
+      dim = Math.max(0, Math.min(0.72, (S.lumAvg - 0.45) * 1.7));
+    }
+    // v49: flash limiter — cap how fast the frame may brighten (photosensitivity safety)
+    if (S.reduceFlash) {
+      const prev = S._lumPrev != null ? S._lumPrev : lum;
+      const maxJump = 0.12;                            // allowed luminance rise per frame
+      if (lum - prev > maxJump) dim = Math.max(dim, Math.min(0.8, (lum - prev - maxJump) * 2.2));
+      S._lumPrev = Math.min(lum, prev + maxJump);      // track the capped luminance
+    }
     if (dim > 0.004) {
       ctx.save();
       ctx.globalCompositeOperation = "source-over";
@@ -4800,7 +4928,8 @@ const TEXT_FONTS = {
   sans:   { tw: 600, aw: 400, fam: `-apple-system, "Segoe UI", Inter, sans-serif`, upper: false, spacing: 0 },
   serif:  { tw: 400, aw: 400, fam: `Georgia, "Times New Roman", serif`, upper: false, spacing: 0.5 },
   mono:   { tw: 500, aw: 400, fam: `"SF Mono", Menlo, Consolas, monospace`, upper: false, spacing: 1 },
-  poster: { tw: 900, aw: 600, fam: `-apple-system, "Segoe UI", "Arial Black", sans-serif`, upper: true, spacing: 2 }
+  poster: { tw: 900, aw: 600, fam: `-apple-system, "Segoe UI", "Arial Black", sans-serif`, upper: true, spacing: 2 },
+  custom: { tw: 600, aw: 400, fam: `"ElasticUserFont", -apple-system, sans-serif`, upper: false, spacing: 0 }   // v53: user-uploaded font
 };
 function drawTextLayer(W, H, hue, P) {
   /* source of text: synced lyrics take over when enabled, else the designer fields */
@@ -5343,6 +5472,8 @@ function projectData() {
     blendAmt: S.blendAmt,
     palette: { ...S.palette },
     intro: { ...S.intro },
+    outro: { ...S.outro },
+    mix: { ...S.mix },
     ctrl: { ...ctrl },
     fx: { ...S.fx },
     fx2: { ...S.fx2 },
@@ -5362,7 +5493,7 @@ function projectData() {
     lyrics: { on: S.lyrics.on, cues: S.lyrics.cues, offset: S.lyrics.offset },
     layerB: (() => { const { _spin, _hue, ...rest } = S.layerB; return rest; })(),
     shader: { ...S.shader },
-    aspect: [...S.aspect], quality: S.quality
+    aspect: [...S.aspect], quality: S.quality, reduceFlash: S.reduceFlash
   };
 }
 function downloadProject() {
@@ -5429,6 +5560,7 @@ function applyProject(o, fromScene) {
   S.imgMix.cycles = Math.max(0.5, Math.min(6, +mx.cycles || 2));
   S.aspect = (Array.isArray(o.aspect) && o.aspect[0] > 0 && o.aspect[1] > 0) ? o.aspect : [16, 9];
   S.quality = Math.max(0.5, Math.min(2, +o.quality || 1));
+  S.reduceFlash = !!o.reduceFlash; if ($("reduceFlash")) $("reduceFlash").checked = S.reduceFlash;
 
   const pl = o.palette || {};
   S.palette.on = !!pl.on;
@@ -5436,6 +5568,17 @@ function applyProject(o, fromScene) {
   S.palette.spread = pl.spread != null ? +pl.spread : 50;
   S.palette.sat = pl.sat != null ? +pl.sat : 85;
 
+  const mxo = o.mix || {};
+  S.mix.bass = mxo.bass != null ? +mxo.bass : 1; S.mix.mid = mxo.mid != null ? +mxo.mid : 1; S.mix.high = mxo.high != null ? +mxo.high : 1;
+  S.mix.smooth = mxo.smooth != null ? +mxo.smooth : 0; S.mix.beatThresh = mxo.beatThresh != null ? +mxo.beatThresh : 0.04; S.mix.autoLevel = !!mxo.autoLevel;
+  if ($("mixBass")) {
+    $("mixBass").value = Math.round(S.mix.bass * 100); $("mixBassVal").textContent = Math.round(S.mix.bass * 100);
+    $("mixMid").value = Math.round(S.mix.mid * 100); $("mixMidVal").textContent = Math.round(S.mix.mid * 100);
+    $("mixHigh").value = Math.round(S.mix.high * 100); $("mixHighVal").textContent = Math.round(S.mix.high * 100);
+    $("mixSmooth").value = Math.round(S.mix.smooth * 100); $("mixSmoothVal").textContent = Math.round(S.mix.smooth * 100);
+    $("mixBeat").value = Math.round(S.mix.beatThresh * 100); $("mixBeatVal").textContent = Math.round(S.mix.beatThresh * 100);
+    $("mixAuto").checked = S.mix.autoLevel;
+  }
   const itr = o.intro || {};
   S.intro.on = !!itr.on;
   S.intro.hold = !!itr.hold;
@@ -5446,6 +5589,15 @@ function applyProject(o, fromScene) {
     $("introHold").checked = S.intro.hold;
     $("introDur").value = S.intro.dur; $("introDurVal").textContent = S.intro.dur.toFixed(1) + "s";
     $("introFade").value = S.intro.fade; $("introFadeVal").textContent = S.intro.fade.toFixed(1) + "s";
+  }
+  const otr = o.outro || {};
+  S.outro.on = !!otr.on;
+  S.outro.dur = otr.dur != null ? +otr.dur : 2;
+  S.outro.fade = otr.fade != null ? +otr.fade : 1.5;
+  if ($("outroOn")) {
+    $("outroOn").checked = S.outro.on;
+    $("outroDur").value = S.outro.dur; $("outroDurVal").textContent = S.outro.dur.toFixed(1) + "s";
+    $("outroFade").value = S.outro.fade; $("outroFadeVal").textContent = S.outro.fade.toFixed(1) + "s";
   }
 
   /* push everything into the UI */
@@ -6166,6 +6318,24 @@ $("textTitle").addEventListener("input", e => { S.textTitle = e.target.value; re
 $("textArtist").addEventListener("input", e => { S.textArtist = e.target.value; restartType(); });
 $("textPos").addEventListener("change", e => S.textPos = e.target.value);
 $("textFont").addEventListener("change", e => S.textFont = e.target.value);
+/* v53: custom font upload via the FontFace API */
+$("fontUploadBtn").addEventListener("click", () => $("fontInput").click());
+$("fontInput").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const face = new FontFace("ElasticUserFont", r.result);
+      face.load().then(loaded => {
+        document.fonts.add(loaded);
+        $("fontCustomOpt").disabled = false;
+        $("fontCustomOpt").textContent = "Eigene: " + f.name.replace(/\.[^.]+$/, "");
+        S.textFont = "custom"; $("textFont").value = "custom";
+      }).catch(() => alert("Schrift konnte nicht geladen werden — unterstützt: .ttf, .otf, .woff, .woff2"));
+    } catch (err) { alert("Schrift konnte nicht geladen werden."); }
+  };
+  r.readAsArrayBuffer(f);
+});
 $("textStyle").addEventListener("change", e => S.textStyle = e.target.value);
 $("textColor").addEventListener("change", e => S.textColor = e.target.value);
 $("textAnim").addEventListener("change", e => { S.textAnim = e.target.value; restartType(); });
@@ -6226,8 +6396,29 @@ $("introOn").addEventListener("change", e => S.intro.on = e.target.checked);
 $("introHold").addEventListener("change", e => { S.intro.hold = e.target.checked; if (e.target.checked && !S.intro.on) { S.intro.on = true; $("introOn").checked = true; } });
 $("introDur").addEventListener("input", e => { S.intro.dur = +e.target.value; $("introDurVal").textContent = (+e.target.value).toFixed(1) + "s"; });
 $("introFade").addEventListener("input", e => { S.intro.fade = +e.target.value; $("introFadeVal").textContent = (+e.target.value).toFixed(1) + "s"; });
+$("outroOn").addEventListener("change", e => S.outro.on = e.target.checked);
+$("outroDur").addEventListener("input", e => { S.outro.dur = +e.target.value; $("outroDurVal").textContent = (+e.target.value).toFixed(1) + "s"; });
+$("outroFade").addEventListener("input", e => { S.outro.fade = +e.target.value; $("outroFadeVal").textContent = (+e.target.value).toFixed(1) + "s"; });
 /* v39: alpha export toggle + GIF export */
 $("alphaExport").addEventListener("change", e => { S.alphaExport = e.target.checked; });
+/* v52: logo / watermark */
+$("logoBtn").addEventListener("click", () => $("logoInput").click());
+$("logoInput").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (S.logo.src) { try { URL.revokeObjectURL(S.logo.src); } catch (x) { } }
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => { S.logo.img = img; S.logo.on = true; $("logoOn").checked = true; };
+  img.src = url; S.logo.src = url;
+});
+$("logoOn").addEventListener("change", e => S.logo.on = e.target.checked);
+$("logoPos").addEventListener("change", e => S.logo.pos = e.target.value);
+$("logoSize").addEventListener("input", e => { S.logo.size = e.target.value / 100; $("logoSizeVal").textContent = e.target.value; });
+$("logoOp").addEventListener("input", e => { S.logo.opacity = e.target.value / 100; $("logoOpVal").textContent = e.target.value; });
+$("logoClear").addEventListener("click", () => { if (S.logo.src) { try { URL.revokeObjectURL(S.logo.src); } catch (x) { } } S.logo.img = null; S.logo.src = null; S.logo.on = false; $("logoOn").checked = false; });
+/* v51: HQ export range */
+$("rangeOn").addEventListener("change", e => S.exportRange.on = e.target.checked);
+$("rangeStart").addEventListener("change", e => S.exportRange.start = Math.max(0, +e.target.value || 0));
+$("rangeEnd").addEventListener("change", e => S.exportRange.end = Math.max(0, +e.target.value || 0));
 $("gifBtn").addEventListener("click", async () => {
   const btn = $("gifBtn"), old = btn.textContent;
   if (audioEl.src && !S.micMode && !S.playing) play();
@@ -6821,6 +7012,16 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v53: custom font upload — load .ttf/.otf/.woff via FontFace API → "Eigene Schrift" option in the text designer.
+   v52: logo / watermark layer — upload a PNG shown persistently in a corner (position, size, opacity); drawn above all.
+   v51: HQ export range — optional in/out points export only a section (video frames offset by start time,
+        audio sliced); renderExportFrame() takes a t0 offset and indexes features by absolute time.
+   v50: end / credits card — cover fades back in over the final seconds (mirror of the intro card).
+   v49: photosensitivity flash limiter — "Flackern reduzieren" caps how fast the frame may brighten
+        (generic, all sources) + disables the disco strobe; runs independent of auto-exposure.
+   v48: audio mixer — per-band sensitivity (bass/mid/high), smoothing, beat threshold, auto-level
+        (normalises quiet tracks). Applied live + in the export (band gains).
+   v47: tap-tempo + manual BPM + beat nudge — reliable beat-sync on any track; "Auto" restores detection.
    v46: music-object DNA engines — "vinyl" (spinning record: grooves, coloured label, light sheen,
         tonearm) and "tape" (reel-to-reel: two winding reels, tape path, VU bars). Presets Vinyl + Tape Machine.
    v45: Cover-only — Intro Cover Card gains "hold for whole song" (cover + music only, no fade).
@@ -6946,10 +7147,40 @@ $("hqCancelBtn").addEventListener("click", () => { S.exportCancel = true; });
 
 /* ---- master reactivity gain ---- */
 $("gainSel").addEventListener("input", e => { S.gain = e.target.value / 100; $("gainVal").textContent = S.gain.toFixed(1) + "×"; });
+/* v47: tap-tempo + manual BPM + beat nudge — make beat-sync reliable on any track */
+function setBpm(bpm, alignNow) {
+  S.bpm = Math.max(0, Math.min(300, Math.round(bpm)));
+  if (alignNow) S.beatTime0 = playPos();
+  $("bpmLabel").innerHTML = S.bpm ? `BPM: <b>${S.bpm}</b>` : "BPM: <b>—</b>";
+  if ($("bpmInput")) $("bpmInput").value = S.bpm || "";
+}
+let tapTimes = [];
+$("bpmTapBtn").addEventListener("click", () => {
+  const now = performance.now() / 1000;
+  if (tapTimes.length && now - tapTimes[tapTimes.length - 1] > 2) tapTimes = [];   // reset after a pause
+  tapTimes.push(now); if (tapTimes.length > 6) tapTimes.shift();
+  if (tapTimes.length >= 2) {
+    const ints = []; for (let i = 1; i < tapTimes.length; i++) ints.push(tapTimes[i] - tapTimes[i - 1]);
+    ints.sort((a, b) => a - b); const med = ints[ints.length >> 1];
+    if (med > 0.2 && med < 2) { setBpm(60 / med, false); S.beatTime0 = playPos(); }
+  }
+});
+$("bpmInput").addEventListener("change", e => { const v = +e.target.value; if (v >= 40 && v <= 240) setBpm(v, true); });
+$("bpmAuto").addEventListener("click", () => { S.bpm = S.bpmAuto; S.beatTime0 = S.beatTime0Auto; $("bpmLabel").innerHTML = S.bpm ? `BPM: <b>${S.bpm}</b>` : "BPM: <b>—</b>"; if ($("bpmInput")) $("bpmInput").value = S.bpm || ""; });
+$("bpmNudgeL").addEventListener("click", () => { if (S.bpm > 0) S.beatTime0 += 0.05 * 60 / S.bpm; });
+$("bpmNudgeR").addEventListener("click", () => { if (S.bpm > 0) S.beatTime0 -= 0.05 * 60 / S.bpm; });
+/* v48: audio mixer */
+$("mixBass").addEventListener("input", e => { S.mix.bass = e.target.value / 100; $("mixBassVal").textContent = e.target.value; });
+$("mixMid").addEventListener("input", e => { S.mix.mid = e.target.value / 100; $("mixMidVal").textContent = e.target.value; });
+$("mixHigh").addEventListener("input", e => { S.mix.high = e.target.value / 100; $("mixHighVal").textContent = e.target.value; });
+$("mixSmooth").addEventListener("input", e => { S.mix.smooth = e.target.value / 100; $("mixSmoothVal").textContent = e.target.value; });
+$("mixBeat").addEventListener("input", e => { S.mix.beatThresh = (+e.target.value) / 100; $("mixBeatVal").textContent = e.target.value; });
+$("mixAuto").addEventListener("change", e => S.mix.autoLevel = e.target.checked);
 
 /* ---- auto quality: drop resolution when FPS sags (never while recording) ---- */
 $("autoQ").addEventListener("change", e => S.autoQuality = e.target.checked);
 $("autoExp").addEventListener("change", e => S.autoExposure = e.target.checked);
+$("reduceFlash").addEventListener("change", e => S.reduceFlash = e.target.checked);
 setInterval(() => {
   if (!S.autoQuality || (recorder && recorder.state === "recording")) return;
   if (fpsVal < 24 && S.quality > 0.75) { S.quality = Math.max(0.75, S.quality - 0.25); resize(); }
