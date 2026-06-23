@@ -1296,6 +1296,31 @@
     <p class="note" style="margin-bottom:8px">Zeigt am Songanfang das <b>Image A</b> ruhig (ohne Modulation) und blendet dann ins reaktive Visual über.</p>
     <label class="check" style="margin-bottom:10px"><input type="checkbox" id="introOn"> Intro-Cover aktivieren</label>
     <label class="check" style="margin-bottom:10px"><input type="checkbox" id="introHold"> Nur Cover: ganzen Song halten (Cover + Musik)</label>
+    <div class="text-opts" style="margin-bottom:10px">
+      <div class="opt"><span>Bewegung</span>
+        <select id="cfMotion" style="flex:1">
+          <option value="none">Statisch</option>
+          <option value="kenburns" selected>Ken Burns (Zoom/Pan)</option>
+          <option value="sway">Sway (Parallax-Neigung)</option>
+          <option value="breathe">Breathe (Beat-Zoom)</option>
+          <option value="float">Float (Drift)</option>
+        </select>
+      </div>
+      <div class="opt"><span>Filter</span>
+        <select id="cfFilter" style="flex:1">
+          <option value="none" selected>Kein</option>
+          <option value="cinematic">Cinematic</option>
+          <option value="bw">Schwarzweiß</option>
+          <option value="duotone">Duotone (Palette)</option>
+          <option value="vintage">Vintage</option>
+          <option value="dreamy">Dreamy (Bloom)</option>
+          <option value="neon">Neon Glow</option>
+        </select>
+      </div>
+      <div class="opt"><span>Tiefe</span>
+        <input type="range" id="cfDepth" min="0" max="100" value="30"><span class="val" id="cfDepthVal">30</span>
+      </div>
+    </div>
     <div class="slider-row">
       <label>Haltedauer <span class="val" id="introDurVal">3.0s</span></label>
       <input type="range" id="introDur" min="0" max="10" step="0.5" value="3">
@@ -1874,6 +1899,7 @@ const S = {
   exportRange: { on: false, start: 0, end: 0 },   // v51: HQ export only a section (seconds; end 0 = full)
   logo: { on: false, img: null, src: null, pos: "br", size: 0.12, opacity: 0.85 },   // v52: watermark/logo
   intro: { on: false, dur: 3, fade: 1.5, hold: false },   // v41/v45: intro cover card; hold = cover for the whole song
+  coverFX: { motion: "kenburns", filter: "none", depth: 0.3 },   // v56: cover image motion + creative grade + parallax depth
   outro: { on: false, dur: 2, fade: 1.5 },                 // v50: end card — cover fades back in at the end
 
   // visual evolution
@@ -3488,17 +3514,76 @@ function outroAlpha() {
   if (rem < d + f) { const x = (rem - d) / f; return 1 - x * x * (3 - 2 * x); }
   return 0;
 }
+/* v56: creative grade for the cover image via the 2D canvas filter */
+function coverFilterCSS(f, hue) {
+  switch (f) {
+    case "cinematic": return "contrast(1.14) saturate(1.28) brightness(1.02)";
+    case "bw": return "grayscale(1) contrast(1.12) brightness(1.03)";
+    case "duotone": return `grayscale(1) sepia(1) hue-rotate(${(hue - 50 + 360) % 360}deg) saturate(3.2) contrast(1.05)`;
+    case "vintage": return "sepia(0.5) contrast(0.96) saturate(1.1) brightness(1.05)";
+    case "dreamy": return "blur(0.6px) brightness(1.06) saturate(1.12)";
+    case "neon": return "saturate(1.7) contrast(1.2) brightness(1.04)";
+    default: return "none";
+  }
+}
 function drawCoverImage(W, H, a) {
   if (a <= 0.001) return;
   const img = S.image && S.image.img; if (!img) return;
+  const CF = S.coverFX || { motion: "none", filter: "none", depth: 0 };
+  const t = S.exporting ? (S.virtualT || 0) : playPos();
   const iw = img.naturalWidth || img.width || 1, ih = img.naturalHeight || img.height || 1;
-  const scale = Math.max(W / iw, H / ih), dw = iw * scale, dh = ih * scale;
+  const base = Math.max(W / iw, H / ih);
+  // motion → scale / pan / tilt
+  let sc = 1, ox = 0, oy = 0, rotA = 0;
+  if (CF.motion === "kenburns") { sc = 1.08 + 0.06 * Math.sin(t * 0.05); ox = Math.sin(t * 0.04) * W * 0.04; oy = Math.cos(t * 0.03) * H * 0.03; }
+  else if (CF.motion === "sway") { sc = 1.07; rotA = Math.sin(t * 0.3) * 0.02; ox = Math.sin(t * 0.5) * W * 0.02 + S.bass * W * 0.015; }
+  else if (CF.motion === "breathe") { sc = 1.04 + S.loudness * 0.05 + S.beat * 0.03; }
+  else if (CF.motion === "float") { sc = 1.06; ox = Math.sin(t * 0.25) * W * 0.03; oy = Math.sin(t * 0.18 + 1) * H * 0.03; }
+  const hue = S.palette.on ? S.palette.hue : (currentDNA().hue || 280);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = a;
   ctx.fillStyle = "#050507"; ctx.fillRect(0, 0, W, H);
-  ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  // parallax depth — a blurred, enlarged backdrop that shifts opposite to the foreground
+  if (CF.depth > 0.01) {
+    ctx.save();
+    ctx.filter = `blur(${(8 + CF.depth * 26) | 0}px) brightness(0.65)`;
+    const ds = base * (1.18 + CF.depth * 0.35), dw2 = iw * ds, dh2 = ih * ds;
+    ctx.drawImage(img, (W - dw2) / 2 - ox * 0.6, (H - dh2) / 2 - oy * 0.6, dw2, dh2);
+    ctx.restore();
+  }
+  // foreground with the creative grade
+  ctx.filter = coverFilterCSS(CF.filter, hue);
+  ctx.translate(W / 2 + ox, H / 2 + oy); ctx.rotate(rotA);
+  const dw = iw * base * sc, dh = ih * base * sc;
+  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+  // soft bloom for dreamy / neon
+  if (CF.filter === "dreamy" || CF.filter === "neon") {
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = a * (CF.filter === "neon" ? 0.35 : 0.25);
+    ctx.filter = `blur(${CF.filter === "neon" ? 6 : 10}px) saturate(1.5)`;
+    ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+    ctx.globalAlpha = a; ctx.globalCompositeOperation = "source-over";
+  }
+  ctx.filter = "none";
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // moving light sweep — adds life (skip on static)
+  if (CF.motion !== "none") {
+    const sa = t * 0.35, dx = Math.cos(sa), dy = Math.sin(sa);
+    const g = ctx.createLinearGradient(W / 2 - dx * W, H / 2 - dy * H, W / 2 + dx * W, H / 2 + dy * H);
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(0.5, `rgba(255,255,255,${(0.04 + S.highs * 0.06) * a})`);
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "source-over";
+  }
+  // vignette for vintage / cinematic
+  if (CF.filter === "vintage" || CF.filter === "cinematic") {
+    const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.72);
+    vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, `rgba(0,0,0,${0.5 * a})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  }
   ctx.restore();
 }
 function drawIntroCover(W, H) { drawCoverImage(W, H, Math.max(introAlpha(), outroAlpha())); }
@@ -5638,6 +5723,7 @@ function projectData() {
     blendAmt: S.blendAmt,
     palette: { ...S.palette },
     geo2: { ...S.geo2 },
+    coverFX: { ...S.coverFX },
     intro: { ...S.intro },
     outro: { ...S.outro },
     mix: { ...S.mix },
@@ -5756,6 +5842,11 @@ function applyProject(o, fromScene) {
     $("geo2Scale").value = Math.round(S.geo2.scale * 100); $("geo2ScaleVal").textContent = Math.round(S.geo2.scale * 100);
     $("geo2Hue").value = Math.round(S.geo2.hueShift); $("geo2HueVal").textContent = Math.round(S.geo2.hueShift);
   }
+  const cf = o.coverFX || {};
+  S.coverFX.motion = ["none", "kenburns", "sway", "breathe", "float"].includes(cf.motion) ? cf.motion : "kenburns";
+  S.coverFX.filter = ["none", "cinematic", "bw", "duotone", "vintage", "dreamy", "neon"].includes(cf.filter) ? cf.filter : "none";
+  S.coverFX.depth = cf.depth != null ? +cf.depth : 0.3;
+  if ($("cfMotion")) { $("cfMotion").value = S.coverFX.motion; $("cfFilter").value = S.coverFX.filter; $("cfDepth").value = Math.round(S.coverFX.depth * 100); $("cfDepthVal").textContent = Math.round(S.coverFX.depth * 100); }
   const itr = o.intro || {};
   S.intro.on = !!itr.on;
   S.intro.hold = !!itr.hold;
@@ -6571,6 +6662,10 @@ $("bgVidClear").addEventListener("click", () => {
 /* v41: intro cover card */
 $("introOn").addEventListener("change", e => S.intro.on = e.target.checked);
 $("introHold").addEventListener("change", e => { S.intro.hold = e.target.checked; if (e.target.checked && !S.intro.on) { S.intro.on = true; $("introOn").checked = true; } });
+/* v56: cover motion & FX */
+$("cfMotion").addEventListener("change", e => S.coverFX.motion = e.target.value);
+$("cfFilter").addEventListener("change", e => S.coverFX.filter = e.target.value);
+$("cfDepth").addEventListener("input", e => { S.coverFX.depth = e.target.value / 100; $("cfDepthVal").textContent = e.target.value; });
 $("introDur").addEventListener("input", e => { S.intro.dur = +e.target.value; $("introDurVal").textContent = (+e.target.value).toFixed(1) + "s"; });
 $("introFade").addEventListener("input", e => { S.intro.fade = +e.target.value; $("introFadeVal").textContent = (+e.target.value).toFixed(1) + "s"; });
 $("outroOn").addEventListener("change", e => S.outro.on = e.target.checked);
@@ -7194,6 +7289,10 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v56: Cover Motion & FX — the cover image (intro / outro / hold) now has motion (Ken Burns, Sway,
+        Breathe, Float), parallax depth (blurred enlarged backdrop shifting opposite the foreground),
+        and creative grades via ctx.filter (Cinematic, B/W, Duotone=palette, Vintage, Dreamy bloom,
+        Neon) + moving light sweep & vignette. Makes cover-only playback alive; deterministic in export.
    v55: Sacred Geometry counter-layer — optional second geometry layer that rotates the OPPOSITE way,
         with its own scale, hue offset and (optional different) style. drawSacred() factored into a
         pass(dir,scale,hueOff,style) called twice (dir=1, then dir=-1). UI on the Visual DNA page.
