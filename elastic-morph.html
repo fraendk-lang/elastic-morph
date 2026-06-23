@@ -2648,8 +2648,11 @@ function renderShader(W, H, hue){
   if(!SH.on) return;
   if(!initGL()) return;
   const gl = GL.gl;
-  // render at a perf-friendly resolution (cap longest side ~1000px), keep aspect
-  const cap = 1000;
+  // render at a perf-friendly resolution (cap longest side), keep aspect.
+  // v57: the cap now follows the adaptive perfScale so the (expensive) shader buffer shrinks
+  // under load — the raymarched gyroid is the heaviest, so it gets a lower base cap.
+  const pf = S.exporting ? 1 : Math.max(0.5, S.perfScale || 1);
+  const cap = (SH.style === "gyroid" ? 820 : 1000) * pf;
   const scl = Math.min(1, cap / Math.max(W, H));
   const gw = Math.max(2, Math.round(W * scl));
   const gh = Math.max(2, Math.round(H * scl));
@@ -3219,7 +3222,8 @@ function drawSacred(base, hue, growthF, energySize, seed) {
     ctx.restore();
   }
   pass(1, 1, 0, style);
-  if (S.geo2.on) pass(-1, S.geo2.scale, S.geo2.hueShift, S.geo2.style === "same" ? style : S.geo2.style);
+  // v57: drop the counter-rotating layer only if the GPU is struggling (full quality in export)
+  if (S.geo2.on && (S.exporting || (S.perfScale || 1) > 0.5)) pass(-1, S.geo2.scale, S.geo2.hueShift, S.geo2.style === "same" ? style : S.geo2.style);
 }
 
 /* ============================================================
@@ -3544,7 +3548,7 @@ function drawCoverImage(W, H, a) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = a;
-  ctx.fillStyle = "#050507"; ctx.fillRect(0, 0, W, H);
+  if (S.alphaExport) ctx.clearRect(0, 0, W, H); else { ctx.fillStyle = "#050507"; ctx.fillRect(0, 0, W, H); }
   // parallax depth — a blurred, enlarged backdrop that shifts opposite to the foreground
   if (CF.depth > 0.01) {
     ctx.save();
@@ -3857,7 +3861,7 @@ function drawScene(dt) {
   }
 
   /* --- waveform ring: the raw signal as a living oscilloscope circle --- */
-  if (P.waveRing && timeData && (S.playing || S.micMode)) {
+  if (P.waveRing && timeData && (S.playing || S.micMode) && !S.exporting) {
     const R = base * growthF * 1.35 * energySize;
     ctx.beginPath();
     for (let i = 0; i <= 180; i++) {
@@ -4351,7 +4355,7 @@ function initConst() {
 let lbRings = [], lbRingT = 0, lbRingLast = 0;
 // per-bar spectrum value; uses real FFT when playing, else an animated synth
 function specAt(i, n) {
-  if (analyser && (S.playing || S.micMode)) {
+  if (analyser && (S.playing || S.micMode) && !S.exporting) {
     const idx = Math.floor(Math.pow(i / n, 1.5) * (freqData.length * 0.55));
     return freqData[idx] / 255;
   }
@@ -4383,8 +4387,13 @@ function drawLayerB(W, H, hue, dt) {
   ctx.translate(-cx, -cy);
 
   // v43: optional kaleidoscopic mirror — render the chosen type once per reflection pass
-  const passes = LB.mirror === "quad" ? [[1, 1], [-1, 1], [1, -1], [-1, -1]]
-    : LB.mirror === "h" ? [[1, 1], [-1, 1]] : [[1, 1]];
+  // v57: drop mirror passes under load (4-way → 2-way → off) so heavy types stay smooth
+  const pf57 = S.exporting ? 1 : (S.perfScale || 1);
+  let mir = LB.mirror;
+  if (pf57 < 0.55 && mir === "quad") mir = "h";
+  if (pf57 < 0.45 && mir !== "off") mir = "off";
+  const passes = mir === "quad" ? [[1, 1], [-1, 1], [1, -1], [-1, -1]]
+    : mir === "h" ? [[1, 1], [-1, 1]] : [[1, 1]];
   for (const mp of passes) {
     ctx.save();
     if (mp[0] !== 1 || mp[1] !== 1) { ctx.translate(cx, cy); ctx.scale(mp[0], mp[1]); ctx.translate(-cx, -cy); }
@@ -4434,7 +4443,7 @@ function drawLayerB(W, H, hue, dt) {
     case "waveform": {
       ctx.strokeStyle = colr(0.5, 0.55 + S.highs * 0.4);
       ctx.beginPath();
-      if (timeData && (S.playing || S.micMode)) {
+      if (timeData && (S.playing || S.micMode) && !S.exporting) {
         const N = timeData.length;
         for (let i = 0; i < N; i += 2) {
           const x = i / N * W, s = (timeData[i] - 128) / 128;
@@ -4553,7 +4562,7 @@ function drawLayerB(W, H, hue, dt) {
       for (let i = 0; i <= n; i++) {
         const a = i / n * Math.PI * 2 - Math.PI / 2;
         let s;
-        if (timeData && (S.playing || S.micMode)) { const idx = Math.floor(i / n * timeData.length) % timeData.length; s = (timeData[idx] - 128) / 128; }
+        if (timeData && (S.playing || S.micMode) && !S.exporting) { const idx = Math.floor(i / n * timeData.length) % timeData.length; s = (timeData[idx] - 128) / 128; }
         else s = Math.sin(i * 0.3 + S.time * 3) * (0.2 + S.loudness * 0.6);
         const rr = R + s * mn * 0.13 * (0.6 + ctrl.pulse) + S.bass * mn * 0.03;
         const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
@@ -7289,6 +7298,14 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v57: performance budget extended to the GPU-heavy paths — the shader render buffer now follows
+        the adaptive perfScale (gyroid gets a lower base cap); Layer B mirror drops 4-way→2-way→off
+        under load; the Sacred counter-rotating layer is skipped only when the GPU struggles.
+        All throttling is live-only — HQ export always renders full quality.
+   v56.1: blindspot audit fixes — (1) spectrum/waveform visuals (specAt, Layer B waveform/radialWave,
+        waveRing) now force the deterministic synth/timeline path during HQ export (added !S.exporting),
+        so bars/waveforms animate correctly in the MP4 even if playback was running at export start;
+        (2) cover image uses clearRect (not an opaque fill) under alpha export so transparency survives.
    v56: Cover Motion & FX — the cover image (intro / outro / hold) now has motion (Ken Burns, Sway,
         Breathe, Float), parallax depth (blurred enlarged backdrop shifting opposite the foreground),
         and creative grades via ctx.filter (Cinematic, B/W, Duotone=palette, Vintage, Dreamy bloom,
