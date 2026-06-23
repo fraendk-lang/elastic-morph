@@ -1736,6 +1736,62 @@ const PRESETS = [
     motion: "orbit", flowBias: 0, constellation: false, bloom: 0.45, waveRing: false,
     engine: "tape",
     gradient: ["#140e04", "#5a3e12", "#f5b04b"]
+  },
+  /* v54: Sacred Geometry — precise symmetric patterns that breathe & rotate */
+  {
+    id: "sgFlower", name: "Flower of Life",
+    desc: "Atmende, überlappende Kreise — die Blume des Lebens. Ambient, Meditation, Psy, Downtempo.",
+    hue: 270, hueEnd: 190, sat: 75, bgFade: 0.1,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "soft", symmetry: 1,
+    verticalStretch: 1.0, grain: 0, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.6, waveRing: false,
+    engine: "sacred", geoStyle: "flower",
+    gradient: ["#0a0820", "#2a1a6e", "#8b7aff"]
+  },
+  {
+    id: "sgMetatron", name: "Metatron's Cube",
+    desc: "13 Kreise mit allen Verbindungslinien, rotierend & beat-reaktiv. Psy, Techno, Cinematic.",
+    hue: 200, hueEnd: 300, sat: 80, bgFade: 0.1,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "soft", symmetry: 1,
+    verticalStretch: 1.0, grain: 0, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.6, waveRing: false,
+    engine: "sacred", geoStyle: "metatron",
+    gradient: ["#04141f", "#1a3a7a", "#5ad0ff"]
+  },
+  {
+    id: "sgYantra", name: "Sri Yantra",
+    desc: "Verschachtelte Dreiecke & Polygon-Ringe mit Spiegelsymmetrie, dreht zum Beat. Ritual, Psy, Ambient.",
+    hue: 35, hueEnd: 320, sat: 85, bgFade: 0.1,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "soft", symmetry: 1,
+    verticalStretch: 1.0, grain: 0, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.6, waveRing: false,
+    engine: "sacred", geoStyle: "mandala",
+    gradient: ["#1a0e02", "#7a3a10", "#ffcf6a"]
+  },
+  {
+    id: "sgPoly", name: "Sacred Polygons",
+    desc: "Ineinander verschachtelte, rotierende Vielecke — fraktal-artig. IDM, Techno, Glitch.",
+    hue: 160, hueEnd: 280, sat: 80, bgFade: 0.12,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "soft", symmetry: 1,
+    verticalStretch: 1.0, grain: 0, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.55, waveRing: false,
+    engine: "sacred", geoStyle: "recursive",
+    gradient: ["#04140f", "#0c5240", "#7affd0"]
+  },
+  {
+    id: "sgSpiral", name: "Golden Spiral",
+    desc: "Fibonacci-/Phyllotaxis-Punkte, die nach außen wandern — goldener Winkel. Ambient, Organic, Psy.",
+    hue: 40, hueEnd: 160, sat: 80, bgFade: 0.1,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.6, waveRing: false,
+    engine: "sacred", geoStyle: "spiral",
+    gradient: ["#141200", "#5a4a12", "#f5e04b"]
   }
 ];
 
@@ -3051,6 +3107,63 @@ function drawTape(base, hue, growthF, energySize, seed) {
   ctx.restore();
 }
 
+/* --- v54: SACRED GEOMETRY — precise, symmetric patterns that breathe & rotate with the music.
+   preset.geoStyle: "flower" (Flower of Life), "metatron" (Metatron's Cube), "mandala" (Sri Yantra),
+   "recursive" (nested polygons), "spiral" (golden/phyllotaxis). Line-based additive glow; deterministic. */
+function drawSacred(base, hue, growthF, energySize, seed) {
+  const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
+  const style = P.geoStyle || "flower";
+  const span = (P.hueEnd != null ? P.hueEnd - P.hue : 60);
+  const R = base * 1.4 * growthF * energySize;
+  const rot = S.time * 0.2 * (0.5 + ctrl.organic) + S.beat * 0.06;
+  const colr = (t, a) => `hsla(${(((hue + t * span) % 360) + 360) % 360}, ${P.sat}%, ${58 + S.highs * 16}%, ${a})`;
+  const poly = (cxp, cyp, rad, sides, ang) => { ctx.beginPath(); for (let k = 0; k <= sides; k++) { const a = ang + k / sides * Math.PI * 2; const x = cxp + Math.cos(a) * rad, y = cyp + Math.sin(a) * rad; k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke(); };
+  ctx.save();
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, mn * 0.0026);
+  ctx.rotate(rot);
+  if (style === "flower") {
+    const u = R * 0.17 * (1 + S.bass * 0.05);
+    for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) {
+      const x = (i + j * 0.5) * u, y = (j * 0.8660254) * u, dd = Math.hypot(x, y);
+      if (dd > R * 0.66) continue;
+      ctx.strokeStyle = colr(dd / R, 0.16 + 0.34 * (1 - dd / R) + S.beat * 0.1);
+      ctx.beginPath(); ctx.arc(x, y, u, 0, 6.2832); ctx.stroke();
+    }
+    ctx.strokeStyle = colr(0.5, 0.3); ctx.beginPath(); ctx.arc(0, 0, R * 0.66, 0, 6.2832); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.71, 0, 6.2832); ctx.stroke();
+  } else if (style === "metatron") {
+    const d = R * 0.3 * (1 + S.bass * 0.04), pts = [[0, 0]];
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; pts.push([Math.cos(a) * d, Math.sin(a) * d]); }
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; pts.push([Math.cos(a) * 2 * d, Math.sin(a) * 2 * d]); }
+    ctx.strokeStyle = colr(0.3, 0.1 + S.beat * 0.12);
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) { ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[j][0], pts[j][1]); ctx.stroke(); }
+    for (const p of pts) { ctx.strokeStyle = colr(0.7, 0.5); ctx.beginPath(); ctx.arc(p[0], p[1], d * 0.5, 0, 6.2832); ctx.stroke(); }
+  } else if (style === "mandala") {
+    for (let r = 1; r <= 6; r++) {
+      const sides = 3 + (r % 6), rad = R * r / 6.5, a = (r % 2 ? 1 : -1) * S.time * 0.2 + r;
+      ctx.strokeStyle = colr(r / 6, 0.16 + 0.3 * (1 - r / 7) + S.beat * 0.08);
+      poly(0, 0, rad, sides, a);
+    }
+    ctx.strokeStyle = colr(0.5, 0.4 + S.beat * 0.15);
+    poly(0, 0, R * 0.5, 3, -Math.PI / 2); poly(0, 0, R * 0.5, 3, Math.PI / 2);
+    const petals = 24;
+    for (let k = 0; k < petals; k++) { const a = k / petals * Math.PI * 2, x = Math.cos(a) * R * 0.82, y = Math.sin(a) * R * 0.82; ctx.strokeStyle = colr(0.85, 0.18 + S.highs * 0.2); ctx.beginPath(); ctx.arc(x, y, R * 0.07, 0, 6.2832); ctx.stroke(); }
+  } else if (style === "recursive") {
+    const sides = 3 + Math.floor(fract1(Math.sin(seed * 1.7) * 4391) * 5);
+    let rad = R, a = 0;
+    for (let i = 0; i < 16; i++) { ctx.strokeStyle = colr(i / 16, Math.max(0.05, 0.5 - i * 0.02) * (0.6 + S.loudness * 0.5)); poly(0, 0, rad, sides, a); rad *= 0.86; a += 0.2 + S.beat * 0.04 + i * 0.005; }
+  } else { // spiral — phyllotaxis (golden angle)
+    const N = Math.round(560 * (0.5 + ctrl.density) * (S.exporting ? S.exportScale : S.perfScale)), golden = 2.39996323;
+    for (let i = 1; i < N; i++) {
+      const a = i * golden + rot, rad = Math.sqrt(i / N) * R * 0.95, dn = i / N, s = (0.6 + dn * 1.6) * (1 + S.beat * 0.5);
+      ctx.fillStyle = colr(dn, 0.22 + 0.5 * dn);
+      ctx.beginPath(); ctx.arc(Math.cos(a) * rad, Math.sin(a) * rad, s, 0, 6.2832); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 /* ============================================================
    v26: OFFLINE PER-FRAME AUDIO ANALYSIS (export foundation, Stage 1)
    In-place radix-2 FFT + a per-frame band timeline computed from the decoded
@@ -3485,6 +3598,8 @@ function drawScene(dt) {
     drawVinyl(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "tape") {
     drawTape(base, hue, growthF, energySize, seed);
+  } else if (dnaEngine === "sacred") {
+    drawSacred(base, hue, growthF, energySize, seed);
   } else {
   for (let L = 0; L < P.layers; L++) {
     const lf = 1 - L / P.layers * 0.45;
@@ -4842,6 +4957,25 @@ function renderPreviews() {
         c.fillStyle = `hsla(${(hue + col * 130) % 360}, ${p.sat}%, 60%, 0.14)`;
         c.fillRect(x * R * 0.5, y * R * 0.5, 1, 1);
       }
+    } else if (p.engine === "sacred") {
+      const gs = p.geoStyle, col = (tt, a) => `hsla(${((hue + tt * (p.hueEnd - p.hue)) % 360 + 360) % 360},${p.sat}%,62%,${a})`;
+      c.save(); c.rotate(t * 0.25); c.lineWidth = 1;
+      const poly = (rad, sides, ang) => { c.beginPath(); for (let k = 0; k <= sides; k++) { const a = ang + k / sides * 6.2832; const x = Math.cos(a) * rad, y = Math.sin(a) * rad; k === 0 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke(); };
+      const Rr = R * 1.5;
+      if (gs === "flower") {
+        const u = Rr * 0.32;
+        for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const x = (i + j * 0.5) * u, y = j * 0.866 * u; if (Math.hypot(x, y) > Rr) continue; c.strokeStyle = col(0.4, 0.5); c.beginPath(); c.arc(x, y, u, 0, 6.2832); c.stroke(); }
+      } else if (gs === "metatron") {
+        const d = Rr * 0.5, pts = [[0, 0]]; for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; pts.push([Math.cos(a) * d, Math.sin(a) * d]); }
+        c.strokeStyle = col(0.4, 0.4); for (let i = 0; i < pts.length; i++)for (let j = i + 1; j < pts.length; j++) { c.beginPath(); c.moveTo(pts[i][0], pts[i][1]); c.lineTo(pts[j][0], pts[j][1]); c.stroke(); }
+      } else if (gs === "mandala") {
+        for (let r = 1; r <= 4; r++) { c.strokeStyle = col(r / 4, 0.5); poly(Rr * r / 4, 2 + r, r); }
+      } else if (gs === "recursive") {
+        let rad = Rr, a = 0; for (let i = 0; i < 8; i++) { c.strokeStyle = col(i / 8, 0.5); poly(rad, 5, a); rad *= 0.82; a += 0.3; }
+      } else {
+        for (let i = 1; i < 120; i++) { const a = i * 2.39996 + t, rad = Math.sqrt(i / 120) * Rr; c.fillStyle = col(i / 120, 0.6); c.beginPath(); c.arc(Math.cos(a) * rad, Math.sin(a) * rad, 1.3, 0, 6.2832); c.fill(); }
+      }
+      c.restore();
     } else if (p.engine === "vinyl") {
       c.save(); c.rotate(t * 0.7);
       const vr = R * 1.5;
@@ -7012,6 +7146,9 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v54: DNA engine "Sacred Geometry" (preset.geoStyle) — Flower of Life, Metatron's Cube, Sri Yantra
+        (nested polygons + triangles + petal ring), Recursive Polygons, and Golden/phyllotaxis Spiral.
+        5 presets; line-based additive glow, rotates & breathes with bass/beat; deterministic.
    v53: custom font upload — load .ttf/.otf/.woff via FontFace API → "Eigene Schrift" option in the text designer.
    v52: logo / watermark layer — upload a PNG shown persistently in a corner (position, size, opacity); drawn above all.
    v51: HQ export range — optional in/out points export only a section (video frames offset by start time,
