@@ -1020,6 +1020,30 @@
         </div>
       </div>
 
+      <h3>Sacred Geometry — Zweite Ebene</h3>
+      <p class="note" style="margin-bottom:8px">Legt eine zweite, <b>gegenläufig rotierende</b> Geometrie über die erste (nur für die Sacred-Geometry-Presets).</p>
+      <div class="text-opts" style="max-width:440px">
+        <div class="opt"><span>Aktiv</span>
+          <label class="check" style="flex:1"><input type="checkbox" id="geo2On"> gegenläufige zweite Ebene</label>
+        </div>
+        <div class="opt"><span>Stil</span>
+          <select id="geo2Style" style="flex:1">
+            <option value="same" selected>Gleich wie Ebene 1</option>
+            <option value="flower">Flower of Life</option>
+            <option value="metatron">Metatron's Cube</option>
+            <option value="mandala">Sri Yantra</option>
+            <option value="recursive">Sacred Polygons</option>
+            <option value="spiral">Golden Spiral</option>
+          </select>
+        </div>
+        <div class="opt"><span>Größe</span>
+          <input type="range" id="geo2Scale" min="20" max="100" value="60"><span class="val" id="geo2ScaleVal">60</span>
+        </div>
+        <div class="opt"><span>Farbversatz</span>
+          <input type="range" id="geo2Hue" min="0" max="180" value="40"><span class="val" id="geo2HueVal">40</span>
+        </div>
+      </div>
+
       <h3>DNA Morphing</h3>
       <div class="blend-row">
         <span style="font-size:12px;color:var(--text-dim)">Blend with</span>
@@ -1842,6 +1866,8 @@ const S = {
   cues: [], lastCueApplied: -2, setActive: true, setSel: -1,
   // v34: custom palette override (replaces the preset's hue/hueEnd/sat when on)
   palette: { on: false, hue: 280, spread: 50, sat: 85 },
+  // v55: Sacred Geometry — counter-rotating second layer
+  geo2: { on: false, style: "same", scale: 0.6, hueShift: 40 },
   // v36: background video layer (drawn as the base, under the visual)
   bgVid: { on: false, el: null, src: null, opacity: 0.7, blend: "source-over", cover: true },
   alphaExport: false,     // v39: render transparent bg for alpha (WebM/VP9) export
@@ -3116,52 +3142,58 @@ function drawSacred(base, hue, growthF, energySize, seed) {
   const span = (P.hueEnd != null ? P.hueEnd - P.hue : 60);
   const R = base * 1.4 * growthF * energySize;
   const rot = S.time * 0.2 * (0.5 + ctrl.organic) + S.beat * 0.06;
-  const colr = (t, a) => `hsla(${(((hue + t * span) % 360) + 360) % 360}, ${P.sat}%, ${58 + S.highs * 16}%, ${a})`;
   const poly = (cxp, cyp, rad, sides, ang) => { ctx.beginPath(); for (let k = 0; k <= sides; k++) { const a = ang + k / sides * Math.PI * 2; const x = cxp + Math.cos(a) * rad, y = cyp + Math.sin(a) * rad; k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke(); };
-  ctx.save();
-  ctx.lineJoin = "round"; ctx.lineCap = "round";
-  ctx.lineWidth = Math.max(1, mn * 0.0026);
-  ctx.rotate(rot);
-  if (style === "flower") {
-    const u = R * 0.17 * (1 + S.bass * 0.05);
-    for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) {
-      const x = (i + j * 0.5) * u, y = (j * 0.8660254) * u, dd = Math.hypot(x, y);
-      if (dd > R * 0.66) continue;
-      ctx.strokeStyle = colr(dd / R, 0.16 + 0.34 * (1 - dd / R) + S.beat * 0.1);
-      ctx.beginPath(); ctx.arc(x, y, u, 0, 6.2832); ctx.stroke();
+  /* one geometry pass — dir flips the rotation for the counter-rotating second layer (v55) */
+  function pass(dir, scaleMul, hueOff, st) {
+    const colr = (t, a) => `hsla(${(((hue + hueOff + t * span) % 360) + 360) % 360}, ${P.sat}%, ${58 + S.highs * 16}%, ${a})`;
+    ctx.save();
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.lineWidth = Math.max(1, mn * 0.0026);
+    ctx.scale(scaleMul, scaleMul);
+    ctx.rotate(rot * dir);
+    if (st === "flower") {
+      const u = R * 0.17 * (1 + S.bass * 0.05);
+      for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) {
+        const x = (i + j * 0.5) * u, y = (j * 0.8660254) * u, dd = Math.hypot(x, y);
+        if (dd > R * 0.66) continue;
+        ctx.strokeStyle = colr(dd / R, 0.16 + 0.34 * (1 - dd / R) + S.beat * 0.1);
+        ctx.beginPath(); ctx.arc(x, y, u, 0, 6.2832); ctx.stroke();
+      }
+      ctx.strokeStyle = colr(0.5, 0.3); ctx.beginPath(); ctx.arc(0, 0, R * 0.66, 0, 6.2832); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, R * 0.71, 0, 6.2832); ctx.stroke();
+    } else if (st === "metatron") {
+      const d = R * 0.3 * (1 + S.bass * 0.04), pts = [[0, 0]];
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; pts.push([Math.cos(a) * d, Math.sin(a) * d]); }
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; pts.push([Math.cos(a) * 2 * d, Math.sin(a) * 2 * d]); }
+      ctx.strokeStyle = colr(0.3, 0.1 + S.beat * 0.12);
+      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) { ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[j][0], pts[j][1]); ctx.stroke(); }
+      for (const p of pts) { ctx.strokeStyle = colr(0.7, 0.5); ctx.beginPath(); ctx.arc(p[0], p[1], d * 0.5, 0, 6.2832); ctx.stroke(); }
+    } else if (st === "mandala") {
+      for (let r = 1; r <= 6; r++) {
+        const sides = 3 + (r % 6), rad = R * r / 6.5, a = dir * ((r % 2 ? 1 : -1) * S.time * 0.2) + r;
+        ctx.strokeStyle = colr(r / 6, 0.16 + 0.3 * (1 - r / 7) + S.beat * 0.08);
+        poly(0, 0, rad, sides, a);
+      }
+      ctx.strokeStyle = colr(0.5, 0.4 + S.beat * 0.15);
+      poly(0, 0, R * 0.5, 3, -Math.PI / 2); poly(0, 0, R * 0.5, 3, Math.PI / 2);
+      const petals = 24;
+      for (let k = 0; k < petals; k++) { const a = k / petals * Math.PI * 2, x = Math.cos(a) * R * 0.82, y = Math.sin(a) * R * 0.82; ctx.strokeStyle = colr(0.85, 0.18 + S.highs * 0.2); ctx.beginPath(); ctx.arc(x, y, R * 0.07, 0, 6.2832); ctx.stroke(); }
+    } else if (st === "recursive") {
+      const sides = 3 + Math.floor(fract1(Math.sin(seed * 1.7) * 4391) * 5);
+      let rad = R, a = 0;
+      for (let i = 0; i < 16; i++) { ctx.strokeStyle = colr(i / 16, Math.max(0.05, 0.5 - i * 0.02) * (0.6 + S.loudness * 0.5)); poly(0, 0, rad, sides, a); rad *= 0.86; a += dir * (0.2 + S.beat * 0.04 + i * 0.005); }
+    } else { // spiral — phyllotaxis (golden angle)
+      const N = Math.round(560 * (0.5 + ctrl.density) * (S.exporting ? S.exportScale : S.perfScale)), golden = 2.39996323;
+      for (let i = 1; i < N; i++) {
+        const a = i * golden, rad = Math.sqrt(i / N) * R * 0.95, dn = i / N, s = (0.6 + dn * 1.6) * (1 + S.beat * 0.5);
+        ctx.fillStyle = colr(dn, 0.22 + 0.5 * dn);
+        ctx.beginPath(); ctx.arc(Math.cos(a) * rad, Math.sin(a) * rad, s, 0, 6.2832); ctx.fill();
+      }
     }
-    ctx.strokeStyle = colr(0.5, 0.3); ctx.beginPath(); ctx.arc(0, 0, R * 0.66, 0, 6.2832); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, R * 0.71, 0, 6.2832); ctx.stroke();
-  } else if (style === "metatron") {
-    const d = R * 0.3 * (1 + S.bass * 0.04), pts = [[0, 0]];
-    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; pts.push([Math.cos(a) * d, Math.sin(a) * d]); }
-    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; pts.push([Math.cos(a) * 2 * d, Math.sin(a) * 2 * d]); }
-    ctx.strokeStyle = colr(0.3, 0.1 + S.beat * 0.12);
-    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) { ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[j][0], pts[j][1]); ctx.stroke(); }
-    for (const p of pts) { ctx.strokeStyle = colr(0.7, 0.5); ctx.beginPath(); ctx.arc(p[0], p[1], d * 0.5, 0, 6.2832); ctx.stroke(); }
-  } else if (style === "mandala") {
-    for (let r = 1; r <= 6; r++) {
-      const sides = 3 + (r % 6), rad = R * r / 6.5, a = (r % 2 ? 1 : -1) * S.time * 0.2 + r;
-      ctx.strokeStyle = colr(r / 6, 0.16 + 0.3 * (1 - r / 7) + S.beat * 0.08);
-      poly(0, 0, rad, sides, a);
-    }
-    ctx.strokeStyle = colr(0.5, 0.4 + S.beat * 0.15);
-    poly(0, 0, R * 0.5, 3, -Math.PI / 2); poly(0, 0, R * 0.5, 3, Math.PI / 2);
-    const petals = 24;
-    for (let k = 0; k < petals; k++) { const a = k / petals * Math.PI * 2, x = Math.cos(a) * R * 0.82, y = Math.sin(a) * R * 0.82; ctx.strokeStyle = colr(0.85, 0.18 + S.highs * 0.2); ctx.beginPath(); ctx.arc(x, y, R * 0.07, 0, 6.2832); ctx.stroke(); }
-  } else if (style === "recursive") {
-    const sides = 3 + Math.floor(fract1(Math.sin(seed * 1.7) * 4391) * 5);
-    let rad = R, a = 0;
-    for (let i = 0; i < 16; i++) { ctx.strokeStyle = colr(i / 16, Math.max(0.05, 0.5 - i * 0.02) * (0.6 + S.loudness * 0.5)); poly(0, 0, rad, sides, a); rad *= 0.86; a += 0.2 + S.beat * 0.04 + i * 0.005; }
-  } else { // spiral — phyllotaxis (golden angle)
-    const N = Math.round(560 * (0.5 + ctrl.density) * (S.exporting ? S.exportScale : S.perfScale)), golden = 2.39996323;
-    for (let i = 1; i < N; i++) {
-      const a = i * golden + rot, rad = Math.sqrt(i / N) * R * 0.95, dn = i / N, s = (0.6 + dn * 1.6) * (1 + S.beat * 0.5);
-      ctx.fillStyle = colr(dn, 0.22 + 0.5 * dn);
-      ctx.beginPath(); ctx.arc(Math.cos(a) * rad, Math.sin(a) * rad, s, 0, 6.2832); ctx.fill();
-    }
+    ctx.restore();
   }
-  ctx.restore();
+  pass(1, 1, 0, style);
+  if (S.geo2.on) pass(-1, S.geo2.scale, S.geo2.hueShift, S.geo2.style === "same" ? style : S.geo2.style);
 }
 
 /* ============================================================
@@ -5605,6 +5637,7 @@ function projectData() {
     blendWith: S.blendWith ? S.blendWith.id : null,
     blendAmt: S.blendAmt,
     palette: { ...S.palette },
+    geo2: { ...S.geo2 },
     intro: { ...S.intro },
     outro: { ...S.outro },
     mix: { ...S.mix },
@@ -5712,6 +5745,16 @@ function applyProject(o, fromScene) {
     $("mixSmooth").value = Math.round(S.mix.smooth * 100); $("mixSmoothVal").textContent = Math.round(S.mix.smooth * 100);
     $("mixBeat").value = Math.round(S.mix.beatThresh * 100); $("mixBeatVal").textContent = Math.round(S.mix.beatThresh * 100);
     $("mixAuto").checked = S.mix.autoLevel;
+  }
+  const g2 = o.geo2 || {};
+  S.geo2.on = !!g2.on;
+  S.geo2.style = ["same", "flower", "metatron", "mandala", "recursive", "spiral"].includes(g2.style) ? g2.style : "same";
+  S.geo2.scale = g2.scale != null ? +g2.scale : 0.6;
+  S.geo2.hueShift = g2.hueShift != null ? +g2.hueShift : 40;
+  if ($("geo2On")) {
+    $("geo2On").checked = S.geo2.on; $("geo2Style").value = S.geo2.style;
+    $("geo2Scale").value = Math.round(S.geo2.scale * 100); $("geo2ScaleVal").textContent = Math.round(S.geo2.scale * 100);
+    $("geo2Hue").value = Math.round(S.geo2.hueShift); $("geo2HueVal").textContent = Math.round(S.geo2.hueShift);
   }
   const itr = o.intro || {};
   S.intro.on = !!itr.on;
@@ -6588,6 +6631,11 @@ $("gifBtn").addEventListener("click", async () => {
     btn.disabled = false; btn.textContent = old;
   }
 });
+/* v55: Sacred Geometry counter-rotating second layer */
+$("geo2On").addEventListener("change", e => S.geo2.on = e.target.checked);
+$("geo2Style").addEventListener("change", e => S.geo2.style = e.target.value);
+$("geo2Scale").addEventListener("input", e => { S.geo2.scale = e.target.value / 100; $("geo2ScaleVal").textContent = e.target.value; });
+$("geo2Hue").addEventListener("input", e => { S.geo2.hueShift = +e.target.value; $("geo2HueVal").textContent = e.target.value; });
 $("palFromCover").addEventListener("click", () => {
   const im = (S.image && S.image.img) || (S.image2 && S.image2.img);
   if (!im) { alert("Lade zuerst ein Bild unter »Image A« (Creator), dann kann ich die Palette daraus ziehen."); return; }
@@ -7146,6 +7194,9 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 /* ============================================================
+   v55: Sacred Geometry counter-layer — optional second geometry layer that rotates the OPPOSITE way,
+        with its own scale, hue offset and (optional different) style. drawSacred() factored into a
+        pass(dir,scale,hueOff,style) called twice (dir=1, then dir=-1). UI on the Visual DNA page.
    v54: DNA engine "Sacred Geometry" (preset.geoStyle) — Flower of Life, Metatron's Cube, Sri Yantra
         (nested polygons + triangles + petal ring), Recursive Polygons, and Golden/phyllotaxis Spiral.
         5 presets; line-based additive glow, rotates & breathes with bass/beat; deterministic.
