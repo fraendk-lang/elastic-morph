@@ -4,7 +4,7 @@
    ============================================================ */
 
 const DEMO_MANIFEST_URL = "assets/demo/demo.json";
-const DEMO_FALLBACK_FILES = ["Elastic Field - Dust Reel.wav", "elastic-morph-demo.mp3", "elastic-morph-demo.wav"];
+const DEMO_FALLBACK_FILES = ["Elastic Field - Dust Reel.mp3", "Elastic Field - Dust Reel.wav", "elastic-morph-demo.mp3", "elastic-morph-demo.wav"];
 const DEMO_INLINE_MANIFEST = {
   title: "Dust Reel",
   artist: "Elastic Field",

@@ -124,6 +124,7 @@ ok("v91 club shaders", styleIds.includes("strobe") && styleIds.includes("warehou
 ok("v91 techno dance", script.includes('danceStyle: "techno"') || script.includes('style === "techno"'));
 ok("v92 demo robust load", script.includes("DEMO_INLINE_MANIFEST") && script.includes("fetchDemoBytes"));
 ok("v93 demo showcase", script.includes("initDemoShowcase") && script.includes("clubStrobe") && script.includes("applyDemoShowcaseLook"));
+ok("v95 demo fast start", script.includes("initDemoFastStart") && script.includes("loadDemoStream") && script.includes("demoUrlReachable"));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
 section("Unit tests — pure functions");
