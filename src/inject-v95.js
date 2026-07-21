@@ -45,8 +45,40 @@ function kickDemoPlayback() {
   else if (typeof play === "function") play();
 }
 
+function setDemoLoading(on) {
+  S.demoLoadingAudio = !!on;
+  const label = $("trackName");
+  const banner = $("demoBannerLabel");
+  if (on) {
+    if (label) {
+      label.textContent = "Song lädt…";
+      label.classList.add("analyzing");
+    }
+    if (banner && demoTrackMeta.source === "bundled") {
+      banner.textContent = `«${demoTrackMeta.title}» · Song lädt …`;
+    }
+  } else {
+    S.demoLoadingAudio = false;
+    if (typeof updateDemoBannerLabel === "function") updateDemoBannerLabel();
+  }
+  if (typeof updateDemoBanner === "function") updateDemoBanner();
+}
+
+function patchDemoLoadingBanner() {
+  const _updateDemoBanner = updateDemoBanner;
+  updateDemoBanner = function () {
+    const el = $("demoBanner");
+    if (el && S.demoLoadingAudio) {
+      el.classList.add("show");
+      return;
+    }
+    _updateDemoBanner();
+  };
+}
+
 function loadDemoStream(url, name) {
   resetDemoTrackState();
+  setDemoLoading(true);
   audioEl.preload = "auto";
   audioEl.src = url;
   $("dropHint").style.display = "none";
@@ -55,12 +87,6 @@ function loadDemoStream(url, name) {
   updateBadge();
   if (typeof updateCreatorDock === "function") updateCreatorDock();
 
-  const label = $("trackName");
-  if (label) {
-    label.textContent = name;
-    label.classList.add("analyzing");
-  }
-
   loadDemoTrack._loading = true;
   updateDemoBanner();
 
@@ -68,9 +94,16 @@ function loadDemoStream(url, name) {
     applyDemoShowcaseLook();
   }
 
-  const start = () => kickDemoPlayback();
+  const start = () => {
+    setDemoLoading(false);
+    kickDemoPlayback();
+  };
   if (audioEl.readyState >= 2) start();
   else audioEl.addEventListener("canplay", start, { once: true });
+  audioEl.addEventListener("error", () => {
+    setDemoLoading(false);
+    showAppToast("Demo-Song konnte nicht geladen werden — bitte Seite neu laden.", 5500);
+  }, { once: true });
 
   analyzeTrackFromUrl(url, name).finally(() => {
     loadDemoTrack._loading = false;
@@ -123,8 +156,7 @@ function patchDemoFastStart() {
         applyDemoMeta(manifest, { file: { name }, url });
         updateDemoBanner();
         loadDemoStream(url, name);
-        const msg = `Demo: «${demoTrackMeta.title}» — startet …`;
-        if (S.onboardingActive) showAppToast(msg, 3500);
+        if (S.onboardingActive) showAppToast(`«${demoTrackMeta.title}» — Song lädt …`, 2800);
         return;
       }
     }
@@ -133,5 +165,6 @@ function patchDemoFastStart() {
 }
 
 function initDemoFastStart() {
+  patchDemoLoadingBanner();
   patchDemoFastStart();
 }
