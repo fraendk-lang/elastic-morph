@@ -939,7 +939,7 @@
     #app:not(.creator-mode) #nav .hint { display: none; }
     #app:not(.creator-mode) #ctrl { display: none; }
     #app:not(.creator-mode):not(.pro-portrait-hint) #proPortraitSheet.show { display: block; }
-    #creatorDock { bottom: max(12px, env(safe-area-inset-bottom)); }
+    #creatorDock { bottom: calc(28px + max(12px, env(safe-area-inset-bottom))); }
   }
   @media (hover: none) and (pointer: coarse) {
     .btn, .navitem, .cr-look, .cr-fmt { min-height: 44px; }
