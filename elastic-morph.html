@@ -749,6 +749,23 @@
     font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline;
   }
   .wel-skip:hover { color: var(--text); }
+  .wel-legal {
+    margin-top: 14px; font-size: 11px; color: var(--text-dim); line-height: 1.5; text-align: center;
+  }
+  .wel-legal a { color: var(--text-dim); text-decoration: underline; text-underline-offset: 2px; }
+  .wel-legal a:hover { color: var(--eu-green); }
+
+  #legalBar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 9;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 5px 12px calc(5px + env(safe-area-inset-bottom));
+    font-size: 10px; color: var(--text-dim);
+    background: rgba(5, 5, 7, .88); border-top: 1px solid var(--line);
+    pointer-events: auto;
+  }
+  #legalBar a { color: var(--text-dim); }
+  #legalBar a:hover { color: var(--eu-green); }
+  #app.creator-mode #creatorDock { bottom: calc(28px + env(safe-area-inset-bottom)); }
 
   /* ---- Launch onboarding hint + export success ---- */
   #onboardingHint {
@@ -1878,8 +1895,15 @@
       <button class="btn" id="welLoad">▶ Track laden</button>
     </div>
     <button class="wel-skip" id="welSkip">Überspringen</button>
+    <p class="wel-legal"><a href="impressum.html" target="_blank" rel="noopener">Impressum</a> · <a href="datenschutz.html" target="_blank" rel="noopener">Datenschutz</a></p>
   </div>
 </div>
+
+<nav id="legalBar" aria-label="Rechtliches">
+  <a href="impressum.html">Impressum</a>
+  <span aria-hidden="true">·</span>
+  <a href="datenschutz.html">Datenschutz</a>
+</nav>
 
 <div id="exportSuccessOverlay" role="dialog" aria-modal="true" aria-labelledby="exportSuccessTitle" aria-hidden="true">
   <div id="exportSuccessCard">

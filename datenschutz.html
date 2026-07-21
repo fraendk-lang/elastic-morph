@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Datenschutz — Elastic Morph</title>
-<meta name="robots" content="noindex">
+<meta name="description" content="Datenschutzerklärung für Elastic Morph (elasticmorph.app) — Elastic Universe.">
 <link rel="canonical" href="https://elasticmorph.app/datenschutz.html">
 <style>
   :root{--bg:#050507;--text:#e8e8f0;--dim:#8a8aa0;--line:#1e1e2c;--eu-green:#1fe08a;--accent:#b14bff;}
@@ -16,46 +16,74 @@
   p,li{font-size:14px;color:var(--dim);margin-bottom:10px}
   ul{padding-left:20px;margin-bottom:16px}
   .back{display:inline-block;margin-bottom:24px;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0 18px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;color:var(--dim)}
+  th{color:var(--text);background:rgba(255,255,255,.03);width:32%}
 </style>
 </head>
 <body>
 <a class="back" href="index.html">← Elastic Morph</a>
 <h1>Datenschutzerklärung</h1>
-<p>Stand: Juli 2026 · Elastic Morph (elasticmorph.app) · Elastic Universe</p>
+<p>Stand: 21. Juli 2026 · Elastic Morph (<a href="https://elasticmorph.app">elasticmorph.app</a>) · Elastic Universe</p>
 
 <h2>1. Verantwortlicher</h2>
-<p>Frank Krumsdorf, Elastic Universe — Kontakt: <a href="mailto:hello@elasticuniverse.app">hello@elasticuniverse.app</a><br>
-<a href="impressum.html">Impressum</a></p>
+<p>
+  Frank Krumsdorf<br>
+  Elastic Universe · Hospitalstraße 16 · 53840 Troisdorf · Deutschland<br>
+  E-Mail: <a href="mailto:hello@elasticuniverse.app">hello@elasticuniverse.app</a><br>
+  <a href="impressum.html">Impressum</a>
+</p>
 
-<h2>2. Überblick</h2>
-<p>Elastic Morph läuft als <strong>clientseitige Web-App</strong> im Browser. Audio-Dateien, die du lädst, werden zur Analyse und Visualisierung <strong>lokal in deinem Browser</strong> verarbeitet — nicht auf unseren Servern hochgeladen.</p>
+<h2>2. Kurzüberblick</h2>
+<p>Elastic Morph ist eine <strong>clientseitige Web-App</strong>. Musikdateien, die du lädst, werden zur Analyse und Visualisierung <strong>lokal in deinem Browser</strong> verarbeitet — wir erhalten keinen Zugriff auf deine Tracks oder Exporte.</p>
 
-<h2>3. Hosting (Vercel)</h2>
-<p>Die statischen Dateien der App werden über <strong>Vercel Inc.</strong> ausgeliefert. Beim Seitenaufruf können technisch notwendige Server-Logdaten entstehen (z. B. IP-Adresse, Zeitstempel, User-Agent). Rechtsgrundlage: berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO) an stabilem Betrieb.</p>
-<p>Weitere Informationen: <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">Vercel Privacy Policy</a></p>
+<h2>3. Verarbeitung im Überblick</h2>
+<table>
+  <tr><th>Was</th><th>Details</th></tr>
+  <tr><td>Audio-Upload</td><td>Verarbeitung nur lokal im Browser; keine Übertragung an unsere Server</td></tr>
+  <tr><td>Export (MP4/WebM)</td><td>Erzeugung lokal; Download auf dein Gerät</td></tr>
+  <tr><td>Seitenaufruf</td><td>Technische Logdaten beim Hosting-Anbieter (siehe Abschnitt 4)</td></tr>
+  <tr><td>Einstellungen</td><td>localStorage im Browser (siehe Abschnitt 5)</td></tr>
+  <tr><td>Marketing-Cookies</td><td>Keine</td></tr>
+</table>
 
-<h2>4. Lokale Speicherung (localStorage)</h2>
-<p>Die App speichert Einstellungen <strong>lokal in deinem Browser</strong>, z. B. Sprache, Onboarding-Status, UI-Modus, Panel-Zustände. Diese Daten verlassen dein Gerät nicht automatisch. Rechtsgrundlage: berechtigtes Interesse / technische Notwendigkeit für die App-Funktion.</p>
-<p>Du kannst localStorage jederzeit in den Browser-Einstellungen löschen.</p>
+<h2>4. Hosting (Vercel)</h2>
+<p>Die App wird als statische Website über <strong>Vercel Inc.</strong>, 440 N Barranca Ave #4133, Covina, CA 91723, USA, ausgeliefert.</p>
+<p>Beim Aufruf können Server-Logdaten anfallen, z. B. IP-Adresse, Datum/Uhrzeit, aufgerufene URL, Referrer, Browser-Typ. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an Betrieb und Sicherheit).</p>
+<p>Vercel kann Daten in den USA verarbeiten. Es können Standardvertragsklauseln der EU-Kommission zum Einsatz kommen. Details: <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">Vercel Privacy Policy</a></p>
 
-<h2>5. Service Worker & Cache</h2>
-<p>Ein Service Worker cached App-Dateien und Demo-Assets für schnelleres Laden. Es werden keine personenbezogenen Profile erstellt.</p>
+<h2>5. Lokale Speicherung (localStorage)</h2>
+<p>Die App speichert Einstellungen <strong>lokal in deinem Browser</strong>, z. B. Sprache, Onboarding-Status, UI-Modus, Panel-Zustände, Pro-Demo-Flag. Diese Daten verlassen dein Gerät nicht automatisch.</p>
+<p>Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (technische Notwendigkeit für die App-Funktion). Du kannst localStorage jederzeit in den Browser-Einstellungen löschen.</p>
 
-<h2>6. Externe CDNs (optional)</h2>
-<p>Einzelne Bibliotheken (z. B. für HQ-Export) können bei Nutzung dynamisch von CDNs geladen werden. Es gelten die Datenschutzbestimmungen der jeweiligen Anbieter.</p>
+<h2>6. Service Worker &amp; Cache</h2>
+<p>Ein Service Worker speichert App-Dateien und Demo-Assets im Browser-Cache, damit die App schneller lädt. Es werden keine Nutzerprofile erstellt. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO.</p>
 
-<h2>7. Audio & Export</h2>
-<p>Von dir geladene Tracks und exportierte Videos bleiben auf deinem Gerät, sofern du sie nicht selbst teilst. Wir erhalten keinen Zugriff auf deine Musik oder Exporte.</p>
+<h2>7. Externe Bibliotheken (CDN)</h2>
+<p>Für den HQ-Export können JavaScript-Bibliotheken dynamisch von <strong>jsDelivr</strong> (cdn.jsdelivr.net) geladen werden, wenn du diese Funktion nutzt. Dabei kann deine IP-Adresse an den CDN-Anbieter übermittelt werden.</p>
+<p>Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO. Informationen: <a href="https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net" target="_blank" rel="noopener">jsDelivr Privacy Policy</a></p>
 
-<h2>8. Cookies</h2>
-<p>Wir setzen keine Marketing-Cookies. Technisch kann der Browser Session-/Cache-Daten halten.</p>
+<h2>8. Demo-Track</h2>
+<p>Der eingebaute Demo-Song wird von unserem Server an deinen Browser übertragen (Streaming/Download zum Abspielen). Es handelt sich um lizenziertes/eigenes Demo-Material — keine personenbezogenen Daten von dir.</p>
 
-<h2>9. Deine Rechte</h2>
-<p>Du hast Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung, Widerspruch und Datenübertragbarkeit (Art. 15–21 DSGVO). Anfragen an: <a href="mailto:hello@elasticuniverse.app">hello@elasticuniverse.app</a></p>
+<h2>9. Audio, Mikrofon &amp; Export</h2>
+<p>Eigene Tracks und Live-Eingaben (Mikrofon) werden ausschließlich lokal verarbeitet. Exportierte Videos bleiben auf deinem Gerät, bis du sie selbst teilst.</p>
 
-<h2>10. Änderungen</h2>
-<p>Diese Erklärung kann bei Bedarf angepasst werden. Die aktuelle Version findest du stets unter dieser URL.</p>
+<h2>10. Cookies</h2>
+<p>Wir setzen keine Marketing- oder Tracking-Cookies ein. Der Browser kann technisch Session- und Cache-Daten halten.</p>
 
-<p style="margin-top:32px"><a href="impressum.html">Impressum</a> · <a href="index.html">Startseite</a></p>
+<h2>11. Deine Rechte</h2>
+<p>Du hast nach der DSGVO u. a. das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Widerspruch und Datenübertragbarkeit (Art. 15–21 DSGVO).</p>
+<p>Anfragen an: <a href="mailto:hello@elasticuniverse.app">hello@elasticuniverse.app</a></p>
+
+<h2>12. Beschwerde bei einer Aufsichtsbehörde</h2>
+<p>Du hast das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren. Zuständig in NRW:</p>
+<p>Landesbeauftragte für Datenschutz und Informationsfreiheit Nordrhein-Westfalen (LDI NRW)<br>
+<a href="https://www.ldi.nrw.de" target="_blank" rel="noopener">www.ldi.nrw.de</a></p>
+
+<h2>13. Änderungen</h2>
+<p>Wir passen diese Erklärung an, wenn sich die App oder Rechtslage ändert. Die aktuelle Version findest du stets unter dieser URL.</p>
+
+<p style="margin-top:32px"><a href="impressum.html">Impressum</a> · <a href="index.html">Startseite</a> · <a href="elastic-morph.html">App</a></p>
 </body>
 </html>
