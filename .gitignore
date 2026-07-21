@@ -17,8 +17,8 @@ test-results/
 playwright-report/
 blob-report/
 
-# Local exports / scratch (demo-reel.mp4 is tracked for landing)
+# Local exports / scratch (landing demo reel is tracked)
 *.mp4
-!demo-reel.mp4
+!assets/elasticmorph_elasticfield_dustreel.mp4
 *.webm
 elastic-morph-*.mp4

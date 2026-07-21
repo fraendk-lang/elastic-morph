@@ -124,11 +124,11 @@
     <p class="lead-r" data-i18n="reelLead">20 Sekunden reichen — Demo-Track, Visual DNA, Export bis 4K.</p>
     <div class="reel-wrap" id="reelWrap">
       <video id="demoReel" controls playsinline muted preload="metadata" poster="og.png" aria-label="Elastic Morph Demo Reel">
-        <source src="demo-reel.mp4" type="video/mp4">
+        <source src="assets/elasticmorph_elasticfield_dustreel.mp4" type="video/mp4">
       </video>
       <div class="reel-placeholder" id="reelPlaceholder">
         <b data-i18n="reelPh">Demo-Reel</b>
-        <span data-i18n="reelPhSub">Lege <code style="color:var(--text)">demo-reel.mp4</code> ins Projekt — oder starte die App direkt mit dem eingebauten Demo-Track.</span>
+        <span data-i18n="reelPhSub">Lege <code style="color:var(--text)">assets/elasticmorph_elasticfield_dustreel.mp4</code> ins Projekt — oder starte die App direkt mit dem eingebauten Demo-Track.</span>
         <a class="pill primary" href="elastic-morph.html" data-i18n="cta1">App starten →</a>
       </div>
     </div>
@@ -158,7 +158,7 @@
       reelTitle: "Sehen, was dein Track wird",
       reelLead: "20 Sekunden reichen — Demo-Track, Visual DNA, Export bis 4K.",
       reelPh: "Demo-Reel",
-      reelPhSub: "Lege demo-reel.mp4 ins Projekt — oder starte die App direkt mit dem eingebauten Demo-Track.",
+      reelPhSub: "Lege <code style=\"color:var(--text)\">assets/elasticmorph_elasticfield_dustreel.mp4</code> ins Projekt — oder starte die App direkt mit dem eingebauten Demo-Track.",
       footer: '<b style="color:var(--text)">Elastic Morph</b> · Teil von <a href="https://elasticuniverse.app" target="_blank" rel="noopener">Elastic Universe</a><br>Hospitalstraße 16 · 53840 Troisdorf · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="reel-export.html">Reel-Export</a>'
     },
     en: {
@@ -173,7 +173,7 @@
       reelTitle: "See what your track becomes",
       reelLead: "20 seconds is enough — demo track, Visual DNA, export up to 4K.",
       reelPh: "Demo reel",
-      reelPhSub: "Add demo-reel.mp4 to the project — or launch the app with the built-in demo track.",
+      reelPhSub: "Add <code style=\"color:var(--text)\">assets/elasticmorph_elasticfield_dustreel.mp4</code> to the project — or launch the app with the built-in demo track.",
       footer: '<b style="color:var(--text)">Elastic Morph</b> · part of <a href="https://elasticuniverse.app" target="_blank" rel="noopener">Elastic Universe</a><br>Hospitalstraße 16 · 53840 Troisdorf · <a href="impressum.html">Legal notice</a> · <a href="datenschutz.html">Privacy</a> · <a href="reel-export.html">Reel export</a>'
     }
   };
@@ -196,13 +196,14 @@
   document.getElementById("langDe").addEventListener("click", () => setLang("de"));
   document.getElementById("langEn").addEventListener("click", () => setLang("en"));
 
+  const REEL_SRC = "assets/elasticmorph_elasticfield_dustreel.mp4";
   (function initReel(){
     const v = document.getElementById("demoReel");
     const wrap = document.getElementById("reelWrap");
     if (!v || !wrap) return;
     v.addEventListener("loadeddata", () => wrap.classList.add("has-video"));
     v.addEventListener("error", () => wrap.classList.remove("has-video"));
-    fetch("demo-reel.mp4", { method: "HEAD" }).then(r => {
+    fetch(REEL_SRC, { method: "HEAD" }).then(r => {
       if (r.ok) wrap.classList.add("has-video");
     }).catch(() => {});
   })();
