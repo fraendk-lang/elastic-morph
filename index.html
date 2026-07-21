@@ -10,7 +10,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Elastic Universe">
 <meta property="og:title" content="Elastic Morph — Aus deinem Track wird ein Visual">
-<meta property="og:description" content="Aus deinem Track wird ein einzigartiges Visual — die Form entsteht aus dem Fingerabdruck des Songs. Teil von Elastic Universe.">
+<meta property="og:description" content="Aus deinem Track wird ein einzigartiges Visual — Demo ohne Upload, exportierbar bis 4K. Teil von Elastic Universe.">
 <meta property="og:url" content="https://elasticmorph.app/">
 <meta property="og:image" content="https://elasticmorph.app/og.png">
 <meta property="og:image:width" content="1200">
@@ -57,6 +57,22 @@
   .card .tag{font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--dim); border:1px solid var(--line); border-radius:20px; padding:2px 8px;}
   footer{text-align:center; padding:40px 6vw 60px; color:var(--dim); font-size:12px; border-top:1px solid var(--line);}
   footer a{color:var(--eu-green);}
+  .reel{max-width:960px; margin:0 auto; padding:0 6vw 10vh; text-align:center;}
+  .reel h2{font-size:clamp(22px,4vw,32px); font-weight:700; margin-bottom:10px;}
+  .reel p.lead-r{font-size:14px; color:var(--dim); margin-bottom:22px; line-height:1.55;}
+  .reel-wrap{
+    position:relative; border-radius:18px; overflow:hidden; border:1px solid var(--line);
+    background:var(--panel); box-shadow:0 18px 50px rgba(0,0,0,.45);
+    aspect-ratio:16/9;
+  }
+  .reel-wrap video{width:100%; height:100%; display:block; object-fit:cover; background:#000;}
+  .reel-placeholder{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    padding:24px; background:linear-gradient(145deg, rgba(14,14,21,.95), rgba(20,12,32,.92));
+  }
+  .reel-placeholder b{font-size:15px;}
+  .reel-placeholder span{font-size:12px; color:var(--dim); max-width:360px; line-height:1.5;}
+  .reel-wrap.has-video .reel-placeholder{display:none;}
 
   /* ---- motion ---- */
   @keyframes riseIn { from{opacity:0; transform:translateY(20px);} to{opacity:1; transform:none;} }
@@ -103,6 +119,21 @@
     </div>
   </section>
 
+  <section class="reel reveal d5">
+    <h2 data-i18n="reelTitle">Sehen, was dein Track wird</h2>
+    <p class="lead-r" data-i18n="reelLead">20 Sekunden reichen — Demo-Track, Visual DNA, Export bis 4K.</p>
+    <div class="reel-wrap" id="reelWrap">
+      <video id="demoReel" controls playsinline muted preload="metadata" poster="og.png" aria-label="Elastic Morph Demo Reel">
+        <source src="demo-reel.mp4" type="video/mp4">
+      </video>
+      <div class="reel-placeholder" id="reelPlaceholder">
+        <b data-i18n="reelPh">Demo-Reel</b>
+        <span data-i18n="reelPhSub">Lege <code style="color:var(--text)">demo-reel.mp4</code> ins Projekt — oder starte die App direkt mit dem eingebauten Demo-Track.</span>
+        <a class="pill primary" href="elastic-morph.html" data-i18n="cta1">App starten →</a>
+      </div>
+    </div>
+  </section>
+
   <section class="feat">
     <div class="card reveal d3"><div class="n">01</div><h3>Visual DNA</h3><p data-i18n="f1"></p><div class="tags"><span class="tag">Filament</span><span class="tag">Attractor</span><span class="tag">Fractal Flame</span></div></div>
     <div class="card reveal d4"><div class="n">02</div><h3>Shader &amp; FX</h3><p data-i18n="f2"></p><div class="tags"><span class="tag">WebGL</span><span class="tag">GLSL</span><span class="tag">20 FX</span></div></div>
@@ -124,6 +155,10 @@
       f2: "WebGL-Shader (Fluid, Metaballs, Tunnel) plus zwei FX-Racks — Pixel/Farbe und Geometrie — alle audioreaktiv und stapelbar.",
       f3: "Marker auf der Wellenform setzen, die Szenen und Effekte abrufen — ein vorbereitetes Set, das deterministisch abläuft, auch im Export.",
       f4: "Frame-genauer Offline-Export als MP4 bis 4K, mit Ton — keine Frame-Drops, exakt reproduzierbar. Plus PNG-Stills.",
+      reelTitle: "Sehen, was dein Track wird",
+      reelLead: "20 Sekunden reichen — Demo-Track, Visual DNA, Export bis 4K.",
+      reelPh: "Demo-Reel",
+      reelPhSub: "Lege demo-reel.mp4 ins Projekt — oder starte die App direkt mit dem eingebauten Demo-Track.",
       footer: '<b style="color:var(--text)">Elastic Morph</b> · Teil von <a href="https://elasticuniverse.app" target="_blank" rel="noopener">Elastic Universe</a> — Visual Computing Ecosystem'
     },
     en: {
@@ -135,6 +170,10 @@
       f2: "WebGL shaders (fluid, metaballs, tunnel) plus two FX racks — pixel/colour and geometry — all audio-reactive and stackable.",
       f3: "Drop markers on the waveform that recall scenes and effects — a prepared set that plays back deterministically, including in the export.",
       f4: "Frame-accurate offline export as MP4 up to 4K, with audio — no dropped frames, exactly reproducible. Plus PNG stills.",
+      reelTitle: "See what your track becomes",
+      reelLead: "20 seconds is enough — demo track, Visual DNA, export up to 4K.",
+      reelPh: "Demo reel",
+      reelPhSub: "Add demo-reel.mp4 to the project — or launch the app with the built-in demo track.",
       footer: '<b style="color:var(--text)">Elastic Morph</b> · part of <a href="https://elasticuniverse.app" target="_blank" rel="noopener">Elastic Universe</a> — Visual Computing Ecosystem'
     }
   };
@@ -157,7 +196,18 @@
   document.getElementById("langDe").addEventListener("click", () => setLang("de"));
   document.getElementById("langEn").addEventListener("click", () => setLang("en"));
 
-  // blue/teal pixel starfield with gentle drift, mouse parallax & occasional shooting stars
+  (function initReel(){
+    const v = document.getElementById("demoReel");
+    const wrap = document.getElementById("reelWrap");
+    if (!v || !wrap) return;
+    v.addEventListener("loadeddata", () => wrap.classList.add("has-video"));
+    v.addEventListener("error", () => wrap.classList.remove("has-video"));
+    fetch("demo-reel.mp4", { method: "HEAD" }).then(r => {
+      if (r.ok) wrap.classList.add("has-video");
+    }).catch(() => {});
+  })();
+
+  // blue/teal pixel starfield
   const cv = document.getElementById("stars"), c = cv.getContext("2d");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let stars = [], shoot = [], mx = 0, my = 0, pmx = 0, pmy = 0;

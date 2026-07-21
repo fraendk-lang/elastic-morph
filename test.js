@@ -56,24 +56,79 @@ const fx2DefKeys = [...fx2Defs.matchAll(/\["(\w+)"/g)].map(x => x[1]);
 ok("fx2 state keys match FX2_DEFS", fx2StateKeys.length === 10 && fx2StateKeys.every(k => fx2DefKeys.includes(k)));
 
 /* engines referenced in drawScene branch exist as functions */
-["drawFilaments", "drawAttractor", "drawFlame", "drawHyperspace", "drawScene", "renderExportFrame", "exportHQ", "buildFeatureTimeline", "fftRadix2"].forEach(fn =>
+["drawFilaments", "drawAttractor", "drawFlame", "drawHyperspace", "drawScene", "renderExportFrame", "exportHQ", "buildFeatureTimeline", "fftRadix2",
+ "drawOscilloscope", "drawSpectrogram", "drawFlocking", "drawTypography", "drawFluidLite", "applyMasterFinish", "applyPostFX3", "suggestSmartLooks"].forEach(fn =>
   ok("function " + fn + " defined", script.includes("function " + fn + "(")));
 
 /* shader styles: SHADER_STYLE_ID, the <option>s and the GLSL share the same set */
 const styleIds = (() => { const m = script.match(/SHADER_STYLE_ID = \{([^}]+)\}/); return m ? [...m[1].matchAll(/(\w+):/g)].map(x => x[1]) : []; })();
-const styleOpts = [...html.matchAll(/<option value="(fluid|metaballs|tunnel|aurora|electric|chrome|gyroid)"/g)].map(m => m[1]);
-ok("shader styles ≥ 7 defined", styleIds.length >= 7, styleIds.join(","));
+const styleOpts = [...html.matchAll(/<option value="(fluid|metaballs|tunnel|aurora|electric|chrome|gyroid|raymarch|feedback|strobe|warehouse|laser)"/g)].map(m => m[1]);
+ok("shader styles ≥ 9 defined", styleIds.length >= 9, styleIds.join(","));
 ok("every shader style has an <option>", styleIds.every(s => styleOpts.includes(s)), styleIds.filter(s => !styleOpts.includes(s)).join(","));
 const frag = (script.match(/SHADER_FRAG = `([\s\S]*?)`;/) || [])[1] || "";
 const balanced = (str, o, c) => (str.split(o).length === str.split(c).length);
 ok("GLSL braces & parens balanced", frag.length > 0 && balanced(frag, "{", "}") && balanced(frag, "(", ")"));
-["auroraStyle", "electricStyle", "chromeStyle", "gyroidStyle"].forEach(fn =>
+["auroraStyle", "electricStyle", "chromeStyle", "gyroidStyle", "raymarchStyle", "feedbackStyle", "strobeStyle", "warehouseStyle", "laserStyle"].forEach(fn =>
   ok("GLSL " + fn + " defined & called", (frag.split(fn).length - 1) >= 2));
+
+/* v58: FX Rack III */
+const fx3Defs = (script.match(/const FX3_DEFS = \[([\s\S]*?)\];/) || [])[1] || "";
+ok("FX3_DEFS has 4 effects", (fx3Defs.match(/\["/g) || []).length === 4);
+ok("v58 presets include oscilloscope engine", script.includes('engine: "oscilloscope"'));
+ok("v60 zoom control defined", script.includes('["zoom"') && script.includes("function camUserZoom"));
+ok("v60 liveMul defined", script.includes("function liveMul"));
+ok("v61 tablet UX", script.includes("function initTabletUX") && script.includes("is-touch"));
+ok("v62 look swipe", script.includes("function cycleCreatorLook") && script.includes("lookSwipeHint"));
+ok("v62 all presets swipe", script.includes("PRESETS.slice()") && script.includes("function hapticLookPulse"));
+ok("v62 portrait pro hint", script.includes("function initPortraitProHint") && script.includes("portraitProHint"));
+ok("v63 phase A", script.includes("function isAudioFile") && script.includes("function initPhaseA"));
+ok("v63 creator aspect class", script.includes("creator-aspect-portrait"));
+ok("v64 phase B export", script.includes("function syncExportGates") && script.includes("exportShaderCap"));
+ok("v64 shader uses S.time", script.includes("gl.uniform1f(L.time, S.time)"));
+ok("v64 stereo timeline", script.includes("const stereo = new Float32Array(frames)"));
+ok("v65 phase C UX", script.includes("function initPhaseC") && script.includes("proPortraitSheet"));
+ok("v65 swipe mode", script.includes("swipeLookMode") && script.includes("lookLockBtn"));
+ok("v65 help DE", html.includes("Kurzanleitung") && html.includes("Touch & iPad"));
+ok("v66 phase D", script.includes("function initPhaseD") && script.includes("webglBadge"));
+ok("v66 nav buttons", html.includes('<button type="button" class="navitem'));
+ok("html lang de", html.includes('lang="de"'));
+ok("v67 image modes", script.includes("drawImageLayerV67") && script.includes("glitch"));
+ok("v67 image filters", script.includes("IMG_FILTERS") && script.includes("appendImageFilterSelect"));
+ok("v68 image blend", script.includes("IMG_BLEND_MODES") && script.includes("drawImageLayerStatic"));
+ok("v68 beat sync", script.includes("imageBeatGate") && script.includes("beatSync"));
+ok("v69 demo track", script.includes("generateDemoTrackBuffer") && script.includes("loadDemoTrack"));
+ok("v69 export success", script.includes("exportSuccessOverlay") && script.includes("onExportComplete"));
+ok("v70 freemium", script.includes("drawFreeTierWatermark") && script.includes("isProUnlocked"));
+ok("v71 scene bank", script.includes("sceneSnapshot") && script.includes("normalizeScenes"));
+ok("v72 export quality", script.includes("initExportQuality") && script.includes("forceFreeTier"));
+ok("v73 auto exposure fix", script.includes("initAutoExposureFix") && script.includes("S.lumAvg = 0"));
+ok("v74 export fidelity", script.includes("initExportFidelity") && script.includes("resolveExportPixels"));
+ok("v75 visual recovery", script.includes("initVisualRecovery") && script.includes("resetVisualExposure"));
+ok("v76 export transitions", script.includes("initExportTransitions") && script.includes("exportTransAlpha"));
+ok("v77 text presets", script.includes("TEXT_PRESETS") && script.includes("applyTextPreset"));
+ok("v78 visual polish", script.includes("initVisualPolish") && script.includes("drawExportPolish"));
+ok("v79 whiteout fix", script.includes("initWhiteoutFix") && script.includes("drawDrosteZoom"));
+ok("v80 dna visibility", script.includes("initDnaVisibility") && script.includes("dnaBoost"));
+ok("v81 vinyl visual", script.includes("initVinylVisual") && !script.includes("tonearm (fixed)"));
+ok("v82 hero screen", script.includes("initHeroScreen") && script.includes("heroScreenActive"));
+ok("v84 real demo track", script.includes("initRealDemoTrack") && script.includes("fetchBundledDemoFile"));
+ok("v85 particle mode", script.includes("initParticleModeV85") && script.includes("toggleParticleMode"));
+ok("v86 visual polish", script.includes("initVisualPolishV86") && script.includes("applyToneDimPolished"));
+ok("v87 realtime export", script.includes("initRealtimeExportQuality") && script.includes("realtimeVideoBitrate"));
+ok("v88 audio load", script.includes("initAudioLoadFix") && script.includes("startFilePlayback"));
+ok("v89 realtime export v2", script.includes("initRealtimeExportV89") && script.includes("requestFrame"));
+ok("v90 export stability", script.includes("initRealtimeExportStability") && script.includes("startRtChunkMerge"));
+ok("v91 club beat", script.includes("initClubBeat") && script.includes("S.clubPulse") && script.includes("clubBeatSharpness"));
+ok("v91 club presets", script.includes("danceTechno") && script.includes("clubStrobe") && script.includes("warehouseRave"));
+ok("v91 club shaders", styleIds.includes("strobe") && styleIds.includes("warehouse") && styleIds.includes("laser"));
+ok("v91 techno dance", script.includes('danceStyle: "techno"') || script.includes('style === "techno"'));
+ok("v92 demo robust load", script.includes("DEMO_INLINE_MANIFEST") && script.includes("fetchDemoBytes"));
+ok("v93 demo showcase", script.includes("initDemoShowcase") && script.includes("clubStrobe") && script.includes("applyDemoShowcaseLook"));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
 section("Unit tests — pure functions");
 let F;
-try { F = loadFns(["fftRadix2", "buildFeatureTimeline", "flameVary", "noise2", "fmtTime", "attr3dDeriv"]); ok("extract pure functions", true); }
+try { F = loadFns(["fftRadix2", "buildFeatureTimeline", "flameVary", "noise2", "fmtTime", "attr3dDeriv", "exportTransCurve", "exportTransAlpha", "exportTransGain"]); ok("extract pure functions", true); }
 catch (e) { ok("extract pure functions", false, e.message); F = null; }
 
 if (F) {
@@ -93,6 +148,14 @@ if (F) {
   ok("timeline length = round(dur*fps)", tlBass.frames === 30);
   ok("60Hz tone → bass band dominant", avg(tlBass.bass) > 0.5 && avg(tlBass.mids) < 0.2 && avg(tlBass.highs) < 0.2);
   ok("8kHz tone → highs band dominant", avg(tlHigh.highs) > 0.3 && avg(tlHigh.bass) < 0.2);
+  const mkStereo = (sr, dur) => {
+    const n = Math.floor(sr * dur), L = new Float32Array(n), R = new Float32Array(n);
+    for (let i = 0; i < n; i++) { L[i] = 0.8; R[i] = 0.1; }
+    return { getChannelData: c => c === 0 ? L : R, numberOfChannels: 2, sampleRate: sr, duration: dur, length: n };
+  };
+  const tlSt = F.buildFeatureTimeline(mkStereo(44100, 1), 30);
+  ok("timeline includes stereo array", tlSt.stereo && tlSt.stereo.length === 30);
+  ok("stereo bias detects left-heavy signal", avg(tlSt.stereo) < -0.2);
 
   // flameVary: all variations finite for a normal input
   let allFinite = true;
@@ -106,6 +169,12 @@ if (F) {
 
   // fmtTime
   ok("fmtTime formats m:ss", F.fmtTime(83) === "1:23", "got " + F.fmtTime(83));
+
+  const trans = { fadeIn: { on: true, dur: 2, curve: "linear", color: "#000" }, fadeOut: { on: true, dur: 2, curve: "linear", color: "#000" }, audioFade: true };
+  ok("exportTransAlpha fades in at t=0", F.exportTransAlpha(0, 10, trans) > 0.9);
+  ok("exportTransAlpha clear mid-track", F.exportTransAlpha(5, 10, trans) < 0.01);
+  ok("exportTransAlpha fades out at end", F.exportTransAlpha(9.5, 10, trans) > 0.7);
+  ok("exportTransGain matches video fade", Math.abs(F.exportTransGain(0, 10, trans) - (1 - F.exportTransAlpha(0, 10, trans))) < 0.001);
 }
 
 /* ---------------- 3) algorithm stability (uses real flameVary) ---------------- */

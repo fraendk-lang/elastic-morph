@@ -1,12 +1,13 @@
 /* Elastic Morph — service worker (cache-first, offline-ready).
    Only active when the app is served over http(s)/localhost.
    When opened directly via file:// this script is simply ignored. */
-const CACHE = "elastic-morph-v57";
+const CACHE = "elastic-morph-v94";
 const ASSETS = [
   "elastic-morph.html",
   "manifest.webmanifest",
   "icon-192.png",
-  "icon-512.png"
+  "icon-512.png",
+  "assets/demo/demo.json"
 ];
 
 self.addEventListener("install", e => {
@@ -25,8 +26,10 @@ self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   e.respondWith(
     fetch(e.request).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+      }
       return res;
     }).catch(() => caches.match(e.request))
   );

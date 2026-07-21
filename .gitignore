@@ -12,7 +12,13 @@ npm-debug.log*
 # Vercel
 .vercel
 
+# Playwright / E2E
+test-results/
+playwright-report/
+blob-report/
+
 # Local exports / scratch
 *.mp4
 *.webm
 elastic-morph-*.mp4
+demo-reel.mp4
