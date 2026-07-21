@@ -123,8 +123,8 @@
     <h2 data-i18n="reelTitle">Dust Reel — Elastic Field</h2>
     <p class="lead-r" data-i18n="reelLead">Echter Export aus Elastic Morph · Demo-Track · Club-Look · 9:16 Reel.</p>
     <div class="reel-wrap" id="reelWrap">
-      <video id="demoReel" controls playsinline muted loop preload="metadata" aria-label="Elastic Morph Demo Reel — Dust Reel · Elastic Field">
-        <source src="assets/elasticmorph_elasticfield_dustreel.mp4" type="video/mp4">
+      <video id="demoReel" controls playsinline muted loop preload="auto" aria-label="Elastic Morph Demo Reel — Dust Reel · Elastic Field">
+        <source src="assets/elasticmorph_elasticfield_dustreel.mp4#t=0.1" type="video/mp4">
       </video>
       <div class="reel-placeholder" id="reelPlaceholder">
         <b data-i18n="reelPh">Demo-Reel</b>
@@ -203,13 +203,12 @@
     if (!v || !wrap) return;
     const show = () => wrap.classList.add("has-video");
     v.addEventListener("loadeddata", show);
-    v.addEventListener("loadedmetadata", show);
+    v.addEventListener("loadedmetadata", () => {
+      show();
+      if (v.duration && isFinite(v.duration)) v.play().catch(() => {});
+    });
     v.addEventListener("error", () => wrap.classList.remove("has-video"));
     fetch(REEL_SRC, { method: "HEAD" }).then(r => { if (r.ok) show(); }).catch(() => {});
-    // Autoplay preview when allowed (muted + playsinline)
-    const tryPlay = () => v.play().catch(() => {});
-    if (document.visibilityState === "visible") tryPlay();
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") tryPlay(); });
   })();
 
   // blue/teal pixel starfield

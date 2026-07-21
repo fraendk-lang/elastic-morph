@@ -20,5 +20,6 @@ blob-report/
 # Local exports / scratch (landing demo reel is tracked)
 *.mp4
 !assets/elasticmorph_elasticfield_dustreel.mp4
+*.source.mp4
 *.webm
 elastic-morph-*.mp4
