@@ -125,6 +125,7 @@ ok("v91 techno dance", script.includes('danceStyle: "techno"') || script.include
 ok("v92 demo robust load", script.includes("DEMO_INLINE_MANIFEST") && script.includes("fetchDemoBytes"));
 ok("v93 demo showcase", script.includes("initDemoShowcase") && script.includes("clubStrobe") && script.includes("applyDemoShowcaseLook"));
 ok("v95 demo fast start", script.includes("initDemoFastStart") && script.includes("loadDemoStream") && script.includes("demoUrlReachable"));
+ok("v96 export graceful stop", script.includes("initRealtimeExportGracefulStop") && script.includes("gracefulStopRealtimeExport") && script.includes("wireRealtimeExportAudio"));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
 section("Unit tests — pure functions");

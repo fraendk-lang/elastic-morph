@@ -1826,6 +1826,7 @@
         </p>
         <h4>Export</h4>
         <p><b>⤓ HQ Export</b> = frame-genau (Chrome/Edge). Safari/iPad: Echtzeit-Aufnahme (● Export). Fenster sichtbar lassen beim Aufnehmen.</p>
+        <p style="margin-top:8px;font-size:12px;color:var(--text-dim)"><a href="reel-export.html" target="_blank" rel="noopener">Reel/Short 9:16 — Schritt-für-Schritt ↗</a> · <a href="impressum.html" target="_blank" rel="noopener">Impressum</a> · <a href="datenschutz.html" target="_blank" rel="noopener">Datenschutz</a></p>
       </div>
     </div>
     <button class="btn primary" id="helpClose">Verstanden</button>
@@ -6931,9 +6932,10 @@ $("playBtn").addEventListener("click", () => S.playing ? pause() : play());
 
 let loopOn = false;
 audioEl.addEventListener("ended", () => {
-  // auto-stop an in-progress export when the track finishes → clean single-pass capture
+  // auto-stop an in-progress export when the track finishes → fade out, then save
   if (recorder && recorder.state === "recording") {
-    recorder.stop();
+    if (typeof gracefulStopRealtimeExport === "function") gracefulStopRealtimeExport();
+    else recorder.stop();
     S.playing = false; $("playBtn").textContent = "▶";
     return;
   }
@@ -7421,8 +7423,9 @@ function pickExportMime() {
 }
 $("exportBtn").addEventListener("click", () => {
   if (recorder && recorder.state === "recording") {
-    // graceful: fade out first, then stop after the fade completes
-    if (exportFade && !fadeStopTimer) {
+    if (typeof gracefulStopRealtimeExport === "function") {
+      if (!gracefulStopRealtimeExport()) recorder.stop();
+    } else if (exportFade && !fadeStopTimer) {
       const foMs = typeof exportFadeOutMs === "function" ? exportFadeOutMs() : Math.round((exportFade.dur || 1) * 1000);
       exportFade.endAt = performance.now() + foMs;
       fadeStopTimer = setTimeout(() => { if (recorder && recorder.state === "recording") recorder.stop(); }, foMs);
@@ -7453,7 +7456,8 @@ $("exportBtn").addEventListener("click", () => {
     let exportDest = null;
     if (audioCtx && audioSrc) {
       exportDest = audioCtx.createMediaStreamDestination();
-      audioSrc.connect(exportDest);
+      if (typeof wireRealtimeExportAudio === "function") wireRealtimeExportAudio(audioSrc, exportDest);
+      else audioSrc.connect(exportDest);
       exportDest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
     }
     const mime = typeof realtimeExportMime === "function"
@@ -7479,7 +7483,8 @@ $("exportBtn").addEventListener("click", () => {
       if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
       if (fadeStopTimer) { clearTimeout(fadeStopTimer); fadeStopTimer = null; }
       exportFade = null;
-      if (exportDest && audioSrc) { try { audioSrc.disconnect(exportDest); } catch {} }
+      if (typeof teardownRealtimeExportAudio === "function") teardownRealtimeExportAudio();
+      else if (exportDest && audioSrc) { try { audioSrc.disconnect(exportDest); } catch {} }
       const blob = new Blob(chunks, { type: mime.split(";")[0] });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -7508,7 +7513,10 @@ $("exportBtn").addEventListener("click", () => {
       const durS = S.bpm > 0 ? 32 * 60 / S.bpm : 8;
       exportFade = typeof beginRealtimeExportFade === "function" ? beginRealtimeExportFade(t0, { loopDurS: durS }) : { t0, endAt: t0 + durS * 1000 };
       $("exportBtn").textContent = `■ Loop ${durS.toFixed(1)}s…`;
-      loopTimer = setTimeout(() => { if (recorder && recorder.state === "recording") recorder.stop(); }, durS * 1000);
+      loopTimer = setTimeout(() => {
+        if (typeof gracefulStopRealtimeExport === "function") gracefulStopRealtimeExport();
+        else if (recorder && recorder.state === "recording") recorder.stop();
+      }, durS * 1000);
     } else if (audioEl.src && !S.micMode) {
       // a loaded track auto-stops the recording when it ends → time the fade-out to the end.
       // BUT if an A–B loop is active the track never ends, so don't pre-time a fade-out
@@ -13033,6 +13041,109 @@ function initDemoFastStart() {
 }
 
 
+/* ============================================================
+   v96 — Realtime export: graceful stop with audio + video fade-out
+   Fixes abrupt cut when stopping Reel / ● Export mid-track or at end.
+   ============================================================ */
+
+let exportAudioTap = null;
+
+function wireRealtimeExportAudio(audioSrc, exportDest) {
+  teardownRealtimeExportAudio();
+  if (!audioCtx || !audioSrc || !exportDest) return;
+  const gain = audioCtx.createGain();
+  gain.gain.value = 1;
+  try {
+    audioSrc.connect(gain);
+    gain.connect(exportDest);
+    exportAudioTap = { gain, dest: exportDest, src: audioSrc };
+  } catch (e) {
+    try { audioSrc.connect(exportDest); } catch (x) { }
+  }
+}
+
+function teardownRealtimeExportAudio() {
+  if (!exportAudioTap) return;
+  const { gain, dest, src } = exportAudioTap;
+  try { src.disconnect(gain); } catch (e) { }
+  try { gain.disconnect(dest); } catch (e) { }
+  exportAudioTap = null;
+}
+
+function realtimeExportFadeOutSec() {
+  if (typeof exportFadeOutMs === "function") return exportFadeOutMs() / 1000;
+  const fo = (S.exportTrans || {}).fadeOut;
+  if (fo && fo.on) return Math.max(0.35, fo.dur || 2);
+  return 0.35;
+}
+
+function rampRealtimeExportAudioOut(sec) {
+  if (!exportAudioTap || !audioCtx) return;
+  if (S.exportTrans && S.exportTrans.audioFade === false) return;
+  const g = exportAudioTap.gain.gain;
+  sec = Math.max(0.08, sec);
+  const t0 = audioCtx.currentTime;
+  g.cancelScheduledValues(t0);
+  g.setValueAtTime(Math.max(0, g.value), t0);
+  g.linearRampToValueAtTime(0, t0 + sec);
+}
+
+function gracefulStopRealtimeExport() {
+  if (typeof recorder === "undefined" || !recorder || recorder.state !== "recording") return false;
+  if (typeof fadeStopTimer !== "undefined" && fadeStopTimer) return true;
+
+  const foSec = realtimeExportFadeOutSec();
+  const foMs = Math.round(foSec * 1000);
+
+  if (typeof exportFade !== "undefined" && exportFade) {
+    exportFade.endAt = performance.now() + foMs;
+  }
+
+  rampRealtimeExportAudioOut(foSec);
+
+  if (typeof loopTimer !== "undefined" && loopTimer) {
+    clearTimeout(loopTimer);
+    loopTimer = null;
+  }
+
+  fadeStopTimer = setTimeout(() => {
+    fadeStopTimer = null;
+    if (recorder && recorder.state === "recording") recorder.stop();
+  }, foMs + 120);
+
+  const btn = $("exportBtn");
+  if (btn) btn.textContent = "■ Fading out…";
+  return true;
+}
+
+function patchExportTransFadeEdge() {
+  if (typeof exportTransAlpha !== "function") return;
+  const _alpha = exportTransAlpha;
+  exportTransAlpha = function (t, dur, trans) {
+    trans = trans || S.exportTrans || defaultExportTrans();
+    if (!dur || dur <= 0) return 0;
+    let alpha = 0;
+    const fi = trans.fadeIn, fo = trans.fadeOut;
+    if (fi && fi.on && fi.dur > 0 && t < fi.dur) {
+      alpha = Math.max(alpha, 1 - exportTransCurve(t / fi.dur, fi.curve || "smooth"));
+    }
+    if (fo && fo.on && fo.dur > 0 && t >= dur - fo.dur) {
+      alpha = Math.max(alpha, exportTransCurve((t - (dur - fo.dur)) / fo.dur, fo.curve || "smooth"));
+    }
+    return Math.max(0, Math.min(1, alpha));
+  };
+  exportTransGain = function (t, dur, trans) {
+    trans = trans || S.exportTrans || defaultExportTrans();
+    if (!trans.audioFade) return 1;
+    return 1 - exportTransAlpha(t, dur, trans);
+  };
+}
+
+function initRealtimeExportGracefulStop() {
+  patchExportTransFadeEdge();
+}
+
+
 /* ---- boot ---- */
 buildSliders();
 buildFX();
@@ -13076,6 +13187,7 @@ if (typeof initClubBeat === "function") initClubBeat();
 if (typeof initClubPresets === "function") initClubPresets();
 if (typeof initDemoShowcase === "function") initDemoShowcase();
 if (typeof initDemoFastStart === "function") initDemoFastStart();
+if (typeof initRealtimeExportGracefulStop === "function") initRealtimeExportGracefulStop();
 buildParticleMode();
 buildImageLayer();
 buildLayerB();
