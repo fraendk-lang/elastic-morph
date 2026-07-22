@@ -43,6 +43,8 @@ Stand: **v97** (Launch Phase 1 — Dust Reel Demo)
 - [x] Elastic Lab-Link auf Universe repariert
 - [ ] Post in 2–3 Producer-Communities (Hook: Spotify Canvas in 10 Min)
 - [ ] **Fremdtest** bestanden
+- [x] SEO-Basis: `robots.txt`, `sitemap.xml`, JSON-LD — Anleitung: [`SEO-SETUP.md`](SEO-SETUP.md)
+- [ ] Google Search Console: verifizieren + Sitemap einreichen (manuell, ~15 Min)
 
 ---
 

@@ -1,0 +1,5 @@
+# Elastic Morph — https://elasticmorph.app
+User-agent: *
+Allow: /
+
+Sitemap: https://elasticmorph.app/sitemap.xml
