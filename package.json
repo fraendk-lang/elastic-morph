@@ -1,6 +1,6 @@
 {
   "name": "elastic-morph",
-  "version": "97.0.0",
+  "version": "98.0.0",
   "private": true,
   "description": "Elastic Morph — browser audio-visual app",
   "scripts": {
