@@ -1,6 +1,6 @@
 {
   "name": "elastic-morph",
-  "version": "96.0.0",
+  "version": "97.0.0",
   "private": true,
   "description": "Elastic Morph — browser audio-visual app",
   "scripts": {
@@ -9,9 +9,11 @@
     "start": "npx --yes serve -l 3456",
     "test:e2e": "playwright test",
     "check:demo": "node scripts/check-demo.js",
+    "encode:demo": "node scripts/encode-demo-mp3.js",
     "ci": "node build.js && node test.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "^1.49.0",
+    "ffmpeg-static": "^5.2.0"
   }
 }

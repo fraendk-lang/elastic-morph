@@ -14,7 +14,7 @@ Stand: **v97** · Ziel: Launch-tauglicher **Wow-Moment** mit **echtem Demo-Song*
 | 4 | **3 Showcase-Clips** exportieren | ⬜ |
 | 5 | **Landing-Reel** | ✅ `assets/elasticmorph_elasticfield_dustreel.mp4` |
 | 6 | Technik-Check (Build, Unit-Tests) | ✅ 106 Tests · `check:demo` grün |
-| 7 | E2E Smoke | ⬜ `npm run test:e2e` |
+| 7 | E2E Smoke | ✅ 3/3 Playwright |
 
 ---
 
@@ -38,7 +38,7 @@ npm run build && npm test
 
 Im Browser: **Demo starten** → Banner zeigt `Demo — «Dust Reel» · Elastic Field`.
 
-**Optional:** MP3-Version für schnelleren ersten Load (Paket B).
+**Optional:** MP3-Version für schnelleren ersten Load — ✅ `Elastic Field - Dust Reel.mp3` (~4 MB, `npm run encode:demo`)
 
 ---
 
@@ -108,6 +108,7 @@ npm run check:demo                 # Demo-Track vorhanden
 - [x] Service Worker Cache = v97 (`sw.js`)
 - [x] `assets/demo/` mit deployen
 - [x] Universe `/tools/morph` auf v97 sync
+- [x] E2E Smoke: `npm run test:e2e` (3 Tests)
 
 ---
 

@@ -13,7 +13,7 @@ Stand: **v97** (Launch Phase 1 — Dust Reel Demo)
 - [x] `assets/demo/demo.json` — «Dust Reel» · Elastic Field
 - [x] `npm run check:demo` grün
 - [x] **Demo starten** zeigt echten Titel im Banner
-- [ ] Optional: **Demo-MP3** (~5 MB) für schnelleren Load
+- [x] Optional: **Demo-MP3** (~4 MB) für schnelleren Load
 
 ### Produkt (5-Minuten-Test)
 - [ ] Du: Demo → Look → HQ Export (Chrome/Edge)
@@ -25,11 +25,11 @@ Stand: **v97** (Launch Phase 1 — Dust Reel Demo)
 ### Inhalte
 - [ ] **3–5 Showcase-Clips** (gleicher Demo-Track)
 - [x] **Landing-Reel** — `assets/elasticmorph_elasticfield_dustreel.mp4` (9:16, re-encoded)
-- [ ] **og.png** mit echtem Visual-Frame (Social Preview)
+- [x] **og.png** — Frame aus Dust Reel + Branding (1200×630)
 
 ### Technik
 - [x] `npm run build && npm test` grün (106 Tests)
-- [ ] `npm run test:e2e` grün
+- [x] `npm run test:e2e` grün (3 Smoke-Tests)
 - [x] Demo-Assets im Deploy (`assets/demo/*`)
 - [x] Service Worker Cache v97
 

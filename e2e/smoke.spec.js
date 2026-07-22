@@ -5,7 +5,7 @@ test.describe("Elastic Morph smoke", () => {
   test("landing page loads with CTA", async ({ page }) => {
     await page.goto("/index.html");
     await expect(page.locator("h1")).toContainText(/ELASTIC/i);
-    await expect(page.locator('a.pill.primary[href="elastic-morph.html"]')).toBeVisible();
+    await expect(page.locator('a.pill.primary[href="elastic-morph.html"]').first()).toBeVisible();
   });
 
   test("app shell and creator dock present", async ({ page }) => {
@@ -21,7 +21,6 @@ test.describe("Elastic Morph smoke", () => {
     });
     await page.goto("/elastic-morph.html");
     const welcome = page.locator("#welcomeOverlay");
-    const canvas = page.locator("#canvas");
-    await expect(welcome.or(canvas)).toBeVisible({ timeout: 10000 });
+    await expect(welcome).toBeVisible({ timeout: 10000 });
   });
 });
