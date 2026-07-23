@@ -135,6 +135,8 @@ ok("v99 dna boot", script.includes("initDnaAndImageV99()"));
 ok("v100 dna boot", script.includes("initDnaShortcutAndImagePresetsB()"));
 ok("v100 dna key main", script.includes('if (typeof toggleDna === "function") toggleDna()'));
 ok("v101 cover mode", script.includes("drawImageLayersFront") && script.includes("imgCoverMode"));
+ok("v102 cover export", script.includes("applyCoverExportPreset") && script.includes("COVER_EXPORT_PRESETS"));
+ok("v102 cover boot", script.includes("initCoverExportV102()"));
 ok("v101 no duplicate d key", !script.match(/wireDnaShortcut[\s\S]{0,220}addEventListener\("keydown"/));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
