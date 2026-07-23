@@ -131,6 +131,9 @@ ok("v99 image presets", script.includes("IMAGE_PRESETS") && script.includes("app
 ok("v99 image modes", script.includes("drawImageLayerV99") && script.includes("parallax") && script.includes("zoompulse"));
 ok("v100 dna shortcut", script.includes("toggleDna") && script.includes("initDnaShortcutAndImagePresetsB"));
 ok("v100 image presets B", script.includes("IMAGE_PRESETS_B") && script.includes("imgPresetRowB"));
+ok("v99 dna boot", script.includes("initDnaAndImageV99()"));
+ok("v100 dna boot", script.includes("initDnaShortcutAndImagePresetsB()"));
+ok("v100 dna key main", script.includes("toggleDna()") && script.match(/keydown[\s\S]{0,800}toggleDna/));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
 section("Unit tests — pure functions");

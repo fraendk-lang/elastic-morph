@@ -7663,6 +7663,10 @@ document.addEventListener("keydown", e => {
   if (e.key === "]") { e.preventDefault(); setCrossfade(S.blendAmt + 0.08); }
   if (e.key === "g" || e.key === "G") { $("shOn").checked = !S.shader.on; S.shader.on = $("shOn").checked; if (S.shader.on) initGL(); }
   if ((e.key === "p" || e.key === "P") && !e.shiftKey) { e.preventDefault(); toggleParticleMode(); }
+  if ((e.key === "d" || e.key === "D") && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    if (typeof toggleDna === "function") toggleDna();
+  }
   // number keys 1–9 + 0 toggle the 10 FX (great for live performance)
   if (e.key >= "0" && e.key <= "9") {
     const idx = e.key === "0" ? 9 : +e.key - 1;
@@ -13780,6 +13784,8 @@ initPhaseC();
 initPhaseD();
 initImageLayerV67();
 initImageLayerV68();
+initDnaAndImageV99();
+initDnaShortcutAndImagePresetsB();
 initLaunchOnboarding();
 initFreemium();
 initSceneBank();
