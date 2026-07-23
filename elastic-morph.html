@@ -4291,7 +4291,8 @@ function drawScene(dt) {
   ctx.fillRect(0, 0, W, H);
 
   /* --- WebGL shader engine (behind everything, glowing bed) --- */
-  renderShader(W, H, hue);
+  const imgCoverMode = S.dnaOn === false && ((S.image.on && S.image.img) || (S.image2.on && S.image2.img));
+  if (!imgCoverMode) renderShader(W, H, hue);
 
   /* --- image layers A & B (behind the organism), with A↔B interplay --- */
   const mix = imgMix();
@@ -4522,11 +4523,16 @@ function drawScene(dt) {
   ctx.restore();
   ctx.globalCompositeOperation = "source-over";
 
+  /* v101: DNA off — redraw image on top so cover art stays visible */
+  if (imgCoverMode && typeof drawImageLayersFront === "function") {
+    drawImageLayersFront(W, H, hue, dt);
+  }
+
   /* --- particle mode (screen-space, runs through bloom + FX) --- */
   drawParticleMode(W, H, hue, dt);
 
   /* --- second visual layer (geometric/spectral overlay) --- */
-  drawLayerB(W, H, hue, dt);
+  if (!imgCoverMode) drawLayerB(W, H, hue, dt);
 
   /* --- bloom: cheap downscale-upscale glow pass --- */
   if (P.bloom > 0.05 && bloomC.width > 2) {
@@ -13546,8 +13552,7 @@ function initImageLayerV99() {
     });
   };
 
-  wireImageLayer("img", S.image);
-  wireImageLayer("img2", S.image2);
+  /* modes added when buildImageLayer() wires controls */
 }
 
 function initDnaAndImageV99() {
@@ -13735,15 +13740,7 @@ function patchDnaShortcutAndPresetsB() {
 }
 
 function wireDnaShortcut() {
-  if (document.body.dataset.dnaKeyV100) return;
-  document.body.dataset.dnaKeyV100 = "1";
-  document.addEventListener("keydown", e => {
-    if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
-    if ((e.key === "d" || e.key === "D") && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault();
-      toggleDna();
-    }
-  });
+  /* D handled in main keyboard block (same as P) — no second listener */
 }
 
 function patchHelpDnaShortcut() {
@@ -13767,6 +13764,45 @@ function initDnaShortcutAndImagePresetsB() {
 }
 
 
+/* ============================================================
+   v101 — Fix DNA toggle double-fire + cover-only image visibility
+   ============================================================ */
+
+function imageLayerActive(IM) {
+  return !!(IM && IM.on && IM.img);
+}
+
+function drawImageLayersFront(W, H, hue, dt) {
+  const mix = imgMix();
+  drawImageLayer(S.image, W, H, hue, dt, mix.a);
+  drawImageLayer(S.image2, W, H, hue, dt, mix.b);
+}
+
+function patchApplyImagePresetHint() {
+  const _apply = applyImagePreset;
+  applyImagePreset = function (id) {
+    const p = IMAGE_PRESETS.find(x => x.id === id);
+    if (p && !imageLayerActive(S.image) && !S.image.img) {
+      if (typeof showAppToast === "function") showAppToast("Zuerst Bild A hochladen", 2400);
+      return;
+    }
+    _apply(id);
+  };
+  const _applyB = applyImagePresetB;
+  applyImagePresetB = function (id) {
+    if (!S.image2.img) {
+      if (typeof showAppToast === "function") showAppToast("Zuerst Bild B hochladen", 2400);
+      return;
+    }
+    _applyB(id);
+  };
+}
+
+function initDnaCoverFixV101() {
+  patchApplyImagePresetHint();
+}
+
+
 /* ---- boot ---- */
 buildSliders();
 buildFX();
@@ -13786,6 +13822,7 @@ initImageLayerV67();
 initImageLayerV68();
 initDnaAndImageV99();
 initDnaShortcutAndImagePresetsB();
+initDnaCoverFixV101();
 initLaunchOnboarding();
 initFreemium();
 initSceneBank();

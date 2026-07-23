@@ -266,8 +266,7 @@ function initImageLayerV99() {
     });
   };
 
-  wireImageLayer("img", S.image);
-  wireImageLayer("img2", S.image2);
+  /* modes added when buildImageLayer() wires controls */
 }
 
 function initDnaAndImageV99() {

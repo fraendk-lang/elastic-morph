@@ -172,15 +172,7 @@ function patchDnaShortcutAndPresetsB() {
 }
 
 function wireDnaShortcut() {
-  if (document.body.dataset.dnaKeyV100) return;
-  document.body.dataset.dnaKeyV100 = "1";
-  document.addEventListener("keydown", e => {
-    if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
-    if ((e.key === "d" || e.key === "D") && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault();
-      toggleDna();
-    }
-  });
+  /* D handled in main keyboard block (same as P) — no second listener */
 }
 
 function patchHelpDnaShortcut() {
