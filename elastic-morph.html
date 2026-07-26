@@ -13951,6 +13951,673 @@ function initCoverExportV102() {
 }
 
 
+/* ============================================================
+   v103 — Calm Match: ruhige Tracks → Tape/Vinyl, Ruhe↔Punch
+   ============================================================ */
+
+const CALM_LOOK_ENGINES = ["tape", "vinyl", "oscilloscope", "lissajous", "sacred"];
+const CALM_LOOK_IDS = ["tape", "vinyl", "liquid", "dust", "sgFlower"];
+
+function trackCalmProfile() {
+  if (!S.energyCurve || !S.energyCurve.length) {
+    return { calm: 0, isCalm: false, avg: 0.5, peak: 0.5, bpm: S.bpm || 120 };
+  }
+  const avg = S.energyCurve.reduce((a, b) => a + b, 0) / S.energyCurve.length;
+  const peak = Math.max(...S.energyCurve);
+  const bpm = S.bpm || 120;
+  let calm = 0;
+  if (avg < 0.42) calm += 0.35;
+  else if (avg < 0.52) calm += 0.2;
+  if (bpm < 95) calm += 0.3;
+  else if (bpm < 110) calm += 0.15;
+  if (peak < 0.55) calm += 0.2;
+  else if (peak < 0.68) calm += 0.08;
+  calm = Math.min(1, calm);
+  return { calm, isCalm: calm >= 0.45, avg, peak, bpm };
+}
+
+function calmBeatMul() {
+  const lv = S.calmLevel != null ? S.calmLevel : 0.5;
+  return 0.22 + lv * 0.78;
+}
+
+function syncCalmMixUI() {
+  if (typeof syncMixUI === "function") syncMixUI();
+  else {
+    if ($("mixSmooth")) {
+      $("mixSmooth").value = Math.round((S.mix.smooth || 0) * 100);
+      $("mixSmoothVal").textContent = Math.round((S.mix.smooth || 0) * 100);
+    }
+    if ($("mixBeat")) {
+      $("mixBeat").value = Math.round((S.mix.beatThresh || 0.04) * 100);
+      $("mixBeatVal").textContent = Math.round((S.mix.beatThresh || 0.04) * 100);
+    }
+    if ($("mixAuto")) $("mixAuto").checked = !!S.mix.autoLevel;
+  }
+  if ($("gainSel")) {
+    $("gainSel").value = Math.round((S.gain || 1) * 100);
+    $("gainVal").textContent = (S.gain || 1).toFixed(1) + "×";
+  }
+}
+
+function syncCalmSliderUI() {
+  const sl = $("creatorCalmSlider");
+  const val = $("creatorCalmVal");
+  if (!sl) return;
+  const lv = S.calmLevel != null ? S.calmLevel : 0.5;
+  sl.value = Math.round(lv * 100);
+  if (val) {
+    if (lv < 0.22) val.textContent = "Ruhe";
+    else if (lv > 0.78) val.textContent = "Punch";
+    else val.textContent = Math.round(lv * 100) + "%";
+  }
+}
+
+function syncCalmSliderFromProfile() {
+  const prof = trackCalmProfile();
+  if (!prof.isCalm) return;
+  const lv = Math.max(0.05, 0.42 - prof.calm * 0.38);
+  S.calmLevel = lv;
+  syncCalmSliderUI();
+}
+
+function applyCalmMatch(level, opts) {
+  level = Math.max(0, Math.min(1, +level));
+  S.calmLevel = level;
+  const ruhe = 1 - level;
+
+  S.mix.smooth = 0.12 + ruhe * 0.68;
+  S.mix.beatThresh = 0.022 + ruhe * 0.058;
+  S.mix.autoLevel = level > 0.62;
+  S.mix.bass = 0.9 + level * 0.28;
+  S.mix.mid = 0.94 + level * 0.16;
+  S.mix.high = 0.97 + level * 0.08;
+  S.gain = 0.82 + level * 0.28;
+
+  syncCalmMixUI();
+  syncCalmSliderUI();
+
+  if (opts && opts.applyLook) {
+    const picks = suggestSmartLooks();
+    const pick = picks.find(p =>
+      CALM_LOOK_ENGINES.includes(p.engine) || CALM_LOOK_IDS.includes(p.id));
+    if (pick && typeof applyPreset === "function") applyPreset(pick);
+  }
+  if (typeof updateCreatorDock === "function") updateCreatorDock();
+}
+
+function applyCalmPreset() {
+  applyCalmMatch(0.06, { applyLook: true });
+  if (typeof showAppToast === "function") {
+    showAppToast("Ruhe-Modus — Tape/Vinyl, sanfter Beat", 3600);
+  }
+}
+
+function injectCalmMatchUI() {
+  if (document.getElementById("creatorCalmRow")) return;
+  const opts = document.querySelector("#creatorDock .cr-opts");
+  if (!opts) return;
+
+  const row = document.createElement("div");
+  row.id = "creatorCalmRow";
+  row.className = "cr-calm-row";
+  row.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;width:100%";
+  row.innerHTML =
+    '<button type="button" class="btn cr-sm" id="creatorCalmBtn" title="Sanfter Look für ruhige Songs">☁ Ruhig</button>' +
+    '<span style="font-size:11px;color:var(--text-dim)">Ruhe</span>' +
+    '<input type="range" id="creatorCalmSlider" min="0" max="100" value="50" style="flex:1;min-width:80px;max-width:160px" aria-label="Ruhe bis Punch">' +
+    '<span style="font-size:11px;color:var(--text-dim)">Punch</span>' +
+    '<span class="val" id="creatorCalmVal" style="font-size:10px;min-width:42px">—</span>';
+
+  opts.insertAdjacentElement("afterend", row);
+  $("creatorCalmBtn")?.addEventListener("click", applyCalmPreset);
+  $("creatorCalmSlider")?.addEventListener("input", e => applyCalmMatch(+e.target.value / 100));
+  syncCalmSliderUI();
+}
+
+function patchCalmScoring() {
+  const _score = scorePresetForTrack;
+  scorePresetForTrack = function (p) {
+    let s = _score(p);
+    const prof = trackCalmProfile();
+    if (!prof.isCalm) return s;
+    const eng = p.engine || "blob";
+    const id = p.id || "";
+    if (eng === "tape" || eng === "vinyl") s += 4 + prof.calm * 2.5;
+    if (eng === "oscilloscope" || eng === "lissajous") s += 2.5 + prof.calm;
+    if (eng === "sacred") s += 2 + prof.calm * 0.6;
+    if (id === "liquid" || id === "dust") s += 2.2;
+    if (eng === "dance" || id === "danceClub" || id === "danceDisco" || id === "clubStrobe" || id === "hardGroove") {
+      s -= 3 + prof.calm * 2.5;
+    }
+    return s;
+  };
+}
+
+function patchCalmEngines() {
+  const wrapBeat = fn => function (base, hue, growthF, energySize, seed) {
+    const bm = calmBeatMul();
+    const beatSave = S.beat;
+    S.beat = beatSave * bm;
+    fn(base, hue, growthF, energySize, seed);
+    S.beat = beatSave;
+  };
+  if (typeof drawTape === "function") drawTape = wrapBeat(drawTape);
+  if (typeof drawVinyl === "function") drawVinyl = wrapBeat(drawVinyl);
+  if (typeof drawOscilloscope === "function") drawOscilloscope = wrapBeat(drawOscilloscope);
+}
+
+function patchCalmFlow() {
+  patchCalmScoring();
+
+  const _applyFirstSmartLook = applyFirstSmartLook;
+  applyFirstSmartLook = function () {
+    _applyFirstSmartLook();
+    if (typeof isBundledDemoShowcase === "function" && isBundledDemoShowcase()) return;
+    const prof = trackCalmProfile();
+    if (prof.isCalm) {
+      applyCalmMatch(Math.max(0.05, 0.44 - prof.calm * 0.38), { applyLook: false });
+      if (typeof showAppToast === "function") {
+        showAppToast("Ruhiger Track erkannt — Tape/Vinyl empfohlen · Ruhe-Slider unten", 4200);
+      }
+    }
+  };
+
+  const _renderSmartLooks = renderSmartLooks;
+  renderSmartLooks = function () {
+    _renderSmartLooks();
+    const prof = trackCalmProfile();
+    const host = $("smartLookRow");
+    if (!host || !prof.isCalm || !S.energyCurve) return;
+    const hint = document.createElement("p");
+    hint.className = "note";
+    hint.style.marginTop = "6px";
+    hint.textContent = "☁ Ruhiger Track — Tape Machine & Vinyl passen besonders gut.";
+    host.appendChild(hint);
+  };
+
+  const _updateCreatorDock = updateCreatorDock;
+  updateCreatorDock = function () {
+    _updateCreatorDock();
+    const prof = trackCalmProfile();
+    const btn = $("creatorCalmBtn");
+    if (btn && S.energyCurve) {
+      btn.classList.toggle("primary", prof.isCalm && (S.calmLevel == null || S.calmLevel < 0.35));
+    }
+  };
+}
+
+function initCalmMatchV103() {
+  if (S.calmLevel == null) S.calmLevel = 0.5;
+  patchCalmEngines();
+  patchCalmFlow();
+  injectCalmMatchUI();
+}
+
+
+/* ============================================================
+   v104 — Lyrics Studio: Flow, DE, Presets, Creator-Dock
+   ============================================================ */
+
+const LYRICS_STUDIO_PRESETS = [
+  {
+    id: "karaoke", name: "Karaoke", textPresetId: "karaoke",
+    hint: "Groß, unten — Karaoke-Wipe"
+  },
+  {
+    id: "untertitel", name: "Untertitel",
+    show: true, pos: "bc", font: "sans", color: "white", anim: "fade", size: 0.92,
+    style: "fill", plate: true, shadow: true, lower: false, circle: false,
+    upper: false, weight: "500", track: 1, blend: "source-over", plateOpacity: 0.58,
+    hint: "Dezent unten — wie Untertitel"
+  },
+  {
+    id: "poster", name: "Poster",
+    show: true, pos: "c", font: "poster", color: "white", anim: "breathe", size: 1.48,
+    style: "outline", plate: false, shadow: true, lower: false, circle: false,
+    upper: false, weight: "900", track: 2, blend: "source-over",
+    hint: "Eine Zeile, viel Luft in der Mitte"
+  }
+];
+
+function applyLyricsStudioPreset(id) {
+  const p = LYRICS_STUDIO_PRESETS.find(x => x.id === id);
+  if (!p) return;
+  if (p.textPresetId && typeof applyTextPreset === "function") {
+    applyTextPreset(p.textPresetId);
+  } else {
+    S.textShow = !!p.show;
+    S.textPos = p.pos || "bc";
+    S.textFont = p.font || "sans";
+    S.textColor = p.color || "white";
+    S.textAnim = p.anim || "fade";
+    S.textSize = p.size != null ? p.size : 1;
+    S.textStyle = p.style || "fill";
+    S.textPlate = !!p.plate;
+    S.textShadow = !!p.shadow;
+    S.textLower = !!p.lower;
+    S.textCircle = !!p.circle;
+    S.textUpper = !!p.upper;
+    S.textWeight = p.weight || "auto";
+    S.textTrack = p.track != null ? p.track : 0;
+    S.textBlend = p.blend || "source-over";
+    if (p.plateOpacity != null) S.textPlateOpacity = p.plateOpacity;
+    S.textPresetId = "lyrics-" + id;
+    if (typeof syncTextPresetUI === "function") syncTextPresetUI();
+    if (typeof restartType === "function") restartType();
+  }
+  S.lyrics.on = true;
+  S.textShow = true;
+  const lyrOn = $("lyrOn"); if (lyrOn) lyrOn.checked = true;
+  const textShow = $("textShow"); if (textShow) textShow.checked = true;
+  S.lyricsPresetId = id;
+  syncLyricsPresetUI();
+  if (typeof showAppToast === "function") showAppToast("Lyrics: " + p.name, 2400);
+}
+
+function syncLyricsPresetUI() {
+  document.querySelectorAll(".lyr-preset").forEach(el => {
+    el.classList.toggle("active", el.dataset.id === S.lyricsPresetId);
+  });
+  const cr = document.querySelectorAll("#creatorLyricsRow .lyr-preset");
+  cr.forEach(el => el.classList.toggle("active", el.dataset.id === S.lyricsPresetId));
+}
+
+function germanizeLyricsPage() {
+  const page = document.getElementById("page-lyrics");
+  if (!page || page.dataset.lyricsDe === "1") return;
+  page.dataset.lyricsDe = "1";
+  const set = (sel, text) => { const el = page.querySelector(sel); if (el) el.textContent = text; };
+  set("h2", "Lyrics Studio");
+  const sub = page.querySelector(".sub");
+  if (sub) sub.textContent = "Text synchron zum Song — ein Flow: einfügen, timen, Stil wählen, exportieren.";
+  const lyrChk = $("lyrOn");
+  if (lyrChk && lyrChk.parentElement && lyrChk.parentElement.tagName === "LABEL") {
+    const lbl = lyrChk.parentElement;
+    let hasText = false;
+    lbl.childNodes.forEach(n => {
+      if (n.nodeType === 3) { n.textContent = " Text auf dem Canvas anzeigen"; hasText = true; }
+    });
+    if (!hasText) lbl.appendChild(document.createTextNode(" Text auf dem Canvas anzeigen"));
+  }
+  set("#lrcBtn", "📄 .lrc importieren");
+  const note = page.querySelector(".lyr-col .note");
+  if (note) note.textContent = "…oder Zeilen unten einfügen (eine pro Zeile), dann Tap-Sync starten.";
+  set("#tapStartBtn", "▶ Tap-Sync starten");
+  set("#tapBtn", "Zeile antippen (T)");
+  set("#tapUndoBtn", "Zurück");
+  set("#cueClearBtn", "Alle Cues löschen");
+  const offLbl = page.querySelector(".slider-row label");
+  if (offLbl) offLbl.childNodes[0].textContent = "Sync-Offset ";
+  const h3s = page.querySelectorAll(".lyr-col h3");
+  if (h3s[0]) h3s[0].textContent = "Import / Schreiben";
+  if (h3s[1]) h3s[1].textContent = "Tap-Sync";
+  if (h3s[2]) h3s[2].textContent = "Cues";
+  const tapNote = page.querySelectorAll(".lyr-col .note")[1];
+  if (tapNote) tapNote.innerHTML = "Auf <b>Start</b> tippen — der Track läuft von vorn. Bei jeder Zeile <b>T</b> oder den Button drücken.";
+}
+
+function injectLyricsPresetRow() {
+  const page = document.getElementById("page-lyrics");
+  if (!page || document.getElementById("lyricsPresetRow")) return;
+  const chk = page.querySelector("#lyrOn");
+  if (!chk || !chk.parentElement) return;
+  const row = document.createElement("div");
+  row.id = "lyricsPresetRow";
+  row.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px;max-width:900px";
+  row.innerHTML = '<span style="font-size:11px;color:var(--text-dim)">Stil:</span>';
+  LYRICS_STUDIO_PRESETS.forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn lyr-preset";
+    b.dataset.id = p.id;
+    b.title = p.hint || p.name;
+    b.textContent = p.name;
+    b.addEventListener("click", () => applyLyricsStudioPreset(p.id));
+    row.appendChild(b);
+  });
+  chk.parentElement.insertAdjacentElement("afterend", row);
+
+  const preview = document.createElement("div");
+  preview.id = "lyricsLivePreview";
+  preview.className = "tap-next";
+  preview.style.marginBottom = "14px";
+  preview.style.maxWidth = "900px";
+  preview.innerHTML = '<span style="color:var(--text-dim)">Live:</span> <b id="lyricsLiveLine">—</b>';
+  row.insertAdjacentElement("afterend", preview);
+}
+
+function injectCreatorLyricsRow() {
+  if (document.getElementById("creatorLyricsRow")) return;
+  const calm = document.getElementById("creatorCalmRow");
+  const anchor = calm || document.querySelector("#creatorDock .cr-opts");
+  if (!anchor) return;
+  const row = document.createElement("div");
+  row.id = "creatorLyricsRow";
+  row.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;width:100%";
+  row.innerHTML =
+    '<label class="check" style="font-size:11px"><input type="checkbox" id="creatorLyricsOn"> Lyrics</label>' +
+    '<span style="font-size:10px;color:var(--text-dim)">Stil:</span>';
+  LYRICS_STUDIO_PRESETS.forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn cr-sm lyr-preset";
+    b.dataset.id = p.id;
+    b.textContent = p.name;
+    b.title = p.hint || p.name;
+    b.style.fontSize = "10px";
+    b.addEventListener("click", () => {
+      applyLyricsStudioPreset(p.id);
+      if (typeof setUiMode === "function" && S.uiMode !== "pro") setUiMode("pro");
+      if (typeof setMode === "function") setMode("lyrics");
+    });
+    row.appendChild(b);
+  });
+  const line = document.createElement("span");
+  line.id = "creatorLyricsLine";
+  line.style.cssText = "font-size:10px;color:var(--text-dim);flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+  line.textContent = "—";
+  row.appendChild(line);
+  anchor.insertAdjacentElement("afterend", row);
+
+  $("creatorLyricsOn")?.addEventListener("change", e => {
+    S.lyrics.on = e.target.checked;
+    S.textShow = e.target.checked;
+    const lyrOn = $("lyrOn"); if (lyrOn) lyrOn.checked = e.target.checked;
+    const textShow = $("textShow"); if (textShow) textShow.checked = e.target.checked;
+  });
+}
+
+function updateLyricsLivePreview() {
+  const { line } = currentLyric();
+  const txt = line && line.text ? line.text : "—";
+  const live = document.getElementById("lyricsLiveLine");
+  if (live && live.textContent !== txt) live.textContent = txt;
+  const cr = document.getElementById("creatorLyricsLine");
+  if (cr) {
+    const short = S.lyrics.on && line ? txt : (S.lyrics.cues.length ? "Lyrics bereit" : "—");
+    if (cr.textContent !== short) cr.textContent = short;
+  }
+  const crOn = document.getElementById("creatorLyricsOn");
+  if (crOn && crOn.checked !== !!S.lyrics.on) crOn.checked = !!S.lyrics.on;
+}
+
+function patchLyricsCueList() {
+  renderCueList = function () {
+    const host = $("cueList"); if (!host) return;
+    host.innerHTML = "";
+    S.lyrics.cues.forEach((c, i) => {
+      const row = document.createElement("div");
+      row.className = "cue-row";
+      row.innerHTML =
+        '<span class="ct" title="Springen">' + fmtTime(c.t) + '</span>' +
+        '<span class="cx"></span>' +
+        '<span class="cn" title="0,25 s früher" style="cursor:pointer;padding:0 3px;color:var(--text-dim)">◀</span>' +
+        '<span class="cp" title="0,25 s später" style="cursor:pointer;padding:0 3px;color:var(--text-dim)">▶</span>' +
+        '<span class="cd" title="Löschen">×</span>';
+      row.querySelector(".cx").textContent = c.text || "♪";
+      row.querySelector(".ct").addEventListener("click", () => seekSeconds(c.t));
+      row.querySelector(".cn").addEventListener("click", e => {
+        e.stopPropagation();
+        c.t = Math.max(0, +(c.t - 0.25).toFixed(3));
+        renderCueList();
+      });
+      row.querySelector(".cp").addEventListener("click", e => {
+        e.stopPropagation();
+        c.t = +(c.t + 0.25).toFixed(3);
+        renderCueList();
+      });
+      row.querySelector(".cd").addEventListener("click", () => {
+        S.lyrics.cues.splice(i, 1);
+        renderCueList();
+      });
+      host.appendChild(row);
+    });
+    lastCueHL = -2;
+  };
+}
+
+function patchLyricsFlow() {
+  patchLyricsCueList();
+
+  const _updateTapNext = updateTapNext;
+  updateTapNext = function () {
+    _updateTapNext();
+    const tp = S.lyrics.tap, el = $("tapNext");
+    if (!el || !tp.active) return;
+    if (tp.active && tp.next < tp.lines.length) {
+      const ln = (tp.lines[tp.next] || "").trim() || "♪ (Instrumental — tippen zum Markieren)";
+      el.innerHTML = "Zeile " + (tp.next + 1) + " / " + tp.lines.length + ": <b>" + ln.replace(/</g, "&lt;") + "</b>";
+    } else if (!tp.active && S.lyrics.cues.length) {
+      el.textContent = "Fertig — " + S.lyrics.cues.length + " Zeilen getimed";
+    }
+  };
+
+  const _tapStart = tapStart;
+  tapStart = function () {
+    const lines = $("lyrText").value.split(/\r?\n/);
+    if (lines.every(l => !l.trim())) {
+      if (typeof showAppToast === "function") showAppToast("Zuerst Zeilen einfügen (eine pro Zeile)", 3200);
+      else alert("Zuerst Zeilen einfügen (eine pro Zeile).");
+      return;
+    }
+    _tapStart();
+    if (!S.lyricsPresetId) applyLyricsStudioPreset("untertitel");
+  };
+
+  const lrcInput = $("lrcInput");
+  if (lrcInput) {
+    const _handler = lrcInput.onchange;
+    lrcInput.addEventListener("change", function onLrc(e) {
+      setTimeout(() => {
+        if (S.lyrics.cues.length && !S.lyricsPresetId) applyLyricsStudioPreset("untertitel");
+      }, 0);
+    }, true);
+  }
+
+  const _updateUI = updateUI;
+  updateUI = function () {
+    _updateUI();
+    updateLyricsLivePreview();
+  };
+}
+
+function initLyricsStudioV104() {
+  if (S.lyricsPresetId == null) S.lyricsPresetId = "";
+  germanizeLyricsPage();
+  injectLyricsPresetRow();
+  injectCreatorLyricsRow();
+  patchLyricsFlow();
+  updateTapNext();
+}
+
+
+/* ============================================================
+   v105 — Music Objects: Cassette + Waveform Monitor
+   ============================================================ */
+
+function drawCassette(base, hue, growthF, energySize, seed) {
+  const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
+  const w = mn * 0.68 * growthF, h = mn * 0.4 * (0.92 + growthF * 0.08), y0 = -mn * 0.04;
+  const rot = S.time * 1.05 + S.beat * 0.09;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#14110c";
+  ctx.fillRect(-w / 2 - mn * 0.02, y0 - h / 2 - mn * 0.02, w + mn * 0.04, h + mn * 0.04);
+  ctx.fillStyle = "#221c14";
+  ctx.fillRect(-w / 2, y0 - h / 2, w, h);
+  ctx.strokeStyle = "rgba(90,75,55,0.55)";
+  ctx.lineWidth = Math.max(1, mn * 0.0025);
+  ctx.strokeRect(-w / 2, y0 - h / 2, w, h);
+  const lw = w * 0.52, lh = h * 0.42;
+  const lg = ctx.createLinearGradient(0, y0 - lh / 2, 0, y0 + lh / 2);
+  lg.addColorStop(0, `hsl(${hue % 360},${P.sat}%,${54 + S.loudness * 10}%)`);
+  lg.addColorStop(1, `hsl(${(hue + 28) % 360},${Math.max(40, P.sat - 8)}%,38%)`);
+  ctx.fillStyle = lg;
+  ctx.fillRect(-lw / 2, y0 - lh / 2, lw, lh);
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.strokeRect(-lw / 2, y0 - lh / 2, lw, lh);
+  [[-lw * 0.24, 1], [lw * 0.24, -1]].forEach(([rx, dir]) => {
+    const reelR = lh * 0.34;
+    ctx.save();
+    ctx.translate(rx, y0);
+    ctx.rotate(rot * dir);
+    ctx.fillStyle = "#0c0c10";
+    ctx.beginPath(); ctx.arc(0, 0, reelR, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = "rgba(210,200,180,0.45)";
+    ctx.lineWidth = Math.max(1.2, reelR * 0.14);
+    ctx.beginPath(); ctx.arc(0, 0, reelR * 0.72, 0, 6.2832); ctx.stroke();
+    ctx.fillStyle = `hsl(${(hue + 40) % 360},${P.sat}%,52%)`;
+    ctx.beginPath(); ctx.arc(0, 0, reelR * 0.16, 0, 6.2832); ctx.fill();
+    ctx.restore();
+  });
+  ctx.fillStyle = "rgba(20,16,12,0.85)";
+  ctx.fillRect(-w * 0.12, y0 + h * 0.08, w * 0.24, h * 0.14);
+  ctx.globalCompositeOperation = "lighter";
+  const v = 0.35 + S.loudness * 0.55;
+  ctx.fillStyle = `hsla(${(hue + 60) % 360},70%,58%,${v * 0.35})`;
+  ctx.fillRect(-w * 0.04, y0 + h * 0.1, w * 0.08 * v, h * 0.08);
+  ctx.restore();
+}
+
+function drawWaveformMonitor(base, hue, growthF, energySize, seed) {
+  const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
+  const W = mn * 0.82, H = mn * 0.34 * growthF, y0 = -mn * 0.02;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#06080c";
+  ctx.fillRect(-W / 2 - 4, y0 - H / 2 - 4, W + 8, H + 8);
+  ctx.strokeStyle = "rgba(100,120,150,0.4)";
+  ctx.lineWidth = Math.max(1, mn * 0.002);
+  ctx.strokeRect(-W / 2, y0 - H / 2, W, H);
+  for (let g = -2; g <= 2; g++) {
+    ctx.strokeStyle = "rgba(80,95,120,0.12)";
+    ctx.beginPath();
+    ctx.moveTo(-W / 2, y0 + (g / 2) * H * 0.85);
+    ctx.lineTo(W / 2, y0 + (g / 2) * H * 0.85);
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "lighter";
+  const n = Math.round(100 + 60 * (S.exporting ? S.exportScale : S.perfScale));
+  const drawWave = (yOff, amp, col, alpha) => {
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const x = -W / 2 + (i / n) * W;
+      const t = S.time * 1.6 + i * 0.11 + seed + yOff;
+      const y = y0 + yOff + Math.sin(t) * amp * S.bass * H * 0.42
+        + Math.sin(t * 2.4 + 1) * amp * S.mids * H * 0.28
+        + Math.sin(t * 5.2) * amp * S.highs * H * 0.14;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = `hsla(${col % 360}, ${P.sat}%, 62%, ${alpha})`;
+    ctx.lineWidth = Math.max(1.2, mn * 0.0035);
+    ctx.stroke();
+  };
+  drawWave(0, 1, hue, 0.55 + S.loudness * 0.35);
+  drawWave(H * 0.06, 0.55, (hue + 40) % 360, 0.22 + S.beat * 0.12);
+  ctx.fillStyle = `hsla(${hue % 360},50%,55%,${0.08 + S.loudness * 0.12})`;
+  ctx.fillRect(-W / 2, y0 - H / 2, W * S.progress, H);
+  ctx.restore();
+}
+
+function chainMusicObjectDraw() {
+  const prevTape = drawTape;
+  drawTape = function (base, hue, growthF, energySize, seed) {
+    if (S.preset && S.preset.id === "cassette") return drawCassette(base, hue, growthF, energySize, seed);
+    return prevTape(base, hue, growthF, energySize, seed);
+  };
+  const prevOsc = drawOscilloscope;
+  drawOscilloscope = function (base, hue, growthF, energySize, seed) {
+    if (S.preset && S.preset.id === "waveformMonitor") return drawWaveformMonitor(base, hue, growthF, energySize, seed);
+    return prevOsc(base, hue, growthF, energySize, seed);
+  };
+}
+
+function appendPresetCards(adds) {
+  const grid = $("presetGrid");
+  const sel = $("blendSelect");
+  if (!grid) return;
+  adds.forEach(p => {
+    if (PRESETS.find(x => x.id === p.id)) return;
+    PRESETS.push(p);
+    const i = PRESETS.length - 1;
+    const card = document.createElement("div");
+    card.className = "preset-card" + (p === S.preset ? " active" : "");
+    const accent = p.gradient[p.gradient.length - 1] || "#b14bff";
+    card.style.setProperty("--card-accent", accent);
+    const eng = (p.engine || "blob").toUpperCase();
+    card.innerHTML = '<div class="pc-head"><span class="pc-num">' + String(i + 1).padStart(2, "0") + '</span><h4>' + p.name + '</h4></div>' +
+      '<canvas class="pcanvas" width="170" height="48" style="background:linear-gradient(120deg, ' + p.gradient.join(",") + ')"></canvas>' +
+      '<p>' + p.desc + '</p><div class="pc-tags"><span class="pc-tag">' + eng + '</span></div>';
+    card.addEventListener("click", () => {
+      if (typeof applyPreset === "function") applyPreset(p);
+      else {
+        S.preset = p;
+        document.querySelectorAll("#presetGrid .preset-card").forEach(c => c.classList.remove("active"));
+        card.classList.add("active");
+        if (typeof updateBadge === "function") updateBadge();
+        if (typeof spawnParticles === "function") spawnParticles();
+      }
+    });
+    grid.appendChild(card);
+    if (sel) {
+      const o = document.createElement("option");
+      o.value = p.id; o.textContent = p.name;
+      sel.appendChild(o);
+    }
+  });
+}
+
+function registerMusicObjectPresets() {
+  const adds = [
+    {
+      id: "cassette", name: "Cassette",
+      desc: "Kompakt-Kassette mit sichtbaren Spulen & Label — 80er, Indie, Lo-Fi, Bedroom Pop.",
+      hue: 18, hueEnd: 42, sat: 74, bgFade: 0.48,
+      layers: 1, points: 0, noiseAmp: 0, speed: 0.38,
+      particles: 0, particleStyle: "soft", symmetry: 1,
+      verticalStretch: 1.0, grain: 0.09, lineMode: false, petals: 0, glass: false,
+      motion: "orbit", flowBias: 0, constellation: false, bloom: 0.42, waveRing: false,
+      engine: "tape",
+      gradient: ["#120c06", "#5a3818", "#e8a040"]
+    },
+    {
+      id: "waveformMonitor", name: "Waveform Monitor",
+      desc: "Klassisches Wellenform-Display — minimal, modern, Studio. Ambient, Electronica, Podcast.",
+      hue: 175, hueEnd: 220, sat: 78, bgFade: 0.42,
+      layers: 1, points: 0, noiseAmp: 0, speed: 0.45,
+      particles: 0, particleStyle: "soft", symmetry: 1,
+      verticalStretch: 1.0, grain: 0.04, lineMode: false, petals: 0, glass: false,
+      motion: "orbit", flowBias: 0, constellation: false, bloom: 0.48, waveRing: false,
+      engine: "oscilloscope",
+      gradient: ["#040810", "#0c2840", "#40c8e8"]
+    }
+  ];
+  appendPresetCards(adds);
+}
+
+function patchCalmScoringMusicObjects() {
+  if (typeof scorePresetForTrack !== "function") return;
+  const _score = scorePresetForTrack;
+  scorePresetForTrack = function (p) {
+    let s = _score(p);
+    const prof = typeof trackCalmProfile === "function" ? trackCalmProfile() : { isCalm: false, calm: 0 };
+    if (!prof.isCalm) return s;
+    if (p.id === "cassette" || p.id === "waveformMonitor") s += 3.5 + prof.calm * 1.5;
+    return s;
+  };
+}
+
+function initMusicObjectsV105() {
+  chainMusicObjectDraw();
+  patchCalmScoringMusicObjects();
+}
+
+function registerMusicObjectPresetsAfterBuild() {
+  registerMusicObjectPresets();
+}
+
+
 /* ---- boot ---- */
 buildSliders();
 buildFX();
@@ -13997,6 +14664,8 @@ if (typeof initRealtimeExportStability === "function") initRealtimeExportStabili
 if (typeof initClubBeat === "function") initClubBeat();
 if (typeof initClubPresets === "function") initClubPresets();
 if (typeof initDemoShowcase === "function") initDemoShowcase();
+if (typeof initCalmMatchV103 === "function") initCalmMatchV103();
+if (typeof initMusicObjectsV105 === "function") initMusicObjectsV105();
 if (typeof initDemoFastStart === "function") initDemoFastStart();
 if (typeof initRealtimeExportGracefulStop === "function") initRealtimeExportGracefulStop();
 if (typeof initLayerBShortcut === "function") initLayerBShortcut();
@@ -14005,8 +14674,10 @@ buildParticleMode();
 buildImageLayer();
 buildLayerB();
 buildShader();
-buildLyrics();
+if (typeof registerMusicObjectPresetsAfterBuild === "function") registerMusicObjectPresetsAfterBuild();
 buildPresets();
+buildLyrics();
+if (typeof initLyricsStudioV104 === "function") initLyricsStudioV104();
 renderCustoms();
 drawDnaFingerprintPreview();
 renderSongMap();

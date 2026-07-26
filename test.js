@@ -137,6 +137,12 @@ ok("v100 dna key main", script.includes('if (typeof toggleDna === "function") to
 ok("v101 cover mode", script.includes("drawImageLayersFront") && script.includes("imgCoverMode"));
 ok("v102 cover export", script.includes("applyCoverExportPreset") && script.includes("COVER_EXPORT_PRESETS"));
 ok("v102 cover boot", script.includes("initCoverExportV102()"));
+ok("v103 calm match", script.includes("trackCalmProfile") && script.includes("applyCalmMatch") && script.includes("calmBeatMul"));
+ok("v103 calm boot", script.includes("initCalmMatchV103()"));
+ok("v104 lyrics studio", script.includes("initLyricsStudioV104") && script.includes("applyLyricsStudioPreset"));
+ok("v104 lyrics presets", script.includes("LYRICS_STUDIO_PRESETS") && script.includes("Lyrics Studio"));
+ok("v105 music objects", script.includes("drawCassette") && script.includes("drawWaveformMonitor"));
+ok("v105 cassette preset", script.includes('id: "cassette"') && script.includes('id: "waveformMonitor"'));
 ok("v101 no duplicate d key", !script.match(/wireDnaShortcut[\s\S]{0,220}addEventListener\("keydown"/));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
