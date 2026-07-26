@@ -145,6 +145,8 @@ ok("v105 music objects", script.includes("drawCassette") && script.includes("dra
 ok("v105 cassette preset", script.includes('id: "cassette"') && script.includes('id: "waveformMonitor"'));
 ok("v105 preset insert after tape", script.includes("tapeIdx") && script.includes("MUSIC_OBJECT_PRESETS"));
 ok("v105 card previews", script.includes("renderMusicObjectCardPreview"));
+ok("v107 social pipeline", script.includes("initSocialPipelineV107") && script.includes("postReadyShortUrl"));
+ok("v107 showcase reel", script.includes("applyShowcaseReelPreset") && script.includes("Showcase · 60s Reel"));
 ok("v101 no duplicate d key", !script.match(/wireDnaShortcut[\s\S]{0,220}addEventListener\("keydown"/));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */

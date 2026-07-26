@@ -91,10 +91,20 @@ Fix-Ideen:
 
 Erst nach **8+ Minuten** ohne Fortschritt — **minimal** eingreifen:
 
+> „Unten **Showcase · 60s Reel** tippen, dann **⤓ HQ Export**.“
+
+Oder:
+
 > „Unten Format **9:16** wählen, dann den runden **● Export** Button.“
 
 Das zählt als **teilweise Fail** — trotzdem notieren.
 
 ---
 
-*Siehe auch: [REEL-EXPORT.md](REEL-EXPORT.md)*
+## Nach erfolgreichem Export (optional Pipeline)
+
+Tester darf **In Post-Ready optimieren** im Erfolgs-Dialog nutzen — gleicher Social-Workflow wie du.
+
+---
+
+*Siehe auch: [REEL-EXPORT.md](REEL-EXPORT.md) · [SHOWCASE-CLIPS.md](SHOWCASE-CLIPS.md)*
