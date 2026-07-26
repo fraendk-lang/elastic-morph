@@ -15,7 +15,16 @@ MP3 neu erzeugen aus WAV:
 
 ```bash
 npm run encode:demo
+npm run check:demo
 ```
+
+Universe-Embed syncen (nach Build):
+
+```bash
+npm run sync:universe
+```
+
+Kopiert `elastic-morph.html`, `sw.js` und Demo-MP3 nach `elastic-universe-landing/public/morph/`.
 
 ## Prüfen
 

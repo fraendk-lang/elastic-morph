@@ -10,6 +10,7 @@
     "test:e2e": "playwright test",
     "check:demo": "node scripts/check-demo.js",
     "encode:demo": "node scripts/encode-demo-mp3.js",
+    "sync:universe": "node build.js && node scripts/sync-universe-morph.js",
     "ci": "node build.js && node test.js"
   },
   "devDependencies": {

@@ -2,6 +2,8 @@
 
 **Ziel:** Eine Person **ohne Erklärung** exportiert ein Visual in **unter 10 Minuten**.
 
+**Stand:** v110 — Creator Text, ● Direkt Export (mit Ton), Release-Preset für Reels
+
 ---
 
 ## Tester-Profil
@@ -19,7 +21,7 @@
 https://elasticmorph.app
 ```
 
-*(Alternativ direkt: https://elasticmorph.app/elastic-morph.html)*
+*(Alternativ Universe: https://elasticuniverse.app/tools/morph)*
 
 ---
 
@@ -38,11 +40,12 @@ Optional Track: Tester darf **eigenen MP3** laden **oder** den eingebauten Demo-
 |---|--------|----------------------|
 | 1 | Findet **Demo starten** allein? | |
 | 2 | Versteht **Look wählen** (Swipe/Karten)? | |
-| 3 | Findet **Export** (● oder HQ)? | |
-| 4 | Bekommt eine **Datei** (Download)? | |
-| 5 | Erstes Visual — **Wow** oder **hä**? | |
-| 6 | Wo bricht ab? (Schritt 1 / 2 / 3) | |
-| 7 | Zeit bis Export: _____ Min | |
+| 3 | Sieht **Text**-Zeile (Titel/Artist) oder braucht sie nicht? | |
+| 4 | Findet **Export** (● Direkt oder HQ)? | |
+| 5 | Bekommt eine **Datei** (Download)? | |
+| 6 | Erstes Visual — **Wow** oder **hä**? | |
+| 7 | Wo bricht ab? (Schritt 1 / 2 / 3) | |
+| 8 | Zeit bis Export: _____ Min | |
 
 ---
 
@@ -74,9 +77,11 @@ Gerät:
 
 Schritt 1 Demo:
 Schritt 2 Look:
-Schritt 3 Export:
+Schritt 3 Text (optional):
+Schritt 4 Export:
 
 Export-Format (9:16 / 16:9):
+● Direkt oder HQ:
 Datei erhalten: ja/nein
 Gesamtzeit:
 
@@ -91,11 +96,15 @@ Fix-Ideen:
 
 Erst nach **8+ Minuten** ohne Fortschritt — **minimal** eingreifen:
 
-> „Unten **Showcase · 60s Reel** tippen, dann **⤓ HQ Export**.“
+> „Unten **Release** tippen, dann **● Direkt Export** — der runde Button mit dem Punkt.“
 
-Oder:
+Oder für längeren Clip:
 
-> „Unten Format **9:16** wählen, dann den runden **● Export** Button.“
+> „**Showcase · 60s Reel** tippen, dann **● Direkt Export**.“
+
+HQ nur wenn Qualität wirklich nicht reicht:
+
+> „**⤓ HQ Export** — dauert länger und ist stumm während des Exports.“
 
 Das zählt als **teilweise Fail** — trotzdem notieren.
 

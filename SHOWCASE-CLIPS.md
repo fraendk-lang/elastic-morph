@@ -2,15 +2,18 @@
 
 **Ziel:** Drei fertige Clips für TikTok, Instagram und Landing — gleicher Demo-Track (*Dust Reel*), unterschiedliche Looks.
 
-**Zeit pro Clip:** ~15 Minuten (mit v107 Showcase-Preset)
+**Zeit pro Clip:** ~10–15 Minuten (v110 Creator Text + v107 Showcase-Preset)
 
 ---
 
 ## Vorbereitung (einmal)
 
 1. [elasticmorph.app](https://elasticmorph.app) — Hard Refresh (**Cmd+Shift+R**)
-2. **Demo starten** (Dust Reel)
+2. **Demo starten** (Dust Reel — lädt MP3 ~4 MB)
 3. Chrome oder Edge, Laptop
+4. Creator Dock aufklappen — du siehst **Text**- und **Lyrics**-Zeile
+
+**Tipp:** Beim eigenen Track füllen sich **Titel** und **Artist** automatisch aus dem Dateinamen (`Artist - Titel.mp3`).
 
 ---
 
@@ -18,11 +21,13 @@
 
 | Schritt | Aktion |
 |---------|--------|
-| 1 | Creator Dock → **Showcase · 60s Reel** (setzt 9:16 + 60s Export-Bereich + Look) |
-| 2 | Kurz **▶ Play** — Hook prüfen |
-| 3 | **● Direkt Export** — Ton läuft mit · bei ~30–60 s nochmal tippen (**■ Stop + Fade**) |
-| 4 | Optional: **⤓ HQ Export** nur für finale Master-Qualität (langsam, stumm) |
-| 5 | Optional: **In Post-Ready optimieren** → MP4 hochladen |
+| 1 | **Release** tippen → setzt 9:16 + Poster-Text (Titel/Artist aus Demo) |
+| 2 | Optional: Text-Stil **Neon** oder **Untertitel** statt Poster |
+| 3 | **Showcase · 60s Reel** (Export-Bereich + Look) |
+| 4 | Kurz **▶ Play** — Hook + Text prüfen |
+| 5 | **● Direkt Export** — Ton läuft mit · bei ~30–60 s nochmal tippen (**■ Stop + Fade**) |
+| 6 | Optional: **⤓ HQ Export** nur für finale Master-Qualität (langsam, stumm) |
+| 7 | Optional: **In Post-Ready optimieren** → MP4 hochladen |
 
 **Upload:** Instagram Reel / YouTube Short / TikTok  
 **Caption-Idee:** „Visual aus dem Song — Elastic Morph, 100 % im Browser.“
@@ -35,8 +40,9 @@
 |---------|--------|
 | 1 | Creator Dock → **Spotify Canvas** (Cover Export Preset) |
 | 2 | Look: **Liquid Memory** oder **Cassette** (ruhiger Track) |
-| 3 | Export-Bereich **8 Sekunden** (Loop-fähig) |
-| 4 | **⤓ HQ Export** 1:1 |
+| 3 | Text **aus** (Checkbox) — Canvas ohne Titel-Overlay |
+| 4 | Export-Bereich **8 Sekunden** (Loop-fähig) |
+| 5 | **⤓ HQ Export** 1:1 |
 
 **Upload:** Spotify for Artists → Canvas  
 **Hinweis:** Keine harten Schnitte — Loop muss nahtlos wirken.
@@ -49,8 +55,9 @@
 |---------|--------|
 | 1 | Format **16:9** wählen |
 | 2 | Look: **Club Strobe + Laser** (Showcase) oder **Signal Creature** |
-| 3 | Export-Bereich **30s** (beste Stelle manuell setzen) |
-| 4 | **⤓ HQ Export** |
+| 3 | Optional: **Text** an + Titel/Artist für Lower Third (**Neon**) |
+| 4 | Export-Bereich **30s** (beste Stelle manuell setzen) |
+| 5 | **⤓ HQ Export** |
 
 **Verwendung:** Landing-Reel, Website-Hero, YouTube-Teaser
 
@@ -59,6 +66,7 @@
 ## Checkliste vor Veröffentlichung
 
 - [ ] Hochkant = wirklich 9:16 (Clip 1)
+- [ ] Titel/Artist lesbar (nicht zu lang)
 - [ ] Länge ≤ 60s für Shorts
 - [ ] Ende weich (Fade abwarten beim ● Export)
 - [ ] Dateiname notiert (für Post-Ready Pipeline)
@@ -74,4 +82,4 @@
 
 ---
 
-*Elastic Morph v107 · Elastic Universe*
+*Elastic Morph v110 · Elastic Universe*
