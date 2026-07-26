@@ -149,6 +149,10 @@ ok("v107 social pipeline", script.includes("initSocialPipelineV107") && script.i
 ok("v107 showcase reel", script.includes("applyShowcaseReelPreset") && script.includes("Showcase · 60s Reel"));
 ok("v108 export CTA", script.includes("initCreatorExportUXV108") && script.includes("creatorExportCTA"));
 ok("v109 quick export", script.includes("initCreatorQuickExportV109") && script.includes("creatorExportHQ"));
+ok("v110 creator text", script.includes("initCreatorTextV110") && script.includes("creatorTextRow"));
+ok("v110 lyrics sheet", script.includes("creatorLyricsSheet") && script.includes("openCreatorLyricsSheetV110"));
+ok("v110 release card", script.includes("applyReleaseCardPresetV110") && script.includes("creatorReleaseCardBtn"));
+ok("v110 auto fill", script.includes("parseTitleArtistFromFilenameV110") && script.includes("patchLoadFileAutoFillV110"));
 ok("v101 no duplicate d key", !script.match(/wireDnaShortcut[\s\S]{0,220}addEventListener\("keydown"/));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
