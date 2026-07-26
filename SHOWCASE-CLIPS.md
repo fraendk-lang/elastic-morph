@@ -20,8 +20,9 @@
 |---------|--------|
 | 1 | Creator Dock → **Showcase · 60s Reel** (setzt 9:16 + 60s Export-Bereich + Look) |
 | 2 | Kurz **▶ Play** — Hook prüfen |
-| 3 | **⤓ HQ Export** (1080p) |
-| 4 | Optional: **In Post-Ready optimieren** → MP4 hochladen, Audio normalisieren |
+| 3 | **● Direkt Export** — Ton läuft mit · bei ~30–60 s nochmal tippen (**■ Stop + Fade**) |
+| 4 | Optional: **⤓ HQ Export** nur für finale Master-Qualität (langsam, stumm) |
+| 5 | Optional: **In Post-Ready optimieren** → MP4 hochladen |
 
 **Upload:** Instagram Reel / YouTube Short / TikTok  
 **Caption-Idee:** „Visual aus dem Song — Elastic Morph, 100 % im Browser.“

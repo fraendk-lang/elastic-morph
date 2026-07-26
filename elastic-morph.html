@@ -1074,8 +1074,11 @@
           <button type="button" class="cr-fmt" data-w="1" data-h="1">1:1 Square</button>
         </div>
         <div id="creatorExportCTA" class="cr-export-cta" style="display:none" hidden>
-          <button type="button" class="btn primary" id="creatorExportCTAbtn">⤓ Jetzt exportieren</button>
-          <span class="cr-export-hint">Schritt 3 — MP4 für Reels &amp; Shorts</span>
+          <div class="cr-export-btns">
+            <button type="button" class="btn primary" id="creatorExportCTAQuick">● Direkt Export</button>
+            <button type="button" class="btn" id="creatorExportCTAHQ">⤓ HQ Export</button>
+          </div>
+          <span class="cr-export-hint">Direkt = schnell mit Ton · Stop = nochmal tippen · HQ = lang, stumm, beste Qualität</span>
         </div>
         <div class="cr-zoom">
           <span>Zoom</span>
@@ -1096,7 +1099,8 @@
           <span id="tierBadge" title="Free: 1080p + Wasserzeichen im Export">Free · 1080p</span>
           <button type="button" class="btn cr-sm" id="tierUnlockBtn" title="Pro zum Testen freischalten">Pro testen</button>
           <button class="btn primary" id="creatorUpload">▶ Track laden</button>
-          <button class="btn primary" id="creatorExport" disabled>⤓ HQ Export</button>
+          <button class="btn primary" id="creatorExport" disabled>● Direkt Export</button>
+          <button class="btn" id="creatorExportHQ" disabled title="Frame-genau · dauert länger · ohne Ton während Export">⤓ HQ Export</button>
           <button class="btn" id="creatorMoreBtn" title="Format, Text, Export-Optionen">Mehr Optionen…</button>
           <button class="btn" id="uiModePro">Alle Funktionen →</button>
         </div>
@@ -14785,7 +14789,9 @@ function injectCreatorExportCTAStyles() {
       padding: 10px 12px; border-radius: 12px;
       background: rgba(177,75,255,.08); border: 1px solid rgba(177,75,255,.25);
     }
-    .cr-export-cta .btn.primary { width: 100%; font-size: 13px; padding: 12px 16px; }
+    .cr-export-cta .btn.primary { flex: 1; font-size: 13px; padding: 12px 16px; }
+    .cr-export-btns { display: flex; gap: 8px; width: 100%; }
+    .cr-export-btns .btn { flex: 1; }
     .cr-export-hint { font-size: 10px; color: var(--text-dim); text-align: center; }
     .cr-step[role="button"] { cursor: pointer; }
     .cr-step[role="button"]:hover { border-color: var(--accent); color: var(--text); }
@@ -14799,11 +14805,8 @@ function ensureCreatorExportCTA() {
   if (!row || row.dataset.v108) return;
   row.dataset.v108 = "1";
   row.removeAttribute("hidden");
-  $("creatorExportCTAbtn")?.addEventListener("click", () => {
-    const exp = $("creatorExport");
-    if (exp && !exp.disabled) exp.click();
-    else showAppToast("Export — Track laden und Look wählen.", 3500);
-  });
+  $("creatorExportCTAQuick")?.addEventListener("click", () => runCreatorQuickExport?.() || $("creatorExport")?.click());
+  $("creatorExportCTAHQ")?.addEventListener("click", () => runCreatorHQExport?.() || $("creatorExportHQ")?.click());
 }
 
 function triggerCreatorStep(step) {
@@ -14817,7 +14820,11 @@ function triggerCreatorStep(step) {
     return;
   }
   if (step === 3) {
-    const cta = $("creatorExportCTAbtn");
+    if (typeof runCreatorQuickExport === "function") {
+      runCreatorQuickExport();
+      return;
+    }
+    const cta = $("creatorExportCTAQuick") || $("creatorExport");
     if (cta && !cta.disabled) {
       cta.click();
       return;
@@ -14852,14 +14859,8 @@ function syncCreatorExportCTA() {
   const hasTrack = !!(S.audioBuffer || audioEl.src || S.micMode);
   const step = !hasTrack ? 1 : (S.preset ? 3 : 2);
   const cta = $("creatorExportCTA");
-  const ctaBtn = $("creatorExportCTAbtn");
-  const exp = $("creatorExport");
   if (cta) cta.style.display = step >= 3 && hasTrack ? "flex" : "none";
-  if (ctaBtn && exp) {
-    ctaBtn.disabled = !!exp.disabled;
-    const label = (exp.textContent || "⤓ HQ Export").trim();
-    ctaBtn.textContent = label.startsWith("⤓") ? label : "⤓ " + label;
-  }
+  if (typeof syncCreatorExportButtons === "function") syncCreatorExportButtons();
 }
 
 function patchCreatorExportUX() {
@@ -14876,6 +14877,114 @@ function patchCreatorExportUX() {
 
 function initCreatorExportUXV108() {
   patchCreatorExportUX();
+}
+
+
+/* ============================================================
+   v109 — Creator: Direkt Export (schnell + Ton) vs HQ Export
+   ============================================================ */
+
+function runCreatorQuickExport() {
+  if (!creatorCanExport()) {
+    showAppToast("Zuerst Track laden oder Demo starten.", 3500);
+    return;
+  }
+  const recording = typeof recorder !== "undefined" && recorder && recorder.state === "recording";
+  if (!recording && audioEl.src && !S.micMode && !S.playing) play();
+  if (!recording) {
+    showAppToast("● Direkt Export — du hörst den Track. Nochmal tippen = Stop + Fade.", 5500);
+  }
+  $("exportBtn")?.click();
+}
+
+function runCreatorHQExport() {
+  if (typeof runCreatorExport === "function") {
+    showAppToast("⤓ HQ Export — dauert länger, währenddessen kein Ton.", 4500);
+    runCreatorExport();
+    return;
+  }
+  $("hqExportBtn")?.click();
+}
+
+function wireCreatorExportButtons() {
+  const quickIds = ["creatorExport", "creatorExportCTAQuick"];
+  quickIds.forEach(id => {
+    const btn = $(id);
+    if (!btn || btn.dataset.v109) return;
+    btn.dataset.v109 = "quick";
+    const neo = btn.cloneNode(true);
+    neo.dataset.v109 = "quick";
+    btn.replaceWith(neo);
+    neo.addEventListener("click", runCreatorQuickExport);
+  });
+
+  const hqIds = ["creatorExportHQ", "creatorExportCTAHQ"];
+  hqIds.forEach(id => {
+    const btn = $(id);
+    if (!btn || btn.dataset.v109) return;
+    btn.dataset.v109 = "hq";
+    const neo = btn.cloneNode(true);
+    neo.dataset.v109 = "hq";
+    btn.replaceWith(neo);
+    neo.addEventListener("click", runCreatorHQExport);
+  });
+}
+
+function syncCreatorExportButtons() {
+  const hasTrack = creatorCanExport();
+  const hq = creatorCanHQ();
+  const quick = $("creatorExport");
+  const hqBtn = $("creatorExportHQ");
+  const ctaQuick = $("creatorExportCTAQuick");
+  const ctaHq = $("creatorExportCTAHQ");
+
+  if (quick) {
+    quick.disabled = !hasTrack;
+    const rec = typeof recorder !== "undefined" && recorder && recorder.state === "recording";
+    quick.textContent = rec ? "■ Stop + Fade" : "● Direkt Export";
+    quick.title = "Schnelle Aufnahme mit Ton — ideal für Reels & Shorts";
+  }
+  if (hqBtn) {
+    hqBtn.disabled = !hasTrack || (!hq && !S.micMode && supportsHQExport());
+    hqBtn.textContent = hq && typeof hqExportLabel === "function"
+      ? `⤓ HQ (${hqExportLabel()})`
+      : "⤓ HQ Export";
+    hqBtn.title = "Beste Qualität — frame-genau, dauert länger, währenddessen stumm";
+  }
+  if (ctaQuick) {
+    ctaQuick.disabled = !hasTrack;
+    const rec = typeof recorder !== "undefined" && recorder && recorder.state === "recording";
+    ctaQuick.textContent = rec ? "■ Stop + Fade" : "● Direkt Export";
+  }
+  if (ctaHq) hqBtn && (ctaHq.disabled = hqBtn.disabled);
+}
+
+function patchCreatorQuickExportV109() {
+  wireCreatorExportButtons();
+
+  const _update = updateCreatorDock;
+  updateCreatorDock = function () {
+    _update();
+    syncCreatorExportButtons();
+    if (typeof syncCreatorExportCTA === "function") syncCreatorExportCTA();
+  };
+
+  const _triggerStep = typeof triggerCreatorStep === "function" ? triggerCreatorStep : null;
+  if (_triggerStep) {
+    triggerCreatorStep = function (step) {
+      if (step === 3) {
+        runCreatorQuickExport();
+        return;
+      }
+      _triggerStep(step);
+    };
+  }
+
+  updateCreatorDock();
+}
+
+function initCreatorQuickExportV109() {
+  patchCreatorQuickExportV109();
 }
 
 
@@ -14929,6 +15038,7 @@ if (typeof initCalmMatchV103 === "function") initCalmMatchV103();
 if (typeof initMusicObjectsV105 === "function") initMusicObjectsV105();
 if (typeof initSocialPipelineV107 === "function") initSocialPipelineV107();
 if (typeof initCreatorExportUXV108 === "function") initCreatorExportUXV108();
+if (typeof initCreatorQuickExportV109 === "function") initCreatorQuickExportV109();
 if (typeof initDemoFastStart === "function") initDemoFastStart();
 if (typeof initRealtimeExportGracefulStop === "function") initRealtimeExportGracefulStop();
 if (typeof initLayerBShortcut === "function") initLayerBShortcut();

@@ -13,7 +13,9 @@ function injectCreatorExportCTAStyles() {
       padding: 10px 12px; border-radius: 12px;
       background: rgba(177,75,255,.08); border: 1px solid rgba(177,75,255,.25);
     }
-    .cr-export-cta .btn.primary { width: 100%; font-size: 13px; padding: 12px 16px; }
+    .cr-export-cta .btn.primary { flex: 1; font-size: 13px; padding: 12px 16px; }
+    .cr-export-btns { display: flex; gap: 8px; width: 100%; }
+    .cr-export-btns .btn { flex: 1; }
     .cr-export-hint { font-size: 10px; color: var(--text-dim); text-align: center; }
     .cr-step[role="button"] { cursor: pointer; }
     .cr-step[role="button"]:hover { border-color: var(--accent); color: var(--text); }
@@ -27,11 +29,8 @@ function ensureCreatorExportCTA() {
   if (!row || row.dataset.v108) return;
   row.dataset.v108 = "1";
   row.removeAttribute("hidden");
-  $("creatorExportCTAbtn")?.addEventListener("click", () => {
-    const exp = $("creatorExport");
-    if (exp && !exp.disabled) exp.click();
-    else showAppToast("Export — Track laden und Look wählen.", 3500);
-  });
+  $("creatorExportCTAQuick")?.addEventListener("click", () => runCreatorQuickExport?.() || $("creatorExport")?.click());
+  $("creatorExportCTAHQ")?.addEventListener("click", () => runCreatorHQExport?.() || $("creatorExportHQ")?.click());
 }
 
 function triggerCreatorStep(step) {
@@ -45,7 +44,11 @@ function triggerCreatorStep(step) {
     return;
   }
   if (step === 3) {
-    const cta = $("creatorExportCTAbtn");
+    if (typeof runCreatorQuickExport === "function") {
+      runCreatorQuickExport();
+      return;
+    }
+    const cta = $("creatorExportCTAQuick") || $("creatorExport");
     if (cta && !cta.disabled) {
       cta.click();
       return;
@@ -80,14 +83,8 @@ function syncCreatorExportCTA() {
   const hasTrack = !!(S.audioBuffer || audioEl.src || S.micMode);
   const step = !hasTrack ? 1 : (S.preset ? 3 : 2);
   const cta = $("creatorExportCTA");
-  const ctaBtn = $("creatorExportCTAbtn");
-  const exp = $("creatorExport");
   if (cta) cta.style.display = step >= 3 && hasTrack ? "flex" : "none";
-  if (ctaBtn && exp) {
-    ctaBtn.disabled = !!exp.disabled;
-    const label = (exp.textContent || "⤓ HQ Export").trim();
-    ctaBtn.textContent = label.startsWith("⤓") ? label : "⤓ " + label;
-  }
+  if (typeof syncCreatorExportButtons === "function") syncCreatorExportButtons();
 }
 
 function patchCreatorExportUX() {
