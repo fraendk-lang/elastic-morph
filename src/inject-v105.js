@@ -2,6 +2,31 @@
    v105 — Music Objects: Cassette + Waveform Monitor
    ============================================================ */
 
+const MUSIC_OBJECT_PRESETS = [
+  {
+    id: "cassette", name: "Cassette",
+    desc: "Kompakt-Kassette mit sichtbaren Spulen & Label — 80er, Indie, Lo-Fi, Bedroom Pop.",
+    hue: 18, hueEnd: 42, sat: 74, bgFade: 0.48,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.38,
+    particles: 0, particleStyle: "soft", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.09, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.42, waveRing: false,
+    engine: "tape",
+    gradient: ["#120c06", "#5a3818", "#e8a040"]
+  },
+  {
+    id: "waveformMonitor", name: "Waveform Monitor",
+    desc: "Klassisches Wellenform-Display — minimal, modern, Studio. Ambient, Electronica, Podcast.",
+    hue: 175, hueEnd: 220, sat: 78, bgFade: 0.42,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.45,
+    particles: 0, particleStyle: "soft", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.04, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.48, waveRing: false,
+    engine: "oscilloscope",
+    gradient: ["#040810", "#0c2840", "#40c8e8"]
+  }
+];
+
 function drawCassette(base, hue, growthF, energySize, seed) {
   const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
   const w = mn * 0.68 * growthF, h = mn * 0.4 * (0.92 + growthF * 0.08), y0 = -mn * 0.04;
@@ -86,6 +111,52 @@ function drawWaveformMonitor(base, hue, growthF, energySize, seed) {
   ctx.restore();
 }
 
+function renderMusicObjectCardPreview(pv, t) {
+  const c = pv.c, W = pv.cv.width, H = pv.cv.height, p = pv.p;
+  c.fillStyle = "rgba(3,3,6,0.28)";
+  c.fillRect(0, 0, W, H);
+  c.save();
+  c.translate(W / 2, H / 2);
+  const hue = p.hue + (Math.sin(t * 0.3 + pv.seed) * 0.5 + 0.5) * (p.hueEnd - p.hue) * 0.5;
+  if (p.id === "cassette") {
+    const ww = W * 0.74, hh = H * 0.64;
+    c.fillStyle = "#1a1510";
+    c.fillRect(-ww / 2 - 1, -hh / 2 - 1, ww + 2, hh + 2);
+    c.fillStyle = "#221c14";
+    c.fillRect(-ww / 2, -hh / 2, ww, hh);
+    c.fillStyle = `hsl(${hue % 360},${p.sat}%,46%)`;
+    c.fillRect(-ww * 0.27, -hh * 0.24, ww * 0.54, hh * 0.48);
+    [[-ww * 0.13, 1], [ww * 0.13, -1]].forEach(([rx, dir]) => {
+      c.save(); c.translate(rx, 0); c.rotate(t * 1.15 * dir);
+      c.fillStyle = "#0c0c10"; c.beginPath(); c.arc(0, 0, hh * 0.19, 0, 6.2832); c.fill();
+      c.strokeStyle = "rgba(210,200,180,0.5)"; c.lineWidth = 0.9;
+      c.beginPath(); c.arc(0, 0, hh * 0.19, 0, 6.2832); c.stroke();
+      c.fillStyle = `hsl(${(hue + 35) % 360},${p.sat}%,52%)`;
+      c.beginPath(); c.arc(0, 0, hh * 0.05, 0, 6.2832); c.fill();
+      c.restore();
+    });
+  } else {
+    const ww = W * 0.84, hh = H * 0.58;
+    c.fillStyle = "#06080c";
+    c.fillRect(-ww / 2, -hh / 2, ww, hh);
+    c.strokeStyle = "rgba(100,120,150,0.45)"; c.lineWidth = 0.7;
+    c.strokeRect(-ww / 2, -hh / 2, ww, hh);
+    c.globalCompositeOperation = "lighter";
+    c.beginPath();
+    for (let i = 0; i <= 52; i++) {
+      const x = -ww / 2 + (i / 52) * ww;
+      const tt = t * 1.7 + i * 0.13 + pv.seed;
+      const y = Math.sin(tt) * hh * 0.24 + Math.sin(tt * 2.5 + 0.4) * hh * 0.13;
+      if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+    }
+    c.strokeStyle = `hsla(${hue % 360},${p.sat}%,62%,0.82)`;
+    c.lineWidth = 1.15;
+    c.stroke();
+  }
+  c.restore();
+  c.globalCompositeOperation = "source-over";
+}
+
 function chainMusicObjectDraw() {
   const prevTape = drawTape;
   drawTape = function (base, hue, growthF, energySize, seed) {
@@ -99,67 +170,33 @@ function chainMusicObjectDraw() {
   };
 }
 
-function appendPresetCards(adds) {
-  const grid = $("presetGrid");
-  const sel = $("blendSelect");
-  if (!grid) return;
-  adds.forEach(p => {
+function registerMusicObjectPresets() {
+  const tapeIdx = PRESETS.findIndex(p => p.id === "tape");
+  const insertAt = tapeIdx >= 0 ? tapeIdx + 1 : PRESETS.length;
+  let offset = 0;
+  MUSIC_OBJECT_PRESETS.forEach(p => {
     if (PRESETS.find(x => x.id === p.id)) return;
-    PRESETS.push(p);
-    const i = PRESETS.length - 1;
-    const card = document.createElement("div");
-    card.className = "preset-card" + (p === S.preset ? " active" : "");
-    const accent = p.gradient[p.gradient.length - 1] || "#b14bff";
-    card.style.setProperty("--card-accent", accent);
-    const eng = (p.engine || "blob").toUpperCase();
-    card.innerHTML = '<div class="pc-head"><span class="pc-num">' + String(i + 1).padStart(2, "0") + '</span><h4>' + p.name + '</h4></div>' +
-      '<canvas class="pcanvas" width="170" height="48" style="background:linear-gradient(120deg, ' + p.gradient.join(",") + ')"></canvas>' +
-      '<p>' + p.desc + '</p><div class="pc-tags"><span class="pc-tag">' + eng + '</span></div>';
-    card.addEventListener("click", () => {
-      if (typeof applyPreset === "function") applyPreset(p);
-      else {
-        S.preset = p;
-        document.querySelectorAll("#presetGrid .preset-card").forEach(c => c.classList.remove("active"));
-        card.classList.add("active");
-        if (typeof updateBadge === "function") updateBadge();
-        if (typeof spawnParticles === "function") spawnParticles();
-      }
-    });
-    grid.appendChild(card);
-    if (sel) {
-      const o = document.createElement("option");
-      o.value = p.id; o.textContent = p.name;
-      sel.appendChild(o);
-    }
+    PRESETS.splice(insertAt + offset, 0, p);
+    offset++;
   });
 }
 
-function registerMusicObjectPresets() {
-  const adds = [
-    {
-      id: "cassette", name: "Cassette",
-      desc: "Kompakt-Kassette mit sichtbaren Spulen & Label — 80er, Indie, Lo-Fi, Bedroom Pop.",
-      hue: 18, hueEnd: 42, sat: 74, bgFade: 0.48,
-      layers: 1, points: 0, noiseAmp: 0, speed: 0.38,
-      particles: 0, particleStyle: "soft", symmetry: 1,
-      verticalStretch: 1.0, grain: 0.09, lineMode: false, petals: 0, glass: false,
-      motion: "orbit", flowBias: 0, constellation: false, bloom: 0.42, waveRing: false,
-      engine: "tape",
-      gradient: ["#120c06", "#5a3818", "#e8a040"]
-    },
-    {
-      id: "waveformMonitor", name: "Waveform Monitor",
-      desc: "Klassisches Wellenform-Display — minimal, modern, Studio. Ambient, Electronica, Podcast.",
-      hue: 175, hueEnd: 220, sat: 78, bgFade: 0.42,
-      layers: 1, points: 0, noiseAmp: 0, speed: 0.45,
-      particles: 0, particleStyle: "soft", symmetry: 1,
-      verticalStretch: 1.0, grain: 0.04, lineMode: false, petals: 0, glass: false,
-      motion: "orbit", flowBias: 0, constellation: false, bloom: 0.48, waveRing: false,
-      engine: "oscilloscope",
-      gradient: ["#040810", "#0c2840", "#40c8e8"]
+function patchRenderPreviewsMusicObjects() {
+  const _rp = renderPreviews;
+  const special = new Set(["cassette", "waveformMonitor"]);
+  renderPreviews = function () {
+    if (!$("page-dna").classList.contains("open")) return;
+    const t = performance.now() / 1000;
+    for (const pv of previews) {
+      if (special.has(pv.p.id)) renderMusicObjectCardPreview(pv, t);
     }
-  ];
-  appendPresetCards(adds);
+    const bak = previews.slice();
+    previews.length = 0;
+    previews.push(...bak.filter(pv => !special.has(pv.p.id)));
+    _rp();
+    previews.length = 0;
+    previews.push(...bak);
+  };
 }
 
 function patchCalmScoringMusicObjects() {
@@ -176,6 +213,7 @@ function patchCalmScoringMusicObjects() {
 
 function initMusicObjectsV105() {
   chainMusicObjectDraw();
+  patchRenderPreviewsMusicObjects();
   patchCalmScoringMusicObjects();
 }
 

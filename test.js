@@ -143,6 +143,8 @@ ok("v104 lyrics studio", script.includes("initLyricsStudioV104") && script.inclu
 ok("v104 lyrics presets", script.includes("LYRICS_STUDIO_PRESETS") && script.includes("Lyrics Studio"));
 ok("v105 music objects", script.includes("drawCassette") && script.includes("drawWaveformMonitor"));
 ok("v105 cassette preset", script.includes('id: "cassette"') && script.includes('id: "waveformMonitor"'));
+ok("v105 preset insert after tape", script.includes("tapeIdx") && script.includes("MUSIC_OBJECT_PRESETS"));
+ok("v105 card previews", script.includes("renderMusicObjectCardPreview"));
 ok("v101 no duplicate d key", !script.match(/wireDnaShortcut[\s\S]{0,220}addEventListener\("keydown"/));
 
 /* ---------------- 2) unit tests on pure functions ---------------- */
