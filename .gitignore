@@ -23,3 +23,8 @@ blob-report/
 *.source.mp4
 *.webm
 elastic-morph-*.mp4
+
+# Local music / artwork drafts (not part of the app repo)
+Elastic Field Music/
+Neue Cover/
+Neues Cover.png
