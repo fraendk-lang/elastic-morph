@@ -14678,7 +14678,41 @@ function postReadyShortUrl(opts) {
   p.set("mode", opts.mode || "clip");
   p.set("duration", String(opts.duration || SHOWCASE_REEL_SEC));
   p.set("source", "morph");
+  p.set("handoff", "1");
   return `${POST_READY_BASE}?${p.toString()}`;
+}
+
+function isUniverseEmbed() {
+  try {
+    if (new URLSearchParams(location.search).get("embed") === "1") return true;
+    return window.parent !== window && window.parent.location.origin === location.origin;
+  } catch (e) {
+    return new URLSearchParams(location.search).get("embed") === "1";
+  }
+}
+
+function handoffExportToUniversePostReady(blob) {
+  if (!blob || !(blob instanceof Blob)) return false;
+  const file = new File([blob], "elastic-morph-export.mp4", { type: blob.type || "video/mp4" });
+  try {
+    window.parent.postMessage({ type: "elastic-universe:morph-export", file }, location.origin);
+    return true;
+  } catch (e) {
+    console.warn("Morph → Post-Ready handoff failed:", e);
+    return false;
+  }
+}
+
+function openPostReadyAfterExport() {
+  const blob = window.__lastExportBlob;
+  if (isUniverseEmbed() && blob && handoffExportToUniversePostReady(blob)) {
+    closeExportSuccess();
+    showAppToast("Weiter zu Post-Ready — Export wird übernommen…", 4500);
+    return;
+  }
+  window.open(postReadyShortUrl(), "_blank", "noopener,noreferrer");
+  closeExportSuccess();
+  showAppToast("Post-Ready geöffnet — exportiertes MP4 dort hochladen.", 5000);
 }
 
 function syncExportRangeUI() {
@@ -14732,9 +14766,7 @@ function injectExportSuccessPostReady() {
   btn.textContent = "In Post-Ready optimieren";
   btn.title = "9:16 · 60s Short — Datei dort hochladen und konvertieren";
   btn.addEventListener("click", () => {
-    window.open(postReadyShortUrl(), "_blank", "noopener,noreferrer");
-    closeExportSuccess();
-    showAppToast("Post-Ready geöffnet — exportiertes MP4 dort hochladen.", 5000);
+    openPostReadyAfterExport();
   });
   actions.insertBefore(btn, actions.firstChild);
 }

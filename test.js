@@ -146,6 +146,7 @@ ok("v105 cassette preset", script.includes('id: "cassette"') && script.includes(
 ok("v105 preset insert after tape", script.includes("tapeIdx") && script.includes("MUSIC_OBJECT_PRESETS"));
 ok("v105 card previews", script.includes("renderMusicObjectCardPreview"));
 ok("v107 social pipeline", script.includes("initSocialPipelineV107") && script.includes("postReadyShortUrl"));
+ok("v107 universe handoff", script.includes("handoffExportToUniversePostReady") && script.includes("elastic-universe:morph-export"));
 ok("v107 showcase reel", script.includes("applyShowcaseReelPreset") && script.includes("Showcase · 60s Reel"));
 ok("v108 export CTA", script.includes("initCreatorExportUXV108") && script.includes("creatorExportCTA"));
 ok("v109 quick export", script.includes("initCreatorQuickExportV109") && script.includes("creatorExportHQ"));
