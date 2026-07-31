@@ -3,6 +3,15 @@
   "buildCommand": "npm run ci",
   "installCommand": "npm install",
   "outputDirectory": ".",
+  "redirects": [
+    { "source": "/index.html", "destination": "/", "permanent": true },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.elasticmorph.app" }],
+      "destination": "https://elasticmorph.app/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/sitemap.xml",

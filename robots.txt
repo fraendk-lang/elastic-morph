@@ -1,5 +1,13 @@
 # Elastic Morph — https://elasticmorph.app
 User-agent: *
 Allow: /
+Disallow: /sw.js
+Disallow: /manifest.webmanifest
+Disallow: /assets/
+Disallow: /src/
+Disallow: /e2e/
+Disallow: /test.js
+Disallow: /build.js
+Disallow: /index.html
 
 Sitemap: https://elasticmorph.app/sitemap.xml
