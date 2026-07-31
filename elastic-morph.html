@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Elastic Morph — Music Visual App | elasticmorph.app</title>
-<meta name="description" content="Elastic Morph — audioreaktives Visual aus deinem Track. Browser-App für TikTok, Reels und Spotify Canvas. elasticmorph.app">
+<title>Elastic Morph App starten — Music Visualizer | elasticmorph.app</title>
+<meta name="description" content="Elastic Morph App im Browser: Track laden, audioreaktives Visual erzeugen, für TikTok, Reels und Spotify Canvas exportieren. elasticmorph.app">
 <meta name="robots" content="index, follow">
 <!-- PWA: installable when the file is served over http(s)/localhost -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -15401,6 +15401,30 @@ if (typeof initCreatorExportUXV108 === "function") initCreatorExportUXV108();
 if (typeof initCreatorQuickExportV109 === "function") initCreatorQuickExportV109();
 if (typeof initCreatorTextV110 === "function") initCreatorTextV110();
 if (typeof initDemoFastStart === "function") initDemoFastStart();
+
+/** Universe embed: ?bpm=128&creator=1&format=9x16 from Tempo → Morph pipeline */
+function applyUniverseDeepLink() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const bpm = parseInt(q.get("bpm") || "", 10);
+    if (bpm >= 40 && bpm <= 240) {
+      S.bpm = bpm;
+      S.bpmAuto = bpm;
+      const inp = $("bpmInput");
+      if (inp) inp.value = String(bpm);
+      const lbl = $("bpmLabel");
+      if (lbl) lbl.innerHTML = "BPM: <b>" + bpm + "</b>";
+    }
+    if (q.get("format") === "9x16" && typeof setCreatorFormat === "function") {
+      setCreatorFormat(9, 16);
+    }
+    if (q.get("creator") === "1" && typeof setUiMode === "function") {
+      setUiMode("creator");
+    }
+  } catch (e) { }
+}
+applyUniverseDeepLink();
+
 if (typeof initRealtimeExportGracefulStop === "function") initRealtimeExportGracefulStop();
 if (typeof initLayerBShortcut === "function") initLayerBShortcut();
 if (typeof initCanvasTextLiveToggle === "function") initCanvasTextLiveToggle();
