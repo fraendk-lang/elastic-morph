@@ -31,7 +31,7 @@ if (!fs.existsSync(UNIVERSE_ROOT)) {
 }
 
 const html = path.join(ROOT, "elastic-morph.html");
-if (!fs.readFileSync(html, "utf8").includes("initCreatorTextV110")) {
+if (!fs.readFileSync(html, "utf8").includes("initBgVidFiltersV111")) {
   console.error("\nelastic-morph.html ist nicht v110 — zuerst: npm run build\n");
   process.exit(1);
 }

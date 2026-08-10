@@ -1659,11 +1659,21 @@
     <input type="file" id="bgVidInput" accept="video/*" hidden>
     <label class="check" style="margin-bottom:10px"><input type="checkbox" id="bgVidOn"> Enable video background</label>
     <select id="bgVidBlend" class="pm-select">
-      <option value="source-over" selected>Normal</option>
-      <option value="screen">Screen</option>
-      <option value="lighter">Add</option>
-      <option value="overlay">Overlay</option>
-      <option value="multiply">Multiply</option>
+      <option value="source-over" selected>Blend: Normal</option>
+      <option value="screen">Blend: Screen</option>
+      <option value="lighter">Blend: Add</option>
+      <option value="overlay">Blend: Overlay</option>
+      <option value="multiply">Blend: Multiply</option>
+      <option value="soft-light">Blend: Soft Light</option>
+    </select>
+    <select id="bgVidFilter" class="pm-select" style="margin-top:6px">
+      <option value="none">Filter: Kein Filter</option>
+      <option value="cinematic">Filter: Cinematic</option>
+      <option value="bw">Filter: Schwarzweiß</option>
+      <option value="duotone">Filter: Duotone (DNA)</option>
+      <option value="vintage">Filter: Vintage</option>
+      <option value="dreamy">Filter: Dreamy</option>
+      <option value="neon">Filter: Neon Glow</option>
     </select>
     <div class="slider-row" style="margin-top:10px">
       <label>Opacity <span class="val" id="bgVidOpVal">70</span></label>
@@ -2380,7 +2390,7 @@ const S = {
   // v55: Sacred Geometry — counter-rotating second layer
   geo2: { on: false, style: "same", scale: 0.6, hueShift: 40 },
   // v36: background video layer (drawn as the base, under the visual)
-  bgVid: { on: false, el: null, src: null, opacity: 0.7, blend: "source-over", cover: true },
+  bgVid: { on: false, el: null, src: null, opacity: 0.7, blend: "source-over", cover: true, filter: "none" },
   alphaExport: false,     // v39: render transparent bg for alpha (WebM/VP9) export
   exportRange: { on: false, start: 0, end: 0 },   // v51: HQ export only a section (seconds; end 0 = full)
   logo: { on: false, img: null, src: null, pos: "br", size: 0.12, opacity: 0.85 },   // v52: watermark/logo
@@ -7318,6 +7328,7 @@ $("bgVidOn").addEventListener("change", e => {
   if (S.bgVid.el) { if (S.bgVid.on) S.bgVid.el.play().catch(() => { }); else S.bgVid.el.pause(); }
 });
 $("bgVidBlend").addEventListener("change", e => S.bgVid.blend = e.target.value);
+$("bgVidFilter").addEventListener("change", e => S.bgVid.filter = e.target.value);
 $("bgVidOp").addEventListener("input", e => { S.bgVid.opacity = e.target.value / 100; $("bgVidOpVal").textContent = e.target.value; });
 $("bgVidCover").addEventListener("change", e => S.bgVid.cover = e.target.checked);
 $("bgVidClear").addEventListener("click", () => {
@@ -15380,6 +15391,80 @@ function initCreatorTextV110() {
 }
 
 
+/* ============================================================
+   v111 — Background Video: Creative Filter (Phase A)
+   Same 7 filters as Image Layer A/B (coverFilterCSS pipeline)
+   ============================================================ */
+
+const BG_VID_FILTERS = [
+  ["none", "Kein Filter"],
+  ["cinematic", "Cinematic"],
+  ["bw", "Schwarzweiß"],
+  ["duotone", "Duotone (DNA)"],
+  ["vintage", "Vintage"],
+  ["dreamy", "Dreamy"],
+  ["neon", "Neon Glow"]
+];
+
+function bgVidFilterCSS(v) {
+  const f = v.filter || "none";
+  if (f === "none") return "none";
+  const hue = S.palette.on ? S.palette.hue : ((typeof currentDNA === "function" ? currentDNA().hue : null) || 280);
+  return typeof coverFilterCSS === "function" ? coverFilterCSS(f, hue) : "none";
+}
+
+function ensureBgVidFilterUIV111() {
+  if ($("bgVidFilter")) return;
+  const blend = $("bgVidBlend");
+  if (!blend) return;
+  const sel = document.createElement("select");
+  sel.id = "bgVidFilter";
+  sel.className = "pm-select";
+  sel.style.marginTop = "6px";
+  BG_VID_FILTERS.forEach(([id, label]) => {
+    const o = document.createElement("option");
+    o.value = id;
+    o.textContent = "Filter: " + label;
+    if (id === (S.bgVid.filter || "none")) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change", e => { S.bgVid.filter = e.target.value; });
+  blend.insertAdjacentElement("afterend", sel);
+}
+
+function ensureBgVidSoftLightV111() {
+  const blend = $("bgVidBlend");
+  if (!blend || blend.querySelector('option[value="soft-light"]')) return;
+  const o = document.createElement("option");
+  o.value = "soft-light";
+  o.textContent = "Soft Light";
+  blend.appendChild(o);
+}
+
+function initBgVidFiltersV111() {
+  if (S.bgVid.filter == null) S.bgVid.filter = "none";
+  ensureBgVidSoftLightV111();
+  ensureBgVidFilterUIV111();
+
+  const sel = $("bgVidFilter");
+  if (sel) sel.value = S.bgVid.filter || "none";
+
+  const _drawBgVideo = drawBgVideo;
+  drawBgVideo = function (W, H) {
+    const filt = bgVidFilterCSS(S.bgVid);
+    if (filt === "none") {
+      _drawBgVideo(W, H);
+      return;
+    }
+    ctx.save();
+    ctx.filter = filt;
+    _drawBgVideo(W, H);
+    ctx.filter = "none";
+    ctx.restore();
+  };
+}
+
+
 /* ---- boot ---- */
 buildSliders();
 buildFX();
@@ -15432,6 +15517,7 @@ if (typeof initSocialPipelineV107 === "function") initSocialPipelineV107();
 if (typeof initCreatorExportUXV108 === "function") initCreatorExportUXV108();
 if (typeof initCreatorQuickExportV109 === "function") initCreatorQuickExportV109();
 if (typeof initCreatorTextV110 === "function") initCreatorTextV110();
+if (typeof initBgVidFiltersV111 === "function") initBgVidFiltersV111();
 if (typeof initDemoFastStart === "function") initDemoFastStart();
 
 /** Universe embed: ?bpm=128&creator=1&format=9x16 from Tempo → Morph pipeline */

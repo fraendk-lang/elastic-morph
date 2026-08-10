@@ -154,6 +154,8 @@ ok("v110 creator text", script.includes("initCreatorTextV110") && script.include
 ok("v110 lyrics sheet", script.includes("creatorLyricsSheet") && script.includes("openCreatorLyricsSheetV110"));
 ok("v110 release card", script.includes("applyReleaseCardPresetV110") && script.includes("creatorReleaseCardBtn"));
 ok("v110 auto fill", script.includes("parseTitleArtistFromFilenameV110") && script.includes("patchLoadFileAutoFillV110"));
+ok("v111 bg video filter", script.includes("initBgVidFiltersV111") && script.includes("bgVidFilter"));
+ok("v111 bg video filter css", script.includes("bgVidFilterCSS") && script.includes("coverFilterCSS"));
 ok("demo encode script", fs.existsSync(path.join(__dirname, "scripts/encode-demo-mp3.js")));
 ok("universe sync script", fs.existsSync(path.join(__dirname, "scripts/sync-universe-morph.js")));
 ok("v101 no duplicate d key", !script.match(/wireDnaShortcut[\s\S]{0,220}addEventListener\("keydown"/));
