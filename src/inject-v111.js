@@ -55,18 +55,4 @@ function initBgVidFiltersV111() {
 
   const sel = $("bgVidFilter");
   if (sel) sel.value = S.bgVid.filter || "none";
-
-  const _drawBgVideo = drawBgVideo;
-  drawBgVideo = function (W, H) {
-    const filt = bgVidFilterCSS(S.bgVid);
-    if (filt === "none") {
-      _drawBgVideo(W, H);
-      return;
-    }
-    ctx.save();
-    ctx.filter = filt;
-    _drawBgVideo(W, H);
-    ctx.filter = "none";
-    ctx.restore();
-  };
 }
