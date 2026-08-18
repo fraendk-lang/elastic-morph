@@ -4557,8 +4557,10 @@ function drawScene(dt) {
     bctx.globalCompositeOperation = "copy";
     bctx.drawImage(canvas, 0, 0, bloomC.width, bloomC.height);
     ctx.globalCompositeOperation = "screen";
-    const bloomLive = dnaLive ? 1 : (heroOpen ? 0.48 : 0.36);
-    ctx.globalAlpha = Math.min(0.36, P.bloom * (0.13 + S.loudness * 0.19 + S.beat * 0.05) * bloomLive);
+    // v113: idle/preview state used to crush bloom to ~1/10 of its ceiling — raised the
+    // floor so presets don't read as matte before anything is playing.
+    const bloomLive = dnaLive ? 1 : (heroOpen ? 0.7 : 0.6);
+    ctx.globalAlpha = Math.min(0.55, P.bloom * (0.22 + S.loudness * 0.19 + S.beat * 0.05) * bloomLive);
     ctx.drawImage(bloomC, 0, 0, W, H);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
@@ -7655,9 +7657,9 @@ function resize() {
   }
   canvas.style.width = w + "px";
   canvas.style.height = h + "px";
-  // bloom buffer at 1/6 resolution
-  bloomC.width = Math.max(2, Math.round(canvas.width / 6));
-  bloomC.height = Math.max(2, Math.round(canvas.height / 6));
+  // bloom buffer at 1/4 resolution
+  bloomC.width = Math.max(2, Math.round(canvas.width / 4));
+  bloomC.height = Math.max(2, Math.round(canvas.height / 4));
   // post-FX buffers at full resolution
   fxC.width = chC.width = fbC.width = canvas.width;
   fxC.height = chC.height = fbC.height = canvas.height;

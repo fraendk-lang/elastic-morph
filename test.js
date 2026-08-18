@@ -300,6 +300,13 @@ if (F) {
   ok("reaction-diffusion finite, bounded [0,1] & pattern persists", rr.bad === 0 && rr.alive > 5);
 }
 
+/* ---------------- v113: bloom / layer B / fonts ---------------- */
+section("v113 — visual polish");
+ok("bloom alpha ceiling raised to 0.55", script.includes("Math.min(0.55, P.bloom"));
+ok("bloom baseline term raised to 0.22", script.includes("0.22 + S.loudness * 0.19 + S.beat * 0.05"));
+ok("bloom idle/hero multiplier raised", script.includes("dnaLive ? 1 : (heroOpen ? 0.7 : 0.6)"));
+ok("bloom buffer at 1/4 resolution", script.includes("Math.round(canvas.width / 4))") && script.includes("bloom buffer at 1/4 resolution"));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
