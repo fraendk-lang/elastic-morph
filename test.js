@@ -318,6 +318,24 @@ ok("grid overlay has beat-coupled glow on loud cells", script.includes('ctx.shad
 ok("waveform overlay has beat-coupled glow", script.includes('ctx.shadowBlur = 6 + S.beat * 14;'));
 ok("bars overlay has beat-coupled glow on loud bars", script.includes('ctx.shadowBlur = v > 0.5 ? 6 + S.beat * 12 : 0;'));
 
+/* v113: self-hosted font bundle */
+["sansAlt", "serifAlt", "monoAlt", "condensed", "handwritten", "variable"].forEach(k =>
+  ok("TEXT_FONTS has " + k, new RegExp("\\b" + k + ":\\s*\\{[^}]*fam:").test(script)));
+["sansAlt", "serifAlt", "monoAlt", "condensed", "handwritten", "variable"].forEach(k =>
+  ok("<option> for " + k + " exists", html.includes('value="' + k + '"')));
+const FONT_FILES = ["space-grotesk-500", "space-grotesk-700", "fraunces-400", "fraunces-700",
+  "jetbrains-mono-500", "jetbrains-mono-700", "anton-400", "caveat-500", "caveat-700",
+  "bricolage-grotesque-500", "bricolage-grotesque-800"];
+FONT_FILES.forEach(f => ok("font file exists: " + f, fs.existsSync(path.join(__dirname, "assets/fonts", f + ".woff2"))));
+FONT_FILES.forEach(f => ok("font file under 40KB: " + f, (() => {
+  const p = path.join(__dirname, "assets/fonts", f + ".woff2");
+  return fs.existsSync(p) && fs.statSync(p).size < 40 * 1024;
+})()));
+ok("@font-face rules present for all 6 families", ["Space Grotesk", "Fraunces", "JetBrains Mono", "Anton", "Caveat", "Bricolage Grotesque"]
+  .every(fam => html.includes('font-family: "' + fam + '"') || html.includes("font-family: " + fam + ";")));
+const swSrc = fs.readFileSync(path.join(__dirname, "sw.js"), "utf8");
+FONT_FILES.forEach(f => ok("sw.js precaches " + f, swSrc.includes(f + ".woff2")));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

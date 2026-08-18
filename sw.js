@@ -1,13 +1,24 @@
 /* Elastic Morph — service worker (cache-first, offline-ready).
    Only active when the app is served over http(s)/localhost.
    When opened directly via file:// this script is simply ignored. */
-const CACHE = "elastic-morph-v112";
+const CACHE = "elastic-morph-v113";
 const ASSETS = [
   "elastic-morph.html",
   "manifest.webmanifest",
   "icon-192.png",
   "icon-512.png",
-  "assets/demo/demo.json"
+  "assets/demo/demo.json",
+  "assets/fonts/space-grotesk-500.woff2",
+  "assets/fonts/space-grotesk-700.woff2",
+  "assets/fonts/fraunces-400.woff2",
+  "assets/fonts/fraunces-700.woff2",
+  "assets/fonts/jetbrains-mono-500.woff2",
+  "assets/fonts/jetbrains-mono-700.woff2",
+  "assets/fonts/anton-400.woff2",
+  "assets/fonts/caveat-500.woff2",
+  "assets/fonts/caveat-700.woff2",
+  "assets/fonts/bricolage-grotesque-500.woff2",
+  "assets/fonts/bricolage-grotesque-800.woff2"
 ];
 
 self.addEventListener("install", e => {

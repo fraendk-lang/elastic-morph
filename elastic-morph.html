@@ -28,6 +28,18 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
 <style>
+  /* v113: self-hosted font bundle for the text designer — offline-safe, no CDN request */
+  @font-face { font-family: "Space Grotesk"; src: url("assets/fonts/space-grotesk-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+  @font-face { font-family: "Space Grotesk"; src: url("assets/fonts/space-grotesk-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  @font-face { font-family: "Fraunces"; src: url("assets/fonts/fraunces-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Fraunces"; src: url("assets/fonts/fraunces-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/jetbrains-mono-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+  @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/jetbrains-mono-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  @font-face { font-family: "Anton"; src: url("assets/fonts/anton-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Caveat"; src: url("assets/fonts/caveat-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+  @font-face { font-family: "Caveat"; src: url("assets/fonts/caveat-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  @font-face { font-family: "Bricolage Grotesque"; src: url("assets/fonts/bricolage-grotesque-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+  @font-face { font-family: "Bricolage Grotesque"; src: url("assets/fonts/bricolage-grotesque-800.woff2") format("woff2"); font-weight: 800; font-display: swap; }
   /* ============ ELASTIC MORPH — DARK PREMIUM UI ============ */
   :root {
     --bg: #07070b;
@@ -1173,6 +1185,12 @@
             <option value="serif">Light Serif</option>
             <option value="mono">Mono / Tech</option>
             <option value="poster">Black Poster</option>
+            <option value="sansAlt">Grotesk</option>
+            <option value="serifAlt">Fraunces</option>
+            <option value="monoAlt">JetBrains Mono</option>
+            <option value="condensed">Condensed Black</option>
+            <option value="handwritten">Handwritten</option>
+            <option value="variable">Bricolage</option>
             <option value="custom" id="fontCustomOpt" disabled>Eigene Schrift…</option>
           </select>
         </div>
@@ -5847,6 +5865,13 @@ const TEXT_FONTS = {
   serif:  { tw: 400, aw: 400, fam: `Georgia, "Times New Roman", serif`, upper: false, spacing: 0.5 },
   mono:   { tw: 500, aw: 400, fam: `"SF Mono", Menlo, Consolas, monospace`, upper: false, spacing: 1 },
   poster: { tw: 900, aw: 600, fam: `-apple-system, "Segoe UI", "Arial Black", sans-serif`, upper: true, spacing: 2 },
+  /* v113: self-hosted font bundle */
+  sansAlt:     { tw: 700, aw: 500, fam: `"Space Grotesk", -apple-system, sans-serif`, upper: false, spacing: 0 },
+  serifAlt:    { tw: 700, aw: 400, fam: `Fraunces, Georgia, serif`, upper: false, spacing: 0.3 },
+  monoAlt:     { tw: 700, aw: 500, fam: `"JetBrains Mono", "SF Mono", monospace`, upper: false, spacing: 0.5 },
+  condensed:   { tw: 400, aw: 400, fam: `Anton, "Arial Black", sans-serif`, upper: true, spacing: 1 },
+  handwritten: { tw: 700, aw: 500, fam: `Caveat, cursive`, upper: false, spacing: 0 },
+  variable:    { tw: 800, aw: 500, fam: `"Bricolage Grotesque", -apple-system, sans-serif`, upper: false, spacing: 0 },
   custom: { tw: 600, aw: 400, fam: `"ElasticUserFont", -apple-system, sans-serif`, upper: false, spacing: 0 }   // v53: user-uploaded font
 };
 function drawTextLayer(W, H, hue, P) {
