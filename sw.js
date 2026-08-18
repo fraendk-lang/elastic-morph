@@ -22,9 +22,6 @@ const FONT_ASSETS = [
   "assets/fonts/bricolage-grotesque-500.woff2",
   "assets/fonts/bricolage-grotesque-800.woff2"
 ];
-// Kept as the single source of truth for what the runtime fetch handler below caches
-// network-first — that logic caches per-request regardless of this list's grouping.
-const ASSETS = [...SHELL_ASSETS, ...FONT_ASSETS];
 
 self.addEventListener("install", e => {
   e.waitUntil(

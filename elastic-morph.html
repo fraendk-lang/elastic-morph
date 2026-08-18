@@ -5877,6 +5877,21 @@ const TEXT_FONTS = {
   variable:    { tw: 800, aw: 500, fam: `"Bricolage Grotesque", -apple-system, sans-serif`, upper: false, spacing: 0 },
   custom: { tw: 600, aw: 400, fam: `"ElasticUserFont", -apple-system, sans-serif`, upper: false, spacing: 0 }   // v53: user-uploaded font
 };
+/* v113: kick off a webfont load for `key` the first time it's needed, from wherever
+   S.textFont ends up getting set (change handler, project load, presets, lyrics studio) —
+   memoized so repeat calls (e.g. once per rendered frame) are free after the first. */
+const _loadedTextFonts = new Set();
+function ensureTextFontLoaded(key) {
+  if (_loadedTextFonts.has(key)) return;
+  const F = TEXT_FONTS[key];
+  if (!F || !document.fonts) return;
+  _loadedTextFonts.add(key);
+  const fam = F.fam.split(",")[0].trim().replace(/^["']|["']$/g, "");
+  try {
+    document.fonts.load(`${F.tw} 16px "${fam}"`).catch(() => {});
+    document.fonts.load(`${F.aw} 16px "${fam}"`).catch(() => {});
+  } catch (e) {}
+}
 function drawTextLayer(W, H, hue, P) {
   /* source of text: synced lyrics take over when enabled, else the designer fields */
   let srcTitle, srcArtist;
@@ -5950,6 +5965,7 @@ function drawTextLayer(W, H, hue, P) {
   }
 
   const F = TEXT_FONTS[S.textFont] || TEXT_FONTS.sans;
+  ensureTextFontLoaded(S.textFont);  // v113: covers every path that sets S.textFont directly, not just the <select> change handler
   const up = S.textUpper || F.upper;
   const baseW = S.textWeight === "auto" ? null : +S.textWeight;
   const titleW = baseW || F.tw;
@@ -7441,6 +7457,9 @@ $("gifBtn").addEventListener("click", async () => {
   const fps = 12.5, frames = Math.round(3 * fps), delay = Math.round(1000 / fps);
   btn.disabled = true;
   try {
+    // v113: same font-readiness guard as the other export paths — this capture runs for
+    // ~3s, so an in-flight font fetch could otherwise flip the typeface mid-loop.
+    try { await document.fonts.ready; } catch (e) {}
     for (let i = 0; i < frames; i++) {
       tctx.clearRect(0, 0, gw, gh);
       tctx.drawImage(canvas, 0, 0, gw, gh);

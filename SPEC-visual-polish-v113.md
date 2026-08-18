@@ -83,7 +83,8 @@ in `sw.js` `ASSETS` ergänzt (bleibt offline-fest, kein CDN-Request). `TEXT_FONT
 analog zum bestehenden Schema (`tw`, `aw`, `fam`, `upper`, `spacing`).
 
 **Akzeptanzkriterium:** Alle 6 neuen Fonts wählbar im Text-Designer, laden auch offline
-(Service-Worker-Cache), Datei-Overhead pro Font < 40 KB (nur Latin-Subset).
+(Service-Worker-Cache), Datei-Overhead pro Font < 40 KB (nur Latin-Subset), ausser Caveat
+(~50 KB — Ligatur-Tabellen, siehe Test-Kommentar).
 
 ---
 

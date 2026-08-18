@@ -340,6 +340,13 @@ ok("@font-face rules present for all 6 families", ["Space Grotesk", "Fraunces", 
   .every(fam => html.includes('font-family: "' + fam + '"') || html.includes("font-family: " + fam + ";")));
 const swSrc = fs.readFileSync(path.join(__dirname, "sw.js"), "utf8");
 FONT_FILES.forEach(f => ok("sw.js precaches " + f, swSrc.includes(f + ".woff2")));
+// Regression guard: build.js bumps APP_VERSION into sw.js's CACHE string at build time —
+// this class of bug (sw.js left on a stale version, so the old cache never busts) shipped
+// once already and was fixed by hand in round 1; catch it automatically from here on.
+const buildSrc = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
+const appVersionMatch = buildSrc.match(/const APP_VERSION = (\d+)/);
+ok("build.js APP_VERSION matches sw.js CACHE string", !!appVersionMatch &&
+  swSrc.includes(`elastic-morph-v${appVersionMatch[1]}`));
 
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
