@@ -93,9 +93,14 @@ analog zum bestehenden Schema (`tw`, `aw`, `fam`, `upper`, `spacing`).
   statischen Bereich von `elastic-morph.html` (vor dem `/* @BUILD-INJECT-V58 */`-Marker in
   Zeile 8483) — dieser Bereich wird von `build.js` nicht angefasst (das Skript regeneriert nur
   den Marker-bis-Boot-Block aus `src/inject-v*.js`). Direkte Edits an `elastic-morph.html`,
-  **kein** neues `src/inject-v113.js`-Modul, **kein** `build.js`/`APP_VERSION`-Change nötig.
-- `sw.js`-Cache-Version wird manuell auf `elastic-morph-v113` gesetzt (Fonts kommen neu in die
-  `ASSETS`-Liste).
+  **kein** neues `src/inject-v113.js`-Modul nötig.
+- `sw.js`'s `CACHE`-Konstante wird bei **jedem** `node build.js`-Lauf von `build.js`s
+  `APP_VERSION`-Konstante überschrieben (`build.js:41`, unconditional regex-replace) — ein
+  manueller Edit an `sw.js` allein hält nicht: er wird beim nächsten Build wieder auf den Stand
+  von `APP_VERSION` zurückgesetzt. Für v113 heisst das: `build.js`s `APP_VERSION` **muss** auf
+  `113` gebumpt werden (getan als Teil dieses Fixes) — das hält `sw.js`s `CACHE`-Zeile korrekt,
+  nicht ein Edit, der Builds übersteht. Fonts kommen neu in die `ASSETS`-Liste (jetzt aufgeteilt
+  in `SHELL_ASSETS` + `FONT_ASSETS`, siehe `sw.js`).
 - Bestehende Tests (`test.js`) laufen lassen — keine der drei Änderungen greift in DOM-Struktur/
   IDs ein, die von Tests referenziert werden (nur neue `<option>`s + neue `@font-face`-Regeln).
 

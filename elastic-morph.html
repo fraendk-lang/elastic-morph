@@ -4002,6 +4002,9 @@ async function exportHQ() {
   if (cancelBtn) cancelBtn.style.display = "";
   S.exporting = true; S.exportCancel = false; S.exportScale = draft ? 0.5 : 1;
   S.exportRes = [Wpx, Hpx]; resize();           // render at true export resolution
+  // v113: guard against an in-flight font fetch (e.g. just picked in the text designer)
+  // getting baked into the export — wait for all pending webfont loads to settle first.
+  try { await document.fonts.ready; } catch (e) {}
   EXP.time = 0; EXP.prevLoud = 0; S.dropFlash = 0; S.lastDropHit = null; spawnParticles();
 
   let vEnc = null, aEnc = null;
@@ -7306,7 +7309,18 @@ $("textShow").addEventListener("change", e => { S.textShow = e.target.checked; r
 $("textTitle").addEventListener("input", e => { S.textTitle = e.target.value; restartType(); });
 $("textArtist").addEventListener("input", e => { S.textArtist = e.target.value; restartType(); });
 $("textPos").addEventListener("change", e => S.textPos = e.target.value);
-$("textFont").addEventListener("change", e => S.textFont = e.target.value);
+$("textFont").addEventListener("change", e => {
+  S.textFont = e.target.value;
+  // v113: canvas text doesn't reliably trigger a webfont fetch on its own — explicitly
+  // load the selected self-hosted family at both weights it's actually drawn with, so the
+  // fallback chain doesn't flash on first render (or worse, get baked into an export).
+  const F = TEXT_FONTS[S.textFont];
+  if (F && document.fonts && typeof document.fonts.load === "function") {
+    const fam = F.fam.split(",")[0].trim();   // primary family name, e.g. "Caveat"
+    document.fonts.load(`${F.tw} 40px ${fam}`).catch(() => {});
+    document.fonts.load(`${F.aw} 40px ${fam}`).catch(() => {});
+  }
+});
 /* v53: custom font upload via the FontFace API */
 $("fontUploadBtn").addEventListener("click", () => $("fontInput").click());
 $("fontInput").addEventListener("change", e => {
@@ -7520,7 +7534,7 @@ function pickExportMime() {
   }
   return "video/webm";
 }
-$("exportBtn").addEventListener("click", () => {
+$("exportBtn").addEventListener("click", async () => {
   if (recorder && recorder.state === "recording") {
     if (typeof gracefulStopRealtimeExport === "function") {
       if (!gracefulStopRealtimeExport()) recorder.stop();
@@ -7535,6 +7549,9 @@ $("exportBtn").addEventListener("click", () => {
     return;
   }
   try {
+    // v113: guard against an in-flight font fetch (e.g. just picked in the text designer)
+    // getting baked into the first captured frames — wait for pending webfont loads first.
+    try { await document.fonts.ready; } catch (e) {}
     const fmt = document.querySelector(".fmt.active");
     // recording should capture the music: start playback if a track is loaded
     if (audioEl.src && !S.micMode && !S.playing) play();
@@ -8183,7 +8200,10 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
    ============================================================ */
 
 /* ---- PNG still frame ---- */
-function savePNG() {
+async function savePNG() {
+  // v113: same font-readiness guard as the video export paths — a still grabbed right
+  // after picking a new font shouldn't bake in the fallback glyph shapes.
+  try { await document.fonts.ready; } catch (e) {}
   canvas.toBlob(b => {
     if (!b) return;
     const url = URL.createObjectURL(b);
