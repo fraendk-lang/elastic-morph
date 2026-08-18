@@ -73,7 +73,13 @@ ok("GLSL braces & parens balanced", frag.length > 0 && balanced(frag, "{", "}") 
 
 /* v58: FX Rack III */
 const fx3Defs = (script.match(/const FX3_DEFS = \[([\s\S]*?)\];/) || [])[1] || "";
-ok("FX3_DEFS has 4 effects", (fx3Defs.match(/\["/g) || []).length === 4);
+ok("FX3_DEFS has 10 effects", (fx3Defs.match(/\["/g) || []).length === 10);
+const fx3StateKeys = (() => { const m = script.match(/fx3:\s*\{([^}]+)\}/); return m ? [...m[1].matchAll(/(\w+):\s*false/g)].map(x => x[1]) : []; })();
+const fx3DefKeys = [...fx3Defs.matchAll(/\["(\w+)"/g)].map(x => x[1]);
+ok("fx3 state keys match FX3_DEFS", fx3StateKeys.length === 10 && fx3StateKeys.every(k => fx3DefKeys.includes(k)));
+ok("function toggleFX3 defined", script.includes("function toggleFX3("));
+["anamorphflare", "letterbox", "doubleexposure", "dustscratches", "chromafringe", "bleachpulse"].forEach(k =>
+  ok("applyPostFX3 handles f3." + k, script.includes("f3." + k)));
 ok("v58 presets include oscilloscope engine", script.includes('engine: "oscilloscope"'));
 ok("v60 zoom control defined", script.includes('["zoom"') && script.includes("function camUserZoom"));
 ok("v60 liveMul defined", script.includes("function liveMul"));

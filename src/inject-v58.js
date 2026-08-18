@@ -445,7 +445,13 @@ const FX3_DEFS = [
   ["lensflare", "Lens Flare", "beat-triggered light streak"],
   ["lightleak", "Light Leak", "warm edge bleed"],
   ["scanlines", "Scanlines", "CRT line texture"],
-  ["motionblur", "Motion Blur", "directional smear on hits"]
+  ["motionblur", "Motion Blur", "directional smear on hits"],
+  ["anamorphflare", "Anamorphic Flare", "horizontal streak through bright hits"],
+  ["letterbox", "Letterbox Reveal", "cinemascope bars that breathe with the track"],
+  ["doubleexposure", "Double Exposure", "offset ghost frame"],
+  ["dustscratches", "Dust & Scratches", "film grain specks and drifting scratches"],
+  ["chromafringe", "Chromatic Edge Fringe", "color fringing at the frame border"],
+  ["bleachpulse", "Bleach Bypass Pulse", "beat-synced contrast punch"]
 ];
 
 function buildFX3() {
@@ -454,7 +460,7 @@ function buildFX3() {
     const chip = document.createElement("div");
     chip.className = "fxchip"; chip.textContent = label; chip.dataset.fx3 = key;
     chip.title = desc;
-    chip.addEventListener("click", () => { S.fx3[key] = !S.fx3[key]; syncFX3UI(); });
+    chip.addEventListener("click", () => toggleFX3(key));
     chips.appendChild(chip);
   });
 }
@@ -494,6 +500,82 @@ function applyPostFX3(W, H, dt) {
     ctx.globalAlpha = 0.35 + S.beat * 0.25;
     ctx.drawImage(fxC, 3 + S.stereo * 8, 0, W, H);
     ctx.globalAlpha = 1;
+  }
+  if (f3.anamorphflare && S.beat > 0.5) {
+    const cy = H * 0.5 + S.stereo * H * 0.06;
+    const g = ctx.createRadialGradient(W * 0.5, cy, 0, W * 0.5, cy, W * 0.55);
+    g.addColorStop(0, `rgba(160,200,255,${S.beat * 0.22})`);
+    g.addColorStop(0.15, `rgba(160,200,255,${S.beat * 0.1})`);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.translate(W / 2, cy); ctx.scale(3.2, 1); ctx.translate(-W / 2, -cy);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+  if (f3.letterbox) {
+    const barH = H * (0.06 + Math.min(0.10, S.beat * 0.08 + S.loudness * 0.05));
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, barH);
+    ctx.fillRect(0, H - barH, W, barH);
+  }
+  if (f3.doubleexposure) {
+    snapshot(W, H);
+    const a = 0.14 + S.loudness * 0.12;
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = a;
+    ctx.drawImage(fxC, -W * 0.015, -H * 0.015, W, H);
+    ctx.restore();
+  }
+  if (f3.dustscratches) {
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const nSpecks = 14 + Math.round(S.transient * 20);
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    for (let i = 0; i < nSpecks; i++) {
+      const x = Math.random() * W, y = Math.random() * H, s = 0.6 + Math.random() * 1.4;
+      ctx.fillRect(x, y, s, s);
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 2; i++) {
+      const x = ((S.time * 11 + i * 271) % 1) * W;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (f3.chromafringe && S.transient > 0.2) {
+    const margin = Math.min(W, H) * 0.05;
+    const d = Math.max(2, W * 0.006 * (1 + S.transient));
+    snapshot(W, H);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.rect(margin, margin, W - 2 * margin, H - 2 * margin);
+    ctx.clip("evenodd");
+    ctx.globalCompositeOperation = "screen";
+    const chans = [["#ff0000", -d, 0], ["#0000ff", d, 0]];
+    for (const [col, ox, oy] of chans) {
+      chctx.globalCompositeOperation = "copy"; chctx.globalAlpha = 1;
+      chctx.drawImage(fxC, 0, 0);
+      chctx.globalCompositeOperation = "multiply";
+      chctx.fillStyle = col; chctx.fillRect(0, 0, W, H);
+      chctx.globalCompositeOperation = "destination-in";
+      chctx.drawImage(fxC, 0, 0);
+      ctx.drawImage(chC, ox, oy);
+    }
+    ctx.restore();
+  }
+  if (f3.bleachpulse) {
+    const f = Math.max(S.beat, S.transient);
+    if (f > 0.55) {
+      ctx.save();
+      ctx.globalCompositeOperation = "hard-light";
+      ctx.fillStyle = `rgba(200,200,200,${Math.min(0.35, (f - 0.55) * 1.1)})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
   }
 }
 
