@@ -306,6 +306,14 @@ ok("bloom alpha ceiling raised to 0.55", script.includes("Math.min(0.55, P.bloom
 ok("bloom baseline term raised to 0.22", script.includes("0.22 + S.loudness * 0.19 + S.beat * 0.05"));
 ok("bloom idle/hero multiplier raised", script.includes("dnaLive ? 1 : (heroOpen ? 0.7 : 0.6)"));
 ok("bloom buffer at 1/4 resolution", script.includes("Math.round(canvas.width / 4))") && script.includes("bloom buffer at 1/4 resolution"));
+ok("layer B weighted picker exists", script.includes("function pickLayerBType"));
+ok("layer B generic set covers the 5 cliché types", (() => {
+  const m = script.match(/LAYERB_GENERIC = new Set\(\[([^\]]+)\]\)/);
+  if (!m) return false;
+  const ids = (m[1].match(/"(\w+)"/g) || []).map(s => s.replace(/"/g, ""));
+  return ["bars", "grid", "waveform", "starfield", "spectrumRing"].every(id => ids.includes(id));
+})());
+ok("autoVjStep uses the weighted picker", script.includes("S.layerB.type = pickLayerBType(R)"));
 
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));

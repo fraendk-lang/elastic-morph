@@ -4990,6 +4990,14 @@ const LAYERB_TYPES = [
   ["hexgrid",      "Hex Grid"],
   ["orbits",       "Orbits"]
 ];
+// v113: the classic visualizer clichés (bars/grid/waveform/starfield/spectrumRing) stay in
+// rotation but the Auto-VJ randomizer now picks the more distinctive types twice as often.
+const LAYERB_GENERIC = new Set(["bars", "grid", "waveform", "starfield", "spectrumRing"]);
+function pickLayerBType(rnd) {
+  const pool = [];
+  LAYERB_TYPES.forEach(([id]) => { pool.push(id); if (!LAYERB_GENERIC.has(id)) pool.push(id); });
+  return pool[Math.floor(rnd() * pool.length)];
+}
 let sbStars = [];
 function initStars() {
   sbStars = [];
@@ -8214,7 +8222,7 @@ function autoVjStep() {
   // sometimes switch the second visual layer on/off and retype it
   if (R() < 0.4) {
     S.layerB.on = R() < 0.7;
-    S.layerB.type = LAYERB_TYPES[Math.floor(R() * LAYERB_TYPES.length)][0];
+    S.layerB.type = pickLayerBType(R);
     $("lbOn").checked = S.layerB.on; $("lbType").value = S.layerB.type;
     if (S.layerB.type === "starfield") initStars();
   }
