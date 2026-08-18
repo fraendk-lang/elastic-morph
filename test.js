@@ -348,6 +348,16 @@ const appVersionMatch = buildSrc.match(/const APP_VERSION = (\d+)/);
 ok("build.js APP_VERSION matches sw.js CACHE string", !!appVersionMatch &&
   swSrc.includes(`elastic-morph-v${appVersionMatch[1]}`));
 
+/* ---------------- blend-mode expansion ---------------- */
+section("Blend-mode expansion");
+const BLEND_VALUES = ["lighter", "screen", "source-over", "multiply", "overlay", "difference", "color-dodge", "hard-light", "hue"];
+const lbBlendBlock = (html.match(/<select id="lbBlend"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || "";
+const shBlendBlock = (html.match(/<select id="shBlend"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || "";
+ok("#lbBlend has all 9 blend values", BLEND_VALUES.every(v => lbBlendBlock.includes(`value="${v}"`)));
+ok("#shBlend has all 9 blend values", BLEND_VALUES.every(v => shBlendBlock.includes(`value="${v}"`)));
+ok("#lbBlend and #shBlend have the same option count", (lbBlendBlock.match(/<option/g) || []).length === 9 &&
+  (shBlendBlock.match(/<option/g) || []).length === 9);
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
