@@ -7795,7 +7795,10 @@ document.addEventListener("keydown", e => {
     if (e.ctrlKey) {                       // Ctrl+digit → FX Rack II (geometry)
       const def2 = FX2_DEFS[idx];
       if (def2) { e.preventDefault(); toggleFX2(def2[0]); }
-    } else if (!e.metaKey && !e.altKey) {  // plain digit → FX Rack I
+    } else if (e.altKey) {                 // Alt+digit → FX Rack III (cinematic)
+      const def3 = FX3_DEFS[idx];
+      if (def3) { e.preventDefault(); toggleFX3(def3[0]); }
+    } else if (!e.metaKey) {               // plain digit → FX Rack I
       const def = FX_DEFS[idx];
       if (def) toggleFX(def[0]);
     }
