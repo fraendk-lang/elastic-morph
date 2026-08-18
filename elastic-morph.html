@@ -5077,6 +5077,9 @@ function drawLayerB(W, H, hue, dt) {
         const v = specAt((x + y) % 60, 60) * (0.55 + 0.55 * Math.sin(x * 0.5 + y * 0.5 + S.time * 2.2));
         if (v < 0.16) continue;
         ctx.fillStyle = colr(x / cols, 0.05 + v * 0.5);
+        // v113: glow-coupled peaks so loud cells read as DNA-bloom, not a flat equalizer
+        ctx.shadowBlur = v > 0.55 ? 6 + S.beat * 10 : 0;
+        ctx.shadowColor = ctx.fillStyle;
         ctx.fillRect(x * cw + pad, y * ch + pad, cw - 2 * pad, ch - 2 * pad);
       }
       break;
@@ -5115,6 +5118,9 @@ function drawLayerB(W, H, hue, dt) {
           if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
       }
+      // v113: glow-coupled stroke so the line reads as DNA-bloom, not a flat scope trace
+      ctx.shadowBlur = 6 + S.beat * 14;
+      ctx.shadowColor = ctx.strokeStyle;
       ctx.stroke();
       break;
     }
@@ -5155,7 +5161,11 @@ function drawLayerB(W, H, hue, dt) {
         const v = specAt(i, n);
         const h = v * H * 0.5 * (0.6 + ctrl.pulse) + 2;
         ctx.fillStyle = colr(i / n, 0.35 + v * 0.55);
+        // v113: glow-coupled peaks so bars read as DNA-bloom, not a flat equalizer
+        ctx.shadowBlur = v > 0.5 ? 6 + S.beat * 12 : 0;
+        ctx.shadowColor = ctx.fillStyle;
         ctx.fillRect(i * bw + bw * 0.16, H - h, bw * 0.68, h);
+        ctx.shadowBlur = 0;   // reflection stays flat, no glow
         ctx.globalAlpha = LB.opacity * 0.18;
         ctx.fillRect(i * bw + bw * 0.16, H, bw * 0.68, h * 0.5);   // reflection
         ctx.globalAlpha = LB.opacity;

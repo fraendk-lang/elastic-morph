@@ -314,6 +314,9 @@ ok("layer B generic set covers the 5 cliché types", (() => {
   return ["bars", "grid", "waveform", "starfield", "spectrumRing"].every(id => ids.includes(id));
 })());
 ok("autoVjStep uses the weighted picker", script.includes("S.layerB.type = pickLayerBType(R)"));
+ok("grid overlay has beat-coupled glow on loud cells", script.includes('ctx.shadowBlur = v > 0.55 ? 6 + S.beat * 10 : 0;'));
+ok("waveform overlay has beat-coupled glow", script.includes('ctx.shadowBlur = 6 + S.beat * 14;'));
+ok("bars overlay has beat-coupled glow on loud bars", script.includes('ctx.shadowBlur = v > 0.5 ? 6 + S.beat * 12 : 0;'));
 
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
