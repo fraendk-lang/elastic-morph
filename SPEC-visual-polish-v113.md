@@ -89,11 +89,15 @@ analog zum bestehenden Schema (`tw`, `aw`, `fam`, `upper`, `spacing`).
 
 ## Umsetzung
 
-- Neues Modul `src/inject-v113.js`, in `build.js` `MODULES`-Array + `APP_VERSION` (112 → 113)
-  eintragen, dann `node build.js`.
-- `sw.js` Cache-Version wird durch `build.js` automatisch mitgezogen.
-- Bestehende Tests (`test.js`, Playwright E2E) laufen lassen — keine der drei Änderungen
-  greift in DOM-Struktur/IDs ein, die von Tests referenziert werden (nur neue `<option>`s).
+- Alle Zielstellen (Bloom-Pass, `drawLayerB`-Cases, `TEXT_FONTS`, `#textFont`-Select) liegen im
+  statischen Bereich von `elastic-morph.html` (vor dem `/* @BUILD-INJECT-V58 */`-Marker in
+  Zeile 8483) — dieser Bereich wird von `build.js` nicht angefasst (das Skript regeneriert nur
+  den Marker-bis-Boot-Block aus `src/inject-v*.js`). Direkte Edits an `elastic-morph.html`,
+  **kein** neues `src/inject-v113.js`-Modul, **kein** `build.js`/`APP_VERSION`-Change nötig.
+- `sw.js`-Cache-Version wird manuell auf `elastic-morph-v113` gesetzt (Fonts kommen neu in die
+  `ASSETS`-Liste).
+- Bestehende Tests (`test.js`) laufen lassen — keine der drei Änderungen greift in DOM-Struktur/
+  IDs ein, die von Tests referenziert werden (nur neue `<option>`s + neue `@font-face`-Regeln).
 
 ## Out of Scope (spätere Runde)
 - "Zeitgemässere" Bewegung/Animation des DNA-Organismus selbst
