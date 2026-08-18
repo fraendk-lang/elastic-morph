@@ -1630,7 +1630,7 @@
     <h3>FX Rack II — Geometry <small style="color:var(--text-dim);font-weight:400">(Ctrl+1–0)</small></h3>
     <div id="fx2Chips"></div>
     <div class="divider"></div>
-    <h3>FX Rack III — Cinematic</h3>
+    <h3>FX Rack III — Cinematic <small style="color:var(--text-dim);font-weight:400">(Alt+1–0)</small></h3>
     <div id="fx3Chips"></div>
     <div class="divider"></div>
     <h3>Particle Mode <small style="color:var(--text-dim);font-weight:400">(P)</small></h3>
@@ -1879,6 +1879,7 @@
           <span><b>← →</b> ±5s &nbsp; <b>Home</b> Neustart</span>
           <span><b>1–9, 0</b> FX Rack I</span>
           <span><b>Ctrl+1–0</b> FX Rack II</span>
+          <span><b>Alt+1–0</b> FX Rack III</span>
           <span><b>+ / − / 0</b> Zoom rein/raus/reset</span>
           <span><b>G</b> Shader · <b>P</b> Partikel · <b>D</b> DNA · <b>Shift+P</b> PNG · <b>F</b> Vollbild</span>
           <span><b>?</b> Hilfe · <b>Esc</b> Schließen</span>
@@ -7790,14 +7791,19 @@ document.addEventListener("keydown", e => {
     if (typeof toggleDna === "function") toggleDna();
   }
   // number keys 1–9 + 0 toggle the 10 FX (great for live performance)
-  if (e.key >= "0" && e.key <= "9") {
+  // Alt+digit is checked via e.code first: on macOS, Option remaps e.key to an
+  // alternate glyph (e.g. "1" -> "¡"), so e.key-based digit detection never fires
+  // while Alt is held. e.code reports the physical key regardless of modifiers.
+  const altDigit = e.altKey && /^Digit([0-9])$/.exec(e.code);
+  if (altDigit) {                          // Alt+digit → FX Rack III (cinematic)
+    const idx = altDigit[1] === "0" ? 9 : +altDigit[1] - 1;
+    const def3 = FX3_DEFS[idx];
+    if (def3) { e.preventDefault(); toggleFX3(def3[0]); }
+  } else if (e.key >= "0" && e.key <= "9") {
     const idx = e.key === "0" ? 9 : +e.key - 1;
     if (e.ctrlKey) {                       // Ctrl+digit → FX Rack II (geometry)
       const def2 = FX2_DEFS[idx];
       if (def2) { e.preventDefault(); toggleFX2(def2[0]); }
-    } else if (e.altKey) {                 // Alt+digit → FX Rack III (cinematic)
-      const def3 = FX3_DEFS[idx];
-      if (def3) { e.preventDefault(); toggleFX3(def3[0]); }
     } else if (!e.metaKey) {               // plain digit → FX Rack I
       const def = FX_DEFS[idx];
       if (def) toggleFX(def[0]);
@@ -9100,12 +9106,6 @@ function applyPostFX3(W, H, dt) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
-  if (f3.letterbox) {
-    const barH = H * (0.06 + Math.min(0.10, S.beat * 0.08 + S.loudness * 0.05));
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, barH);
-    ctx.fillRect(0, H - barH, W, barH);
-  }
   if (f3.doubleexposure) {
     snapshot(W, H);
     const a = 0.14 + S.loudness * 0.12;
@@ -9127,7 +9127,7 @@ function applyPostFX3(W, H, dt) {
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 1;
     for (let i = 0; i < 2; i++) {
-      const x = ((S.time * 11 + i * 271) % 1) * W;
+      const x = ((S.time * 0.08 + i * 0.53) % 1) * W;
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
     }
     ctx.restore();
@@ -9158,11 +9158,19 @@ function applyPostFX3(W, H, dt) {
     const f = Math.max(S.beat, S.transient);
     if (f > 0.55) {
       ctx.save();
-      ctx.globalCompositeOperation = "hard-light";
-      ctx.fillStyle = `rgba(200,200,200,${Math.min(0.35, (f - 0.55) * 1.1)})`;
+      ctx.globalCompositeOperation = "overlay";
+      ctx.fillStyle = `rgba(128,128,128,${Math.min(0.5, (f - 0.55) * 1.4)})`;
       ctx.fillRect(0, 0, W, H);
       ctx.restore();
     }
+  }
+  if (f3.letterbox) {
+    ctx.save();
+    const barH = H * (0.06 + Math.min(0.10, S.beat * 0.08 + S.loudness * 0.05));
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, barH);
+    ctx.fillRect(0, H - barH, W, barH);
+    ctx.restore();
   }
 }
 
@@ -11729,8 +11737,8 @@ function sampleFrameLum(W, H) {
 }
 
 function brightFxActive() {
-  const f = S.fx, f2 = S.fx2;
-  return !!(f.feedback || f.strobe || f.kaleido || f2.droste || f2.echospin || f2.radialblur || f2.hexkaleido || S.shader.on);
+  const f = S.fx, f2 = S.fx2, f3 = S.fx3;
+  return !!(f.feedback || f.strobe || f.kaleido || f2.droste || f2.echospin || f2.radialblur || f2.hexkaleido || f3.anamorphflare || f3.bleachpulse || S.shader.on);
 }
 
 function applyToneDim(W, H, lum) {
@@ -14020,8 +14028,10 @@ const COVER_EXPORT_PRESETS = [
 function silenceFxForCover() {
   Object.keys(S.fx).forEach(k => { S.fx[k] = false; });
   Object.keys(S.fx2).forEach(k => { S.fx2[k] = false; });
+  Object.keys(S.fx3).forEach(k => { S.fx3[k] = false; });
   if (typeof syncFXUI === "function") syncFXUI();
   if (typeof syncFX2UI === "function") syncFX2UI();
+  if (typeof syncFX3UI === "function") syncFX3UI();
 }
 
 function applyCoverImageSettings() {

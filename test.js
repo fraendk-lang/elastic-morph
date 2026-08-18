@@ -80,7 +80,7 @@ ok("fx3 state keys match FX3_DEFS", fx3StateKeys.length === 10 && fx3StateKeys.e
 ok("function toggleFX3 defined", script.includes("function toggleFX3("));
 ["anamorphflare", "letterbox", "doubleexposure", "dustscratches", "chromafringe", "bleachpulse"].forEach(k =>
   ok("applyPostFX3 handles f3." + k, script.includes("f3." + k)));
-ok("Alt+digit toggles FX Rack III", script.includes('e.altKey') && script.includes('toggleFX3(def3[0])'));
+ok("Alt+digit toggles FX Rack III", script.includes('e.altKey') && script.includes('toggleFX3(def3[0])') && script.includes('/^Digit([0-9])$/'));
 ok("v58 presets include oscilloscope engine", script.includes('engine: "oscilloscope"'));
 ok("v60 zoom control defined", script.includes('["zoom"') && script.includes("function camUserZoom"));
 ok("v60 liveMul defined", script.includes("function liveMul"));

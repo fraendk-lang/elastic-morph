@@ -17,8 +17,8 @@ function sampleFrameLum(W, H) {
 }
 
 function brightFxActive() {
-  const f = S.fx, f2 = S.fx2;
-  return !!(f.feedback || f.strobe || f.kaleido || f2.droste || f2.echospin || f2.radialblur || f2.hexkaleido || S.shader.on);
+  const f = S.fx, f2 = S.fx2, f3 = S.fx3;
+  return !!(f.feedback || f.strobe || f.kaleido || f2.droste || f2.echospin || f2.radialblur || f2.hexkaleido || f3.anamorphflare || f3.bleachpulse || S.shader.on);
 }
 
 function applyToneDim(W, H, lum) {

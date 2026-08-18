@@ -513,12 +513,6 @@ function applyPostFX3(W, H, dt) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
-  if (f3.letterbox) {
-    const barH = H * (0.06 + Math.min(0.10, S.beat * 0.08 + S.loudness * 0.05));
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, barH);
-    ctx.fillRect(0, H - barH, W, barH);
-  }
   if (f3.doubleexposure) {
     snapshot(W, H);
     const a = 0.14 + S.loudness * 0.12;
@@ -540,7 +534,7 @@ function applyPostFX3(W, H, dt) {
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 1;
     for (let i = 0; i < 2; i++) {
-      const x = ((S.time * 11 + i * 271) % 1) * W;
+      const x = ((S.time * 0.08 + i * 0.53) % 1) * W;
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
     }
     ctx.restore();
@@ -571,11 +565,19 @@ function applyPostFX3(W, H, dt) {
     const f = Math.max(S.beat, S.transient);
     if (f > 0.55) {
       ctx.save();
-      ctx.globalCompositeOperation = "hard-light";
-      ctx.fillStyle = `rgba(200,200,200,${Math.min(0.35, (f - 0.55) * 1.1)})`;
+      ctx.globalCompositeOperation = "overlay";
+      ctx.fillStyle = `rgba(128,128,128,${Math.min(0.5, (f - 0.55) * 1.4)})`;
       ctx.fillRect(0, 0, W, H);
       ctx.restore();
     }
+  }
+  if (f3.letterbox) {
+    ctx.save();
+    const barH = H * (0.06 + Math.min(0.10, S.beat * 0.08 + S.loudness * 0.05));
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, barH);
+    ctx.fillRect(0, H - barH, W, barH);
+    ctx.restore();
   }
 }
 
