@@ -564,10 +564,11 @@ function applyPostFX3(W, H, dt) {
   if (f3.bleachpulse) {
     const f = Math.max(S.beat, S.transient);
     if (f > 0.55) {
+      snapshot(W, H);
       ctx.save();
       ctx.globalCompositeOperation = "overlay";
-      ctx.fillStyle = `rgba(128,128,128,${Math.min(0.5, (f - 0.55) * 1.4)})`;
-      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = Math.min(0.6, (f - 0.55) * 1.6);
+      ctx.drawImage(fxC, 0, 0, W, H);
       ctx.restore();
     }
   }

@@ -7782,8 +7782,8 @@ document.addEventListener("keydown", e => {
   if (e.key === "f") goFullscreen();
   if (e.key === "b") $("blackoutBtn").click();
   // v35: Dual-Deck live crossfade nudge ( [ toward A, ] toward B )
-  if (e.key === "[") { e.preventDefault(); setCrossfade(S.blendAmt - 0.08); }
-  if (e.key === "]") { e.preventDefault(); setCrossfade(S.blendAmt + 0.08); }
+  if (e.key === "[" && !e.altKey) { e.preventDefault(); setCrossfade(S.blendAmt - 0.08); }
+  if (e.key === "]" && !e.altKey) { e.preventDefault(); setCrossfade(S.blendAmt + 0.08); }
   if (e.key === "g" || e.key === "G") { $("shOn").checked = !S.shader.on; S.shader.on = $("shOn").checked; if (S.shader.on) initGL(); }
   if ((e.key === "p" || e.key === "P") && !e.shiftKey) { e.preventDefault(); toggleParticleMode(); }
   if ((e.key === "d" || e.key === "D") && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -9157,10 +9157,11 @@ function applyPostFX3(W, H, dt) {
   if (f3.bleachpulse) {
     const f = Math.max(S.beat, S.transient);
     if (f > 0.55) {
+      snapshot(W, H);
       ctx.save();
       ctx.globalCompositeOperation = "overlay";
-      ctx.fillStyle = `rgba(128,128,128,${Math.min(0.5, (f - 0.55) * 1.4)})`;
-      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = Math.min(0.6, (f - 0.55) * 1.6);
+      ctx.drawImage(fxC, 0, 0, W, H);
       ctx.restore();
     }
   }
