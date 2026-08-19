@@ -448,6 +448,34 @@ ok("reset happens before _drawScene runs (frame 1 of export benefits)", (() => {
   return resetIdx >= 0 && drawIdx >= 0 && resetIdx < drawIdx;
 })());
 
+/* ---------------- projectData: fx3/master/bgVid serialization (A5) ---------------- */
+section("projectData: fx3/master/bgVid serialization (A5)");
+ok("projectData includes fx3", (() => {
+  const fn = extractFn("projectData");
+  return fn && fn.includes("fx3: { ...S.fx3 }");
+})());
+ok("projectData includes master", (() => {
+  const fn = extractFn("projectData");
+  return fn && fn.includes("master: { ...S.master }");
+})());
+ok("projectData includes bgVid settings but not el/src (blob URL, not restorable)", (() => {
+  const fn = extractFn("projectData");
+  return fn && fn.includes("bgVid:") && !fn.includes("bgVid: { ...S.bgVid }") &&
+    !/bgVid:[^}]*\bel\b/.test(fn) && !/bgVid:[^}]*\bsrc\b/.test(fn);
+})());
+ok("applyProject restores fx3 booleans (mirrors fx2's pattern)", (() => {
+  const fn = extractFn("applyProject");
+  return fn && fn.includes("for (const k in S.fx3)");
+})());
+ok("applyProject restores master", (() => {
+  const fn = extractFn("applyProject");
+  return fn && fn.includes("Object.assign(S.master");
+})());
+ok("applyProject restores bgVid settings", (() => {
+  const fn = extractFn("applyProject");
+  return fn && fn.includes("Object.assign(S.bgVid");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

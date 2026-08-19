@@ -6527,6 +6527,9 @@ function projectData() {
     ctrl: { ...ctrl },
     fx: { ...S.fx },
     fx2: { ...S.fx2 },
+    fx3: { ...S.fx3 },
+    master: { ...S.master },
+    bgVid: { on: S.bgVid.on, opacity: S.bgVid.opacity, blend: S.bgVid.blend, cover: S.bgVid.cover, filter: S.bgVid.filter },
     cues: S.cues.map(c => ({ t: c.t, scene: c.scene, trans: c.trans, transDur: c.transDur, fx: c.fx ? { a: [...c.fx.a], b: [...c.fx.b] } : null })),
     setActive: S.setActive,
     pmode: { on: S.pmode.on, pattern: S.pmode.pattern, multicolor: S.pmode.multicolor, amount: S.pmode.amount },
@@ -6581,6 +6584,11 @@ function applyProject(o, fromScene) {
   if (o.ctrl) for (const k in ctrl) if (k in o.ctrl) ctrl[k] = clamp01(o.ctrl[k]);
   Object.assign(S.fx, o.fx || {});
   if (o.fx2) for (const k in S.fx2) S.fx2[k] = !!o.fx2[k];
+  if (o.fx3) for (const k in S.fx3) S.fx3[k] = !!o.fx3[k];
+  if (o.master) Object.assign(S.master, o.master);
+  // bgVid: settings only — el/src are a live DOM element + blob URL, never serialized,
+  // so a save/load or share-link never touches an existing/loaded video.
+  if (o.bgVid) Object.assign(S.bgVid, o.bgVid);
   Object.assign(S.pmode, o.pmode || {});
   S.pmode.amount = clamp01(S.pmode.amount);
 
