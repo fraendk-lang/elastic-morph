@@ -365,6 +365,36 @@ ok("#shBlend has all 9 blend values", BLEND_VALUES.every(v => shBlendBlock.inclu
 ok("#lbBlend and #shBlend have the same option count", (lbBlendBlock.match(/<option/g) || []).length === 9 &&
   (shBlendBlock.match(/<option/g) || []).length === 9);
 
+/* ---------------- Layer B modulation ---------------- */
+section("Layer B modulation");
+ok("function lfoWave defined", script.includes("function lfoWave("));
+try {
+  const { lfoWave } = loadFns(["lfoWave"]);
+  ok("lfoWave sine at phase 0 is 0", Math.abs(lfoWave("sine", 0)) < 1e-9);
+  ok("lfoWave sine at phase 0.25 is 1", Math.abs(lfoWave("sine", 0.25) - 1) < 1e-9);
+  ok("lfoWave square at phase 0 is 1", lfoWave("square", 0) === 1);
+  ok("lfoWave square at phase 0.6 is -1", lfoWave("square", 0.6) === -1);
+  ok("lfoWave triangle at phase 0 is -1", Math.abs(lfoWave("triangle", 0) - (-1)) < 1e-9);
+  ok("lfoWave triangle at phase 0.5 is 1", Math.abs(lfoWave("triangle", 0.5) - 1) < 1e-9);
+  ok("lfoWave wraps phase >1 the same as phase %1", lfoWave("sine", 1.25) === lfoWave("sine", 0.25));
+} catch (e) {
+  ok("lfoWave sine at phase 0 is 0", false, e.message);
+  ok("lfoWave sine at phase 0.25 is 1", false);
+  ok("lfoWave square at phase 0 is 1", false);
+  ok("lfoWave square at phase 0.6 is -1", false);
+  ok("lfoWave triangle at phase 0 is -1", false);
+  ok("lfoWave triangle at phase 0.5 is 1", false);
+  ok("lfoWave wraps phase >1 the same as phase %1", false);
+}
+ok("S.layerB has opLfo default with depth 0", /opLfo:\s*\{\s*rate:\s*0\.3,\s*depth:\s*0,\s*shape:\s*"sine"\s*\}/.test(script));
+ok("S.layerB has scaleLfo default with depth 0", /scaleLfo:\s*\{\s*rate:\s*0\.3,\s*depth:\s*0,\s*shape:\s*"sine"\s*\}/.test(script));
+ok("drawLayerB does not use clamp01 (out of scope)", (() => {
+  const fn = extractFn("drawLayerB");
+  return fn && !fn.includes("clamp01(");
+})());
+["lbOpLfoRate", "lbOpLfoDepth", "lbOpLfoShape", "lbScLfoRate", "lbScLfoDepth", "lbScLfoShape"].forEach(id =>
+  ok("control exists: " + id, html.includes('id="' + id + '"')));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

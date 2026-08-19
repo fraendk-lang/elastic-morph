@@ -1835,6 +1835,33 @@
       <label>Hue Drift <span class="val" id="lbHueVal">0</span></label>
       <input type="range" id="lbHue" min="0" max="100" value="0">
     </div>
+    <div class="divider"></div>
+    <div class="slider-row">
+      <label>Opacity LFO Rate <span class="val" id="lbOpLfoRateVal">0.30 Hz</span></label>
+      <input type="range" id="lbOpLfoRate" min="0" max="100" value="6">
+    </div>
+    <div class="slider-row">
+      <label>Opacity LFO Depth <span class="val" id="lbOpLfoDepthVal">0</span></label>
+      <input type="range" id="lbOpLfoDepth" min="0" max="100" value="0">
+    </div>
+    <select id="lbOpLfoShape" class="pm-select" style="margin-top:8px">
+      <option value="sine" selected>Opacity LFO: Sine</option>
+      <option value="triangle">Opacity LFO: Triangle</option>
+      <option value="square">Opacity LFO: Square</option>
+    </select>
+    <div class="slider-row" style="margin-top:10px">
+      <label>Scale LFO Rate <span class="val" id="lbScLfoRateVal">0.30 Hz</span></label>
+      <input type="range" id="lbScLfoRate" min="0" max="100" value="6">
+    </div>
+    <div class="slider-row">
+      <label>Scale LFO Depth <span class="val" id="lbScLfoDepthVal">0</span></label>
+      <input type="range" id="lbScLfoDepth" min="0" max="100" value="0">
+    </div>
+    <select id="lbScLfoShape" class="pm-select" style="margin-top:8px">
+      <option value="sine" selected>Scale LFO: Sine</option>
+      <option value="triangle">Scale LFO: Triangle</option>
+      <option value="square">Scale LFO: Square</option>
+    </select>
     <select id="lbMirror" class="pm-select" style="margin-top:8px">
       <option value="off" selected>Mirror: Off</option>
       <option value="h">Mirror: Horizontal</option>
@@ -2478,7 +2505,9 @@ const S = {
   lyrics: { on: false, cues: [], index: -1, offset: 0, tap: { active: false, lines: [], next: 0 } },
   // v13: second visual layer (geometric / spectral overlay)
   layerB: { on: false, type: "spectrumRing", opacity: 0.8, blend: "lighter", color: "dna", scale: 1,
-            pulse: 1, spin: 0, sway: 1, hueDrift: 0, mirror: "off", _spin: 0, _hue: 0 },   // v43: modulation
+            pulse: 1, spin: 0, sway: 1, hueDrift: 0, mirror: "off", _spin: 0, _hue: 0,   // v43: modulation
+            opLfo: { rate: 0.3, depth: 0, shape: "sine" }, scaleLfo: { rate: 0.3, depth: 0, shape: "sine" },
+            _opPhase: 0, _scPhase: 0 },
   // v15: reactivity gain, auto-quality, auto-VJ
   gain: 1,
   mix: { bass: 1, mid: 1, high: 1, smooth: 0, beatThresh: 0.04, autoLevel: false }, _lvlPeak: 0.3,   // v48: audio mixer
@@ -5005,6 +5034,12 @@ function drawParticleMode(W, H, baseHue, dt) {
    Geometric / spectral generators, different from the organism.
    Composited over everything (own blend + opacity), through bloom+FX.
    ============================================================ */
+function lfoWave(shape, phase) {
+  const p = phase - Math.floor(phase);   // 0..1
+  if (shape === "square") return p < 0.5 ? 1 : -1;
+  if (shape === "triangle") return p < 0.5 ? (4 * p - 1) : (3 - 4 * p);
+  return Math.sin(p * Math.PI * 2);      // sine (default)
+}
 const LAYERB_TYPES = [
   ["spectrumRing", "Spectrum Ring"],
   ["grid",         "Grid Pulse"],
@@ -5056,16 +5091,22 @@ function specAt(i, n) {
 function drawLayerB(W, H, hue, dt) {
   const LB = S.layerB;
   if (!LB.on) return;
-  const cx = W / 2, cy = H / 2, mn = Math.min(W, H), sc = LB.scale;
+  const cx = W / 2, cy = H / 2, mn = Math.min(W, H);
   // v43: continuous modulation accumulators (dt-driven → deterministic in export)
-  if (!S.frozen) { LB._spin = (LB._spin || 0) + dt * LB.spin * 1.4; LB._hue = (LB._hue || 0) + dt * LB.hueDrift * 60; }
+  if (!S.frozen) {
+    LB._spin = (LB._spin || 0) + dt * LB.spin * 1.4;
+    LB._hue = (LB._hue || 0) + dt * LB.hueDrift * 60;
+    LB._opPhase = (LB._opPhase || 0) + dt * LB.opLfo.rate;
+    LB._scPhase = (LB._scPhase || 0) + dt * LB.scaleLfo.rate;
+  }
+  const sc = LB.scale * (1 + LB.scaleLfo.depth * lfoWave(LB.scaleLfo.shape, LB._scPhase || 0));
   const colr = (t, a) => {
     if (LB.color === "white") return `rgba(255,255,255,${a})`;
     const h = (LB.color === "rainbow" ? (t * 300 + S.time * 30) : (hue + t * 50)) + (LB._hue || 0);
     return `hsla(${((h % 360) + 360) % 360}, 82%, 63%, ${a})`;
   };
   ctx.save();
-  ctx.globalAlpha = LB.opacity;
+  ctx.globalAlpha = Math.max(0, Math.min(1, LB.opacity * (1 + LB.opLfo.depth * lfoWave(LB.opLfo.shape, LB._opPhase || 0))));
   ctx.globalCompositeOperation = LB.blend;
   ctx.lineWidth = Math.max(1, mn * 0.005);
   ctx.lineJoin = "round"; ctx.lineCap = "round";   // v40: smoother strokes across all types
@@ -6693,7 +6734,17 @@ function applyProject(o, fromScene) {
   S.layerB.sway = lb.sway != null ? +lb.sway : 1;
   S.layerB.hueDrift = lb.hueDrift != null ? +lb.hueDrift : 0;
   S.layerB.mirror = ["off", "h", "quad"].includes(lb.mirror) ? lb.mirror : "off";
-  S.layerB._spin = 0; S.layerB._hue = 0;
+  S.layerB.opLfo = {
+    rate: lb.opLfo && lb.opLfo.rate != null ? +lb.opLfo.rate : 0.3,
+    depth: lb.opLfo && lb.opLfo.depth != null ? +lb.opLfo.depth : 0,
+    shape: lb.opLfo && ["sine", "triangle", "square"].includes(lb.opLfo.shape) ? lb.opLfo.shape : "sine"
+  };
+  S.layerB.scaleLfo = {
+    rate: lb.scaleLfo && lb.scaleLfo.rate != null ? +lb.scaleLfo.rate : 0.3,
+    depth: lb.scaleLfo && lb.scaleLfo.depth != null ? +lb.scaleLfo.depth : 0,
+    shape: lb.scaleLfo && ["sine", "triangle", "square"].includes(lb.scaleLfo.shape) ? lb.scaleLfo.shape : "sine"
+  };
+  S.layerB._spin = 0; S.layerB._hue = 0; S.layerB._opPhase = 0; S.layerB._scPhase = 0;
   $("lbOn").checked = !!S.layerB.on;
   $("lbType").value = S.layerB.type; $("lbBlend").value = S.layerB.blend; $("lbColor").value = S.layerB.color;
   $("lbOp").value = Math.round(S.layerB.opacity * 100); $("lbOpVal").textContent = Math.round(S.layerB.opacity * 100);
@@ -6702,6 +6753,16 @@ function applyProject(o, fromScene) {
   $("lbSpin").value = Math.round(S.layerB.spin * 100); $("lbSpinVal").textContent = Math.round(S.layerB.spin * 100);
   $("lbSway").value = Math.round(S.layerB.sway * 100); $("lbSwayVal").textContent = Math.round(S.layerB.sway * 100);
   $("lbHue").value = Math.round(S.layerB.hueDrift * 100); $("lbHueVal").textContent = Math.round(S.layerB.hueDrift * 100);
+  $("lbOpLfoRate").value = Math.round((S.layerB.opLfo.rate - 0.05) / 3.95 * 100);
+  $("lbOpLfoRateVal").textContent = S.layerB.opLfo.rate.toFixed(2) + " Hz";
+  $("lbOpLfoDepth").value = Math.round(S.layerB.opLfo.depth * 100);
+  $("lbOpLfoDepthVal").textContent = Math.round(S.layerB.opLfo.depth * 100);
+  $("lbOpLfoShape").value = S.layerB.opLfo.shape;
+  $("lbScLfoRate").value = Math.round((S.layerB.scaleLfo.rate - 0.05) / 3.95 * 100);
+  $("lbScLfoRateVal").textContent = S.layerB.scaleLfo.rate.toFixed(2) + " Hz";
+  $("lbScLfoDepth").value = Math.round(S.layerB.scaleLfo.depth * 100);
+  $("lbScLfoDepthVal").textContent = Math.round(S.layerB.scaleLfo.depth * 100);
+  $("lbScLfoShape").value = S.layerB.scaleLfo.shape;
   $("lbMirror").value = S.layerB.mirror;
   if (S.layerB.type === "starfield") initStars();
 
@@ -6821,6 +6882,20 @@ function buildLayerB() {
   $("lbSpin").addEventListener("input", e => { S.layerB.spin = e.target.value / 100; $("lbSpinVal").textContent = e.target.value; });
   $("lbSway").addEventListener("input", e => { S.layerB.sway = e.target.value / 100; $("lbSwayVal").textContent = e.target.value; });
   $("lbHue").addEventListener("input", e => { S.layerB.hueDrift = e.target.value / 100; $("lbHueVal").textContent = e.target.value; });
+  $("lbOpLfoRate").addEventListener("input", e => {
+    const hz = 0.05 + (e.target.value / 100) * 3.95;
+    S.layerB.opLfo.rate = hz;
+    $("lbOpLfoRateVal").textContent = hz.toFixed(2) + " Hz";
+  });
+  $("lbOpLfoDepth").addEventListener("input", e => { S.layerB.opLfo.depth = e.target.value / 100; $("lbOpLfoDepthVal").textContent = e.target.value; });
+  $("lbOpLfoShape").addEventListener("change", e => S.layerB.opLfo.shape = e.target.value);
+  $("lbScLfoRate").addEventListener("input", e => {
+    const hz = 0.05 + (e.target.value / 100) * 3.95;
+    S.layerB.scaleLfo.rate = hz;
+    $("lbScLfoRateVal").textContent = hz.toFixed(2) + " Hz";
+  });
+  $("lbScLfoDepth").addEventListener("input", e => { S.layerB.scaleLfo.depth = e.target.value / 100; $("lbScLfoDepthVal").textContent = e.target.value; });
+  $("lbScLfoShape").addEventListener("change", e => S.layerB.scaleLfo.shape = e.target.value);
   $("lbMirror").addEventListener("change", e => S.layerB.mirror = e.target.value);
 }
 
