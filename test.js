@@ -396,6 +396,32 @@ ok("drawLayerB does not use clamp01 (out of scope)", (() => {
 ["lbOpLfoRate", "lbOpLfoDepth", "lbOpLfoShape", "lbScLfoRate", "lbScLfoDepth", "lbScLfoShape"].forEach(id =>
   ok("control exists: " + id, html.includes('id="' + id + '"')));
 
+/* ---------------- DNA flow motion (curl noise) ---------------- */
+section("DNA flow motion (curl noise)");
+ok("function flowNoise defined", script.includes("function flowNoise("));
+ok("function curlFlow defined", script.includes("function curlFlow("));
+try {
+  const { flowNoise, curlFlow } = loadFns(["flowNoise", "curlFlow"]);
+  const testPoints = [[0, 0], [1.3, -0.7], [5, 5], [-2.2, 3.1]];
+  const allFinite = testPoints.every(([x, y]) => {
+    const v = curlFlow(x, y);
+    return v && Number.isFinite(v.x) && Number.isFinite(v.y);
+  });
+  ok("curlFlow returns finite {x,y} for sample points", allFinite);
+  const v1 = curlFlow(0, 0), v2 = curlFlow(0.06, 0);
+  ok("curlFlow varies across nearby points (not a constant field)",
+    Math.abs(v1.x - v2.x) > 1e-6 || Math.abs(v1.y - v2.y) > 1e-6);
+  ok("flowNoise is a plain number", typeof flowNoise(1, 1) === "number");
+} catch (e) {
+  ok("curlFlow returns finite {x,y} for sample points", false, e.message);
+  ok("curlFlow varies across nearby points (not a constant field)", false);
+  ok("flowNoise is a plain number", false);
+}
+ok("flow branch uses curlFlow instead of noise2-as-angle", (() => {
+  const fn = extractFn("drawScene");
+  return fn && fn.includes("curlFlow(pt.fx") && !fn.includes("noise2(pt.fx * 1.8 + seed * 0.07, pt.fy * 1.8 + S.time * 0.15) * Math.PI * 2");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
