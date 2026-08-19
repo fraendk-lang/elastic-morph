@@ -428,6 +428,26 @@ const bgVidBlendBlock = (html.match(/<select id="bgVidBlend"[^>]*>([\s\S]*?)<\/s
 ["source-over", "screen", "lighter", "overlay", "multiply", "soft-light", "difference", "color-dodge", "hard-light", "hue"].forEach(v =>
   ok("#bgVidBlend has " + v, bgVidBlendBlock.includes('value="' + v + '"')));
 
+/* ---------------- export auto-exposure fix (A1) ---------------- */
+section("Export auto-exposure fix (A1)");
+ok("applyAutoExposure runs during export (no early return)", (() => {
+  const fn = extractFn("patchWhiteoutFix");
+  return fn && !fn.includes("if (S.exporting) return;");
+})());
+ok("drawScene resets lumAvg on export-start transition", (() => {
+  const fn = extractFn("patchWhiteoutFix");
+  return fn && fn.includes("S.exporting && !S._wasExporting") &&
+    fn.includes("S.lumAvg = 0;") && fn.includes("S._lumPrev = null;") &&
+    fn.includes("S._wasExporting = S.exporting;");
+})());
+ok("reset happens before _drawScene runs (frame 1 of export benefits)", (() => {
+  const fn = extractFn("patchWhiteoutFix");
+  if (!fn) return false;
+  const resetIdx = fn.indexOf("S._wasExporting = S.exporting;");
+  const drawIdx = fn.indexOf("_drawScene(dt);");
+  return resetIdx >= 0 && drawIdx >= 0 && resetIdx < drawIdx;
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

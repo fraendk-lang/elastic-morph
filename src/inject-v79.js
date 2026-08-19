@@ -83,7 +83,6 @@ function drawDrosteZoom(W, H, cx, cy, diag) {
 
 function patchWhiteoutFix() {
   applyAutoExposure = function (W, H) {
-    if (S.exporting) return;
     try {
       applyToneDim(W, H, sampleFrameLum(W, H));
     } catch (e) { /* tainted canvas */ }
@@ -91,6 +90,16 @@ function patchWhiteoutFix() {
 
   const _drawScene = drawScene;
   drawScene = function (dt) {
+    // v-export-exposure: the old bug (v73, "DNA invisible in export") was a stale
+    // lumAvg inherited from the live preview dimming export frames on arrival — not
+    // the guard itself. Reset on the export-start transition instead of disabling
+    // exposure protection for the whole export (that left export frames unprotected
+    // from whiteout clipping, since bright FX/blend accumulation is guard-only).
+    if (S.exporting && !S._wasExporting) {
+      S.lumAvg = 0;
+      S._lumPrev = null;
+    }
+    S._wasExporting = S.exporting;
     _drawScene(dt);
     if (!S.exporting && S._lastFrameLum != null && S._lastFrameLum < 0.28) {
       S.lumAvg *= 0.992;
