@@ -2911,7 +2911,7 @@ function currentDNA() {
    VISUAL ENGINE
    ============================================================ */
 // v-dna-flow: richer noise + true curl (divergence-free flow field), used only by
-// drawParticleMode's flow-motion branch — kept separate from noise2 (27 other call sites).
+// drawScene's flow-motion branch — kept separate from noise2 (27 other call sites).
 function flowNoise(x, y) {
   return (
     Math.sin(x * 1.7 + y * 0.8) * 0.5 +
