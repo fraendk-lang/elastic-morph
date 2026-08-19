@@ -422,6 +422,12 @@ ok("flow branch uses curlFlow instead of noise2-as-angle", (() => {
   return fn && fn.includes("curlFlow(pt.fx") && !fn.includes("noise2(pt.fx * 1.8 + seed * 0.07, pt.fy * 1.8 + S.time * 0.15) * Math.PI * 2");
 })());
 
+/* ---------------- Background Video blend-mode parity ---------------- */
+section("Background Video blend-mode parity");
+const bgVidBlendBlock = (html.match(/<select id="bgVidBlend"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || "";
+["source-over", "screen", "lighter", "overlay", "multiply", "soft-light", "difference", "color-dodge", "hard-light", "hue"].forEach(v =>
+  ok("#bgVidBlend has " + v, bgVidBlendBlock.includes('value="' + v + '"')));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
