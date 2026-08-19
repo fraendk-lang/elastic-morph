@@ -388,6 +388,7 @@ try {
 }
 ok("S.layerB has opLfo default with depth 0", /opLfo:\s*\{\s*rate:\s*0\.3,\s*depth:\s*0,\s*shape:\s*"sine"\s*\}/.test(script));
 ok("S.layerB has scaleLfo default with depth 0", /scaleLfo:\s*\{\s*rate:\s*0\.3,\s*depth:\s*0,\s*shape:\s*"sine"\s*\}/.test(script));
+ok("projectData excludes all 4 layerB phase accumulators", /const\s*\{\s*_spin,\s*_hue,\s*_opPhase,\s*_scPhase,\s*\.\.\.rest\s*\}\s*=\s*S\.layerB/.test(script));
 ok("drawLayerB does not use clamp01 (out of scope)", (() => {
   const fn = extractFn("drawLayerB");
   return fn && !fn.includes("clamp01(");

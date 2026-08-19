@@ -1836,6 +1836,7 @@
       <input type="range" id="lbHue" min="0" max="100" value="0">
     </div>
     <div class="divider"></div>
+    <h3>Layer B Modulation</h3>
     <div class="slider-row">
       <label>Opacity LFO Rate <span class="val" id="lbOpLfoRateVal">0.30 Hz</span></label>
       <input type="range" id="lbOpLfoRate" min="0" max="100" value="6">
@@ -6519,7 +6520,7 @@ function projectData() {
             shadow: S.textShadow, plateColor: S.textPlateColor, plateOpacity: S.textPlateOpacity,
             custom2: S.textCustom2, gradDir: S.textGradDir, circle: S.textCircle, blend: S.textBlend },
     lyrics: { on: S.lyrics.on, cues: S.lyrics.cues, offset: S.lyrics.offset },
-    layerB: (() => { const { _spin, _hue, ...rest } = S.layerB; return rest; })(),
+    layerB: (() => { const { _spin, _hue, _opPhase, _scPhase, ...rest } = S.layerB; return rest; })(),
     shader: { ...S.shader },
     aspect: [...S.aspect], quality: S.quality, reduceFlash: S.reduceFlash
   };
@@ -6735,13 +6736,13 @@ function applyProject(o, fromScene) {
   S.layerB.hueDrift = lb.hueDrift != null ? +lb.hueDrift : 0;
   S.layerB.mirror = ["off", "h", "quad"].includes(lb.mirror) ? lb.mirror : "off";
   S.layerB.opLfo = {
-    rate: lb.opLfo && lb.opLfo.rate != null ? +lb.opLfo.rate : 0.3,
-    depth: lb.opLfo && lb.opLfo.depth != null ? +lb.opLfo.depth : 0,
+    rate: Math.max(0.05, Math.min(4, lb.opLfo && lb.opLfo.rate != null ? +lb.opLfo.rate : 0.3)),
+    depth: Math.max(0, Math.min(1, lb.opLfo && lb.opLfo.depth != null ? +lb.opLfo.depth : 0)),
     shape: lb.opLfo && ["sine", "triangle", "square"].includes(lb.opLfo.shape) ? lb.opLfo.shape : "sine"
   };
   S.layerB.scaleLfo = {
-    rate: lb.scaleLfo && lb.scaleLfo.rate != null ? +lb.scaleLfo.rate : 0.3,
-    depth: lb.scaleLfo && lb.scaleLfo.depth != null ? +lb.scaleLfo.depth : 0,
+    rate: Math.max(0.05, Math.min(4, lb.scaleLfo && lb.scaleLfo.rate != null ? +lb.scaleLfo.rate : 0.3)),
+    depth: Math.max(0, Math.min(1, lb.scaleLfo && lb.scaleLfo.depth != null ? +lb.scaleLfo.depth : 0)),
     shape: lb.scaleLfo && ["sine", "triangle", "square"].includes(lb.scaleLfo.shape) ? lb.scaleLfo.shape : "sine"
   };
   S.layerB._spin = 0; S.layerB._hue = 0; S.layerB._opPhase = 0; S.layerB._scPhase = 0;
