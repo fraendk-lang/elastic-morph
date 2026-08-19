@@ -7878,6 +7878,9 @@ window.addEventListener("resize", resize);
 document.addEventListener("keydown", e => {
   // don't hijack keys while interacting with any form control (inputs, sliders, selects, textareas)
   if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
+  // C4: don't fire app shortcuts (digits, Space, etc.) while a modal is open — reuses
+  // wireModalA11y's own aria-hidden bookkeeping rather than tracking a second flag.
+  if (document.querySelector('[aria-hidden="false"]')) return;
   // Tap-Sync: T stamps the current line's time while a tap session is active
   if ((e.key === "t" || e.key === "T") && S.lyrics.tap.active) { e.preventDefault(); tapOnce(); return; }
   if (e.code === "Space" && audioEl.src) { e.preventDefault(); S.playing ? pause() : play(); }

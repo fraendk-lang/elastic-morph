@@ -532,6 +532,10 @@ ok("C6: FX3 beat-triggered brighteners respect reduceFlash", (() => {
     fn.includes("f3.bleachpulse && !S.reduceFlash");
 })());
 
+/* ---------------- keyboard ignores open modals (C4) ---------------- */
+section("Keyboard ignores open modals (C4)");
+ok("C4: keydown handler bails when any modal has aria-hidden=false", script.includes('document.querySelector(\'[aria-hidden="false"]\')'));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
