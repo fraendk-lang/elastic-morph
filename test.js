@@ -354,6 +354,11 @@ const buildSrc = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
 const appVersionMatch = buildSrc.match(/const APP_VERSION = (\d+)/);
 ok("build.js APP_VERSION matches sw.js CACHE string", !!appVersionMatch &&
   swSrc.includes(`elastic-morph-v${appVersionMatch[1]}`));
+// C2: package.json's version drifted from APP_VERSION before (98.0.0 vs v113) --
+// extend the same guard so it can't happen silently again.
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8"));
+ok("package.json version matches build.js APP_VERSION", !!appVersionMatch &&
+  pkg.version.split(".")[0] === appVersionMatch[1]);
 
 /* ---------------- blend-mode expansion ---------------- */
 section("Blend-mode expansion");
@@ -499,6 +504,32 @@ ok("A4: autoVjStep syncs fx3 UI after curating", (() => {
 ok("A6: FX-rack keyboard shortcuts are disabled in Creator mode", (() => {
   return script.includes('if (S.uiMode !== "creator") {') &&
     script.includes("number keys 1–9 + 0 toggle the 10 FX");
+})());
+
+/* ---------------- exposure/flash guard follow-ups (A2/C1/C6) ---------------- */
+section("Exposure/flash guard follow-ups (A2/C1/C6)");
+ok("A2: sampleFrameLum excludes letterbox bars from the luminance sample", (() => {
+  const fn = extractFn("sampleFrameLum");
+  return fn && fn.includes("S.fx3.letterbox") && fn.includes("letterboxBarH(H)") &&
+    fn.includes("H - 2 * barH");
+})());
+ok("A2: letterbox bar height uses the shared helper (single source of truth)", (() => {
+  const fn = extractFn("applyPostFX3");
+  return fn && fn.includes("letterboxBarH(H)");
+})());
+ok("C1: dustscratches uses seededRand, not Math.random()", (() => {
+  const fn = extractFn("applyPostFX3");
+  if (!fn) return false;
+  const start = fn.indexOf("f3.dustscratches");
+  const end = fn.indexOf("f3.chromafringe");
+  const block = fn.slice(start, end);
+  return block.includes("seededRand(") && !block.includes("Math.random()");
+})());
+ok("C6: FX3 beat-triggered brighteners respect reduceFlash", (() => {
+  const fn = extractFn("applyPostFX3");
+  return fn && fn.includes("f3.lensflare && !S.reduceFlash") &&
+    fn.includes("f3.anamorphflare && !S.reduceFlash") &&
+    fn.includes("f3.bleachpulse && !S.reduceFlash");
 })());
 
 /* ---------------- summary ---------------- */

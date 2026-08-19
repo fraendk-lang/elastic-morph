@@ -2,12 +2,26 @@
    v79 — Whiteout fix + improved Droste Zoom
    ============================================================ */
 
+// v-letterbox-lum: shared by applyPostFX3's letterbox bars and sampleFrameLum below, so
+// the exposure guard always crops the exact same region the bars actually cover.
+function letterboxBarH(H) {
+  return H * (0.06 + Math.min(0.10, S.beat * 0.08 + S.loudness * 0.05));
+}
+
 function sampleFrameLum(W, H) {
   const sw = 32, sh = 18;
   chctx.globalCompositeOperation = "copy";
   chctx.globalAlpha = 1;
   chctx.imageSmoothingEnabled = true;
-  chctx.drawImage(canvas, 0, 0, sw, sh);
+  // v-letterbox-lum: exclude the black letterbox bars from the sample — otherwise up to
+  // ~32% of the measured area is pure black and the guard under-reacts to how bright the
+  // actual visible content is.
+  if (S.fx3 && S.fx3.letterbox) {
+    const barH = letterboxBarH(H);
+    chctx.drawImage(canvas, 0, barH, W, H - 2 * barH, 0, 0, sw, sh);
+  } else {
+    chctx.drawImage(canvas, 0, 0, sw, sh);
+  }
   const d = chctx.getImageData(0, 0, sw, sh).data;
   let lum = 0;
   for (let i = 0; i < d.length; i += 4) {
@@ -18,7 +32,9 @@ function sampleFrameLum(W, H) {
 
 function brightFxActive() {
   const f = S.fx, f2 = S.fx2, f3 = S.fx3;
-  return !!(f.feedback || f.strobe || f.kaleido || f2.droste || f2.echospin || f2.radialblur || f2.hexkaleido || f3.anamorphflare || f3.bleachpulse || S.shader.on);
+  return !!(f.feedback || f.strobe || f.kaleido || f2.droste || f2.echospin || f2.radialblur || f2.hexkaleido ||
+    f3.anamorphflare || f3.bleachpulse || f3.doubleexposure || f3.dustscratches || f3.lensflare || f3.lightleak ||
+    S.shader.on);
 }
 
 function applyToneDim(W, H, lum) {

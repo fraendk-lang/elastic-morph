@@ -475,7 +475,7 @@ function applyPostFX3(W, H, dt) {
   let any = false;
   for (const k in f3) if (f3[k]) { any = true; break; }
   if (!any) return;
-  if (f3.lensflare && S.beat > 0.5) {
+  if (f3.lensflare && !S.reduceFlash && S.beat > 0.5) {
     const g = ctx.createRadialGradient(W * 0.75, H * 0.25, 0, W * 0.75, H * 0.25, W * 0.35);
     g.addColorStop(0, `rgba(255,240,200,${S.beat * 0.25})`);
     g.addColorStop(0.4, `rgba(255,180,100,${S.beat * 0.08})`);
@@ -501,7 +501,7 @@ function applyPostFX3(W, H, dt) {
     ctx.drawImage(fxC, 3 + S.stereo * 8, 0, W, H);
     ctx.globalAlpha = 1;
   }
-  if (f3.anamorphflare && S.beat > 0.5) {
+  if (f3.anamorphflare && !S.reduceFlash && S.beat > 0.5) {
     const cy = H * 0.5 + S.stereo * H * 0.06;
     const g = ctx.createRadialGradient(W * 0.5, cy, 0, W * 0.5, cy, W * 0.55);
     g.addColorStop(0, `rgba(160,200,255,${S.beat * 0.22})`);
@@ -526,9 +526,12 @@ function applyPostFX3(W, H, dt) {
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     const nSpecks = 14 + Math.round(S.transient * 20);
+    // v-dustscratches-seed: seeded, not raw JS randomness, so HQ/offline export is
+    // deterministic frame-to-frame, matching every other grain/dither pass in the app.
+    const rng = seededRand(Math.floor(S.time * 60) + Math.floor(S.seed * 100) + 19);
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     for (let i = 0; i < nSpecks; i++) {
-      const x = Math.random() * W, y = Math.random() * H, s = 0.6 + Math.random() * 1.4;
+      const x = rng() * W, y = rng() * H, s = 0.6 + rng() * 1.4;
       ctx.fillRect(x, y, s, s);
     }
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
@@ -561,7 +564,7 @@ function applyPostFX3(W, H, dt) {
     }
     ctx.restore();
   }
-  if (f3.bleachpulse) {
+  if (f3.bleachpulse && !S.reduceFlash) {
     const f = Math.max(S.beat, S.transient);
     if (f > 0.55) {
       snapshot(W, H);
@@ -574,7 +577,7 @@ function applyPostFX3(W, H, dt) {
   }
   if (f3.letterbox) {
     ctx.save();
-    const barH = H * (0.06 + Math.min(0.10, S.beat * 0.08 + S.loudness * 0.05));
+    const barH = letterboxBarH(H);   // shared with sampleFrameLum, see src/inject-v79.js
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, W, barH);
     ctx.fillRect(0, H - barH, W, barH);
