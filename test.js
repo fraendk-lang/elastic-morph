@@ -476,6 +476,31 @@ ok("applyProject restores bgVid settings", (() => {
   return fn && fn.includes("Object.assign(S.bgVid");
 })());
 
+/* ---------------- FX Rack III integration (A3/A4/A6) ---------------- */
+section("FX Rack III integration (A3/A4/A6)");
+ok("A3: brightFxActive covers all 6 additive fx3 effects", (() => {
+  const fn = extractFn("brightFxActive");
+  return fn && ["anamorphflare", "bleachpulse", "doubleexposure", "dustscratches", "lensflare", "lightleak"]
+    .every(k => fn.includes("f3." + k));
+})());
+ok("A4: autoVjStep clears fx3 alongside fx/fx2", (() => {
+  const fn = extractFn("autoVjStep");
+  return fn && fn.includes("Object.keys(S.fx3).forEach(k => S.fx3[k] = false)");
+})());
+ok("A4: autoVjStep's single brightener pool includes fx3 entries", (() => {
+  const fn = extractFn("autoVjStep");
+  return fn && ["anamorphflare", "bleachpulse", "doubleexposure", "dustscratches", "lensflare", "lightleak"]
+    .every(k => fn.includes('["fx3", "' + k + '"]'));
+})());
+ok("A4: autoVjStep syncs fx3 UI after curating", (() => {
+  const fn = extractFn("autoVjStep");
+  return fn && fn.includes("syncFX3UI()");
+})());
+ok("A6: FX-rack keyboard shortcuts are disabled in Creator mode", (() => {
+  return script.includes('if (S.uiMode !== "creator") {') &&
+    script.includes("number keys 1–9 + 0 toggle the 10 FX");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

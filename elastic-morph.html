@@ -7899,19 +7899,25 @@ document.addEventListener("keydown", e => {
   // Alt+digit is checked via e.code first: on macOS, Option remaps e.key to an
   // alternate glyph (e.g. "1" -> "¡"), so e.key-based digit detection never fires
   // while Alt is held. e.code reports the physical key regardless of modifiers.
-  const altDigit = e.altKey && /^Digit([0-9])$/.exec(e.code);
-  if (altDigit) {                          // Alt+digit → FX Rack III (cinematic)
-    const idx = altDigit[1] === "0" ? 9 : +altDigit[1] - 1;
-    const def3 = FX3_DEFS[idx];
-    if (def3) { e.preventDefault(); toggleFX3(def3[0]); }
-  } else if (e.key >= "0" && e.key <= "9") {
-    const idx = e.key === "0" ? 9 : +e.key - 1;
-    if (e.ctrlKey) {                       // Ctrl+digit → FX Rack II (geometry)
-      const def2 = FX2_DEFS[idx];
-      if (def2) { e.preventDefault(); toggleFX2(def2[0]); }
-    } else if (!e.metaKey) {               // plain digit → FX Rack I
-      const def = FX_DEFS[idx];
-      if (def) toggleFX(def[0]);
+  // v-fx-creator-guard: the whole #ctrl panel (all 3 FX racks) is hidden in Creator
+  // mode, so these shortcuts used to toggle invisible, undiscoverable state with no
+  // on-screen way to see or undo it. Creator mode has no FX-rack UI of its own, so
+  // disabling the shortcuts there matches what the mode already shows.
+  if (S.uiMode !== "creator") {
+    const altDigit = e.altKey && /^Digit([0-9])$/.exec(e.code);
+    if (altDigit) {                          // Alt+digit → FX Rack III (cinematic)
+      const idx = altDigit[1] === "0" ? 9 : +altDigit[1] - 1;
+      const def3 = FX3_DEFS[idx];
+      if (def3) { e.preventDefault(); toggleFX3(def3[0]); }
+    } else if (e.key >= "0" && e.key <= "9") {
+      const idx = e.key === "0" ? 9 : +e.key - 1;
+      if (e.ctrlKey) {                       // Ctrl+digit → FX Rack II (geometry)
+        const def2 = FX2_DEFS[idx];
+        if (def2) { e.preventDefault(); toggleFX2(def2[0]); }
+      } else if (!e.metaKey) {               // plain digit → FX Rack I
+        const def = FX_DEFS[idx];
+        if (def) toggleFX(def[0]);
+      }
     }
   }
 });
@@ -8436,18 +8442,26 @@ function autoVjStep() {
   if (R() < 0.6) {
     Object.keys(S.fx).forEach(k => S.fx[k] = false);
     Object.keys(S.fx2).forEach(k => S.fx2[k] = false);
+    Object.keys(S.fx3).forEach(k => S.fx3[k] = false);
     const safe1 = ["mirror", "kaleido", "tile", "rgb", "invert", "pixelate", "glitch", "shake"];
     const safe2 = ["hexkaleido", "droste", "mirrorgrid", "slice", "spin", "halftone", "triangulate", "posterize"];
-    const bright = [["fx", "feedback"], ["fx", "strobe"], ["fx2", "radialblur"], ["fx2", "echospin"]];
+    const safe3 = ["scanlines", "motionblur", "letterbox", "chromafringe"];
+    // v-fx3-autovj: brightener pool now spans all three racks so "at most one" stays a
+    // real invariant — fx3 has 6 additive/screen-composited effects (see brightFxActive).
+    const bright = [["fx", "feedback"], ["fx", "strobe"], ["fx2", "radialblur"], ["fx2", "echospin"],
+      ["fx3", "anamorphflare"], ["fx3", "bleachpulse"], ["fx3", "doubleexposure"], ["fx3", "dustscratches"],
+      ["fx3", "lensflare"], ["fx3", "lightleak"]];
     const nSafe = Math.floor(R() * 3);   // 0–2 safe effects
     for (let i = 0; i < nSafe; i++) {
-      if (R() < 0.5) S.fx[safe1[Math.floor(R() * safe1.length)]] = true;
-      else S.fx2[safe2[Math.floor(R() * safe2.length)]] = true;
+      const pick = R();
+      if (pick < 0.34) S.fx[safe1[Math.floor(R() * safe1.length)]] = true;
+      else if (pick < 0.67) S.fx2[safe2[Math.floor(R() * safe2.length)]] = true;
+      else S.fx3[safe3[Math.floor(R() * safe3.length)]] = true;
     }
     if (R() < 0.35) { const b = bright[Math.floor(R() * bright.length)]; S[b[0]][b[1]] = true; }   // at most one brightener
     if (S.fx.kaleido) S.fx.mirror = false;
     if (!S.fx.feedback) fbctx.clearRect(0, 0, fbC.width, fbC.height);
-    syncFXUI(); syncFX2UI();
+    syncFXUI(); syncFX2UI(); syncFX3UI();
   }
   // sometimes flip the GPU shader on/off and reroll its style
   if (R() < 0.35) {
@@ -11844,7 +11858,9 @@ function sampleFrameLum(W, H) {
 
 function brightFxActive() {
   const f = S.fx, f2 = S.fx2, f3 = S.fx3;
-  return !!(f.feedback || f.strobe || f.kaleido || f2.droste || f2.echospin || f2.radialblur || f2.hexkaleido || f3.anamorphflare || f3.bleachpulse || S.shader.on);
+  return !!(f.feedback || f.strobe || f.kaleido || f2.droste || f2.echospin || f2.radialblur || f2.hexkaleido ||
+    f3.anamorphflare || f3.bleachpulse || f3.doubleexposure || f3.dustscratches || f3.lensflare || f3.lightleak ||
+    S.shader.on);
 }
 
 function applyToneDim(W, H, lum) {
