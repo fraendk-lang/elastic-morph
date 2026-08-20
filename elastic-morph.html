@@ -8728,7 +8728,7 @@ document.addEventListener("keydown", e => {
   if (e.key === "?") { e.preventDefault(); toggleHelp(); }
   if ((e.key === "p" || e.key === "P") && e.shiftKey) { e.preventDefault(); savePNG(); }
   if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey) { e.preventDefault(); addCueAt(curTimeSec()); }
-  if (e.key === "Tab" && $("sceneBank")?.offsetParent !== null) { e.preventDefault(); setActiveSceneBank(activeSceneBank === 1 ? 2 : 1); }
+  if (e.key === "Tab" && $("sceneBank")?.offsetParent != null) { e.preventDefault(); setActiveSceneBank(activeSceneBank === 1 ? 2 : 1); }
   if (e.shiftKey && /^Digit[1-8]$/.test(e.code)) { e.preventDefault(); recallScene((activeSceneBank - 1) * 8 + (+e.code.slice(5) - 1)); }
 });
 
