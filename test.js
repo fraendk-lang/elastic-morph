@@ -549,6 +549,17 @@ ok("EXTRA_ASSETS installs best-effort via Promise.allSettled, not addAll",
   ok(f + " exists on disk", fs.existsSync(path.join(__dirname, f))));
 ok("demo MP3 exists on disk", fs.existsSync(path.join(__dirname, "assets/demo/Elastic Field - Dust Reel.mp3")));
 
+/* ---------------- Pixelate modulation pilot ---------------- */
+section("Pixelate modulation pilot");
+const pixelateBlock = (script.match(/if \(fx\.pixelate\) \{[\s\S]*?\n  \}/) || [])[0] || "";
+ok("Pixelate block-size drift present", pixelateBlock.includes("Math.sin(S.time * 0.25)"));
+ok("Pixelate sharpness crossfade present", pixelateBlock.includes("Math.sin(S.time * 0.1)"));
+ok("Sharpness crossfade skips the extra draw near soft=0 (perf)", pixelateBlock.includes("soft > 0.02"));
+ok("Both draws sample the same downsized buffer (no second downscale)", (() => {
+  const drawImageCalls = pixelateBlock.match(/ctx\.drawImage\(fxC, 0, 0, sw, sh, 0, 0, W, H\)/g) || [];
+  return drawImageCalls.length === 2;
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
