@@ -569,6 +569,13 @@ ok("normalizeScenes iterates 16 slots", (() => {
 })());
 ok("saveScene bounds check allows indices up to 15", script.includes("idx < 0 || idx > 15"));
 
+/* ---------------- Scene Banks: Basis Szene storage (Task 2) ---------------- */
+section("Scene Banks: Basis Szene storage");
+ok("SCENE_BASIS_LS key defined", script.includes('const SCENE_BASIS_LS = "elasticMorph.sceneBasis";'));
+ok("loadBasisScene defined", script.includes("function loadBasisScene()"));
+ok("saveBasisScene defined with quota-guard + toast", script.includes("function saveBasisScene()") && script.includes('showAppToast("Basis Szene gespeichert.'));
+ok("recallBasisScene defined", script.includes("function recallBasisScene()"));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

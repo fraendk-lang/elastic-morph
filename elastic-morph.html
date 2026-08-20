@@ -10992,6 +10992,36 @@ function persistScenes(all) {
   return normalized;
 }
 
+const SCENE_BASIS_LS = "elasticMorph.sceneBasis";
+
+function loadBasisScene() {
+  try { return JSON.parse(localStorage.getItem(SCENE_BASIS_LS)); } catch (e) { return null; }
+}
+
+function saveBasisScene() {
+  const snap = sceneSnapshot();
+  try {
+    localStorage.setItem(SCENE_BASIS_LS, JSON.stringify(snap));
+    showAppToast("Basis Szene gespeichert.", 2800);
+  } catch (e) {
+    try {
+      if (snap.image) snap.image.src = null;
+      if (snap.image2) snap.image2.src = null;
+      localStorage.setItem(SCENE_BASIS_LS, JSON.stringify(snap));
+      showAppToast("Basis Szene gespeichert (ohne Bilddaten — Speicherlimit).", 5200);
+    } catch (e2) {
+      console.error("Basis scene save failed:", e2);
+      showAppToast("Basis Szene konnte nicht gespeichert werden — localStorage voll?", 6000);
+    }
+  }
+  renderScenes();
+}
+
+function recallBasisScene() {
+  const snap = loadBasisScene();
+  if (snap) applyProject(snap, true);
+}
+
 function patchSceneBank() {
   loadScenes = function () {
     try { return normalizeScenes(JSON.parse(localStorage.getItem(SCENES_LS))); } catch (e) { return {}; }
