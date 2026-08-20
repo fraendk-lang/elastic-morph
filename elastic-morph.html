@@ -8722,8 +8722,8 @@ window.addEventListener("touchend", setPointerUp);
 /* extra keyboard: Shift+P = PNG, ? = help, Esc = close help, Tab = toggle scene bank, Shift+1..8 = recall scene */
 document.addEventListener("keydown", e => {
   if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
-  if (document.querySelector('[aria-hidden="false"]')) return;
   if (e.key === "Escape") { toggleHelp(false); closeSetEditor(); }
+  if (document.querySelector('[aria-hidden="false"]')) return;
   if (e.key === "?") { e.preventDefault(); toggleHelp(); }
   if ((e.key === "p" || e.key === "P") && e.shiftKey) { e.preventDefault(); savePNG(); }
   if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey) { e.preventDefault(); addCueAt(curTimeSec()); }

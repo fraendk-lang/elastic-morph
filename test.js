@@ -599,6 +599,13 @@ ok("Listener 3 bails on open modal (guard parity with listener 1)", (() => {
   const block = script.slice(idx, idx + 700);
   return block.includes('document.querySelector(\'[aria-hidden="false"]\')');
 })());
+ok("Escape still closes overlays even while a modal is open (guard must not block Escape itself)", (() => {
+  const idx = script.indexOf("/* extra keyboard:");
+  const block = script.slice(idx, idx + 700);
+  const escapeIdx = block.indexOf('e.key === "Escape"');
+  const guardIdx = block.indexOf('document.querySelector(\'[aria-hidden="false"]\')');
+  return escapeIdx >= 0 && guardIdx >= 0 && escapeIdx < guardIdx;
+})());
 
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
