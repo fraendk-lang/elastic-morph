@@ -2,12 +2,14 @@
    v71 — Scene bank fix: B/C/D save + localStorage quota guard
    ============================================================ */
 
-const SCENE_LABELS = ["A", "B", "C", "D"];
+const SCENE_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"];
+let activeSceneBank = 1;
+function setActiveSceneBank(n) { activeSceneBank = n === 2 ? 2 : 1; renderScenes(); }
 
 function normalizeScenes(raw) {
   const out = {};
   if (!raw || typeof raw !== "object") return out;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 16; i++) {
     const slot = raw[i] ?? raw[String(i)];
     if (slot && slot.app === "ElasticMorph") out[i] = slot;
   }
@@ -30,6 +32,36 @@ function persistScenes(all) {
   return normalized;
 }
 
+const SCENE_BASIS_LS = "elasticMorph.sceneBasis";
+
+function loadBasisScene() {
+  try { return JSON.parse(localStorage.getItem(SCENE_BASIS_LS)); } catch (e) { return null; }
+}
+
+function saveBasisScene() {
+  const snap = sceneSnapshot();
+  try {
+    localStorage.setItem(SCENE_BASIS_LS, JSON.stringify(snap));
+    showAppToast("Basis Szene gespeichert.", 2800);
+  } catch (e) {
+    try {
+      if (snap.image) snap.image.src = null;
+      if (snap.image2) snap.image2.src = null;
+      localStorage.setItem(SCENE_BASIS_LS, JSON.stringify(snap));
+      showAppToast("Basis Szene gespeichert (ohne Bilddaten — Speicherlimit).", 5200);
+    } catch (e2) {
+      console.error("Basis scene save failed:", e2);
+      showAppToast("Basis Szene konnte nicht gespeichert werden — localStorage voll?", 6000);
+    }
+  }
+  renderScenes();
+}
+
+function recallBasisScene() {
+  const snap = loadBasisScene();
+  if (snap) applyProject(snap, true);
+}
+
 function patchSceneBank() {
   loadScenes = function () {
     try { return normalizeScenes(JSON.parse(localStorage.getItem(SCENES_LS))); } catch (e) { return {}; }
@@ -37,7 +69,7 @@ function patchSceneBank() {
 
   saveScene = function (i) {
     const idx = i | 0;
-    if (idx < 0 || idx > 3) return;
+    if (idx < 0 || idx > 15) return;
     const all = loadScenes();
     const snap = sceneSnapshot();
     all[idx] = snap;
@@ -70,18 +102,39 @@ function patchSceneBank() {
     if (!host) return;
     const all = loadScenes();
     host.innerHTML = "";
-    SCENE_LABELS.forEach((label, i) => {
+
+    const basisFilled = !!loadBasisScene();
+    const basisRow = document.createElement("div");
+    basisRow.className = "scene-row";
+    basisRow.innerHTML = `<span class="sname">✦</span>
+      <button type="button" class="btn scene-recall${basisFilled ? "" : " empty"}">${basisFilled ? "Recall" : "—"}</button>
+      <button type="button" class="btn scene-save">Save</button>
+      <span class="sname" style="width:auto;margin-left:4px">Basis Szene</span>`;
+    basisRow.querySelector(".scene-recall").addEventListener("click", () => { if (basisFilled) recallBasisScene(); });
+    basisRow.querySelector(".scene-save").addEventListener("click", () => saveBasisScene());
+    host.appendChild(basisRow);
+
+    const toggle = document.createElement("div");
+    toggle.className = "scene-bank-toggle";
+    toggle.innerHTML = `<button type="button" class="btn${activeSceneBank === 1 ? " active" : ""}" data-bank="1">Bank 1 (A–H)</button>
+      <button type="button" class="btn${activeSceneBank === 2 ? " active" : ""}" data-bank="2">Bank 2 (I–P)</button>`;
+    toggle.querySelectorAll("button").forEach(b => b.addEventListener("click", () => setActiveSceneBank(+b.dataset.bank)));
+    host.appendChild(toggle);
+
+    const offset = (activeSceneBank - 1) * 8;
+    for (let k = 0; k < 8; k++) {
+      const i = offset + k;
+      const label = SCENE_LABELS[i];
       const filled = !!all[i];
       const row = document.createElement("div");
       row.className = "scene-row";
       row.innerHTML = `<span class="sname">${label}</span>
         <button type="button" class="btn scene-recall${filled ? "" : " empty"}">${filled ? "Recall" : "—"}</button>
         <button type="button" class="btn scene-save">Save</button>`;
-      const recall = row.querySelector(".scene-recall");
-      recall.addEventListener("click", () => { if (all[i]) recallScene(i); });
+      row.querySelector(".scene-recall").addEventListener("click", () => { if (all[i]) recallScene(i); });
       row.querySelector(".scene-save").addEventListener("click", () => saveScene(i));
       host.appendChild(row);
-    });
+    }
   };
 
   try {
