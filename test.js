@@ -589,6 +589,17 @@ ok("renderScenes always shows the Basis Szene row", (() => {
   return fn && fn.includes("recallBasisScene") && fn.includes("saveBasisScene");
 })());
 
+/* ---------------- Scene Banks: keyboard shortcuts (Task 4) ---------------- */
+section("Scene Banks: keyboard shortcuts");
+ok("B recalls Basis Szene, Shift+B triggers blackout", script.includes('if (e.key === "b") recallBasisScene();') && script.includes('if (e.key === "B") { e.preventDefault(); $("blackoutBtn").click(); }'));
+ok("Shift+1-8 recalls within the active bank", script.includes('/^Digit[1-8]$/.test(e.code)') && script.includes("(activeSceneBank - 1) * 8"));
+ok("Tab toggles the active scene bank", script.includes('e.key === "Tab"') && script.includes('setActiveSceneBank(activeSceneBank === 1 ? 2 : 1)'));
+ok("Listener 3 bails on open modal (guard parity with listener 1)", (() => {
+  const idx = script.indexOf("/* extra keyboard:");
+  const block = script.slice(idx, idx + 700);
+  return block.includes('document.querySelector(\'[aria-hidden="false"]\')');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

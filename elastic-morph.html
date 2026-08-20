@@ -7905,7 +7905,8 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft") { e.preventDefault(); skip(-5); }
   if (e.key === "ArrowRight") { e.preventDefault(); skip(5); }
   if (e.key === "f") goFullscreen();
-  if (e.key === "b") $("blackoutBtn").click();
+  if (e.key === "b") recallBasisScene();
+  if (e.key === "B") { e.preventDefault(); $("blackoutBtn").click(); }
   // v35: Dual-Deck live crossfade nudge ( [ toward A, ] toward B )
   if (e.key === "[" && !e.altKey) { e.preventDefault(); setCrossfade(S.blendAmt - 0.08); }
   if (e.key === "]" && !e.altKey) { e.preventDefault(); setCrossfade(S.blendAmt + 0.08); }
@@ -8718,14 +8719,16 @@ window.addEventListener("touchmove", setPointerMove, { passive: false });
 window.addEventListener("mouseup", setPointerUp);
 window.addEventListener("touchend", setPointerUp);
 
-/* extra keyboard: Shift+P = PNG, ? = help, Esc = close help, Shift+1..4 = recall scene */
+/* extra keyboard: Shift+P = PNG, ? = help, Esc = close help, Tab = toggle scene bank, Shift+1..8 = recall scene */
 document.addEventListener("keydown", e => {
   if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
+  if (document.querySelector('[aria-hidden="false"]')) return;
   if (e.key === "Escape") { toggleHelp(false); closeSetEditor(); }
   if (e.key === "?") { e.preventDefault(); toggleHelp(); }
   if ((e.key === "p" || e.key === "P") && e.shiftKey) { e.preventDefault(); savePNG(); }
   if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey) { e.preventDefault(); addCueAt(curTimeSec()); }
-  if (e.shiftKey && /^Digit[1-4]$/.test(e.code)) { e.preventDefault(); recallScene(+e.code.slice(5) - 1); }
+  if (e.key === "Tab") { e.preventDefault(); setActiveSceneBank(activeSceneBank === 1 ? 2 : 1); }
+  if (e.shiftKey && /^Digit[1-8]$/.test(e.code)) { e.preventDefault(); recallScene((activeSceneBank - 1) * 8 + (+e.code.slice(5) - 1)); }
 });
 
 /* @BUILD-INJECT-V58 */
