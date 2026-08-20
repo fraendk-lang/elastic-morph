@@ -1501,7 +1501,7 @@
       <div class="sub">Performance, MIDI and app options.</div>
 
       <h3>Scenes</h3>
-      <p class="note">Store complete looks (DNA, layers, FX, text) and switch live. Keyboard: <b>Shift+1…4</b> recalls A–D. Bilder werden nicht in Szenen gespeichert (Speicherlimit) — DNA, FX &amp; Text schon.</p>
+      <p class="note">Store complete looks (DNA, layers, FX, text) and switch live. Keyboard: <b>Shift+1…8</b> recalls within the active bank, <b>Tab</b> switches banks, <b>B</b> recalls the Basis Szene. Bilder werden nicht in Szenen gespeichert (Speicherlimit) — DNA, FX &amp; Text schon.</p>
       <div id="sceneBank" style="max-width:420px;margin-top:8px"></div>
 
       <h3>Auto-VJ</h3>
@@ -1918,6 +1918,7 @@
           <span><b>Alt+1–0</b> FX Rack III</span>
           <span><b>+ / − / 0</b> Zoom rein/raus/reset</span>
           <span><b>G</b> Shader · <b>P</b> Partikel · <b>D</b> DNA · <b>Shift+P</b> PNG · <b>F</b> Vollbild</span>
+          <span><b>B</b> Basis Szene · <b>Shift+B</b> Blackout · <b>Tab</b> Bank wechseln · <b>Shift+1–8</b> Szene abrufen</span>
           <span><b>?</b> Hilfe · <b>Esc</b> Schließen</span>
         </p>
         <h4>Touch & iPad</h4>
@@ -7905,8 +7906,8 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft") { e.preventDefault(); skip(-5); }
   if (e.key === "ArrowRight") { e.preventDefault(); skip(5); }
   if (e.key === "f") goFullscreen();
-  if (e.key === "b") recallBasisScene();
-  if (e.key === "B") { e.preventDefault(); $("blackoutBtn").click(); }
+  if ((e.key === "b" || e.key === "B") && !e.shiftKey) recallBasisScene();
+  if ((e.key === "b" || e.key === "B") && e.shiftKey) { e.preventDefault(); $("blackoutBtn").click(); }
   // v35: Dual-Deck live crossfade nudge ( [ toward A, ] toward B )
   if (e.key === "[" && !e.altKey) { e.preventDefault(); setCrossfade(S.blendAmt - 0.08); }
   if (e.key === "]" && !e.altKey) { e.preventDefault(); setCrossfade(S.blendAmt + 0.08); }
@@ -8727,7 +8728,7 @@ document.addEventListener("keydown", e => {
   if (e.key === "?") { e.preventDefault(); toggleHelp(); }
   if ((e.key === "p" || e.key === "P") && e.shiftKey) { e.preventDefault(); savePNG(); }
   if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey) { e.preventDefault(); addCueAt(curTimeSec()); }
-  if (e.key === "Tab") { e.preventDefault(); setActiveSceneBank(activeSceneBank === 1 ? 2 : 1); }
+  if (e.key === "Tab" && $("sceneBank")?.offsetParent !== null) { e.preventDefault(); setActiveSceneBank(activeSceneBank === 1 ? 2 : 1); }
   if (e.shiftKey && /^Digit[1-8]$/.test(e.code)) { e.preventDefault(); recallScene((activeSceneBank - 1) * 8 + (+e.code.slice(5) - 1)); }
 });
 
