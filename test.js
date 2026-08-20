@@ -576,6 +576,19 @@ ok("loadBasisScene defined", script.includes("function loadBasisScene()"));
 ok("saveBasisScene defined with quota-guard + toast", script.includes("function saveBasisScene()") && script.includes('showAppToast("Basis Szene gespeichert.'));
 ok("recallBasisScene defined", script.includes("function recallBasisScene()"));
 
+/* ---------------- Scene Banks: two-bank toggle panel UI (Task 3) ---------------- */
+section("Scene Banks: two-bank toggle panel UI");
+ok(".scene-bank-toggle CSS defined", html.includes(".scene-bank-toggle"));
+ok("activeSceneBank state + setActiveSceneBank helper defined", script.includes("let activeSceneBank = 1;") && script.includes("function setActiveSceneBank(n)"));
+ok("renderScenes renders both bank toggle buttons", (() => {
+  const fn = extractFn("patchSceneBank");
+  return fn && fn.includes("scene-bank-toggle") && fn.includes("Bank 1 (A–H)") && fn.includes("Bank 2 (I–P)");
+})());
+ok("renderScenes always shows the Basis Szene row", (() => {
+  const fn = extractFn("patchSceneBank");
+  return fn && fn.includes("recallBasisScene") && fn.includes("saveBasisScene");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

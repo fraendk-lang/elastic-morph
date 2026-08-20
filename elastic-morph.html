@@ -684,6 +684,10 @@
   .scene-row .btn { padding: 5px 12px; font-size: 11px; }
   .scene-row .scene-recall.empty { color: #55556a; cursor: default; border-style: dashed; }
 
+  .scene-bank-toggle { display: flex; gap: 6px; margin: 4px 0 10px; }
+  .scene-bank-toggle .btn { flex: 1; font-size: 11px; padding: 6px 8px; }
+  .scene-bank-toggle .btn.active { border-color: var(--accent); color: var(--text); background: var(--panel2); }
+
   /* help overlay */
   #helpOverlay {
     position: fixed; inset: 0; z-index: 50;
@@ -10965,6 +10969,8 @@ function initFreemium() {
    ============================================================ */
 
 const SCENE_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"];
+let activeSceneBank = 1;
+function setActiveSceneBank(n) { activeSceneBank = n === 2 ? 2 : 1; renderScenes(); }
 
 function normalizeScenes(raw) {
   const out = {};
@@ -11062,18 +11068,39 @@ function patchSceneBank() {
     if (!host) return;
     const all = loadScenes();
     host.innerHTML = "";
-    SCENE_LABELS.forEach((label, i) => {
+
+    const basisFilled = !!loadBasisScene();
+    const basisRow = document.createElement("div");
+    basisRow.className = "scene-row";
+    basisRow.innerHTML = `<span class="sname">✦</span>
+      <button type="button" class="btn scene-recall${basisFilled ? "" : " empty"}">${basisFilled ? "Recall" : "—"}</button>
+      <button type="button" class="btn scene-save">Save</button>
+      <span class="sname" style="width:auto;margin-left:4px">Basis Szene</span>`;
+    basisRow.querySelector(".scene-recall").addEventListener("click", () => { if (basisFilled) recallBasisScene(); });
+    basisRow.querySelector(".scene-save").addEventListener("click", () => saveBasisScene());
+    host.appendChild(basisRow);
+
+    const toggle = document.createElement("div");
+    toggle.className = "scene-bank-toggle";
+    toggle.innerHTML = `<button type="button" class="btn${activeSceneBank === 1 ? " active" : ""}" data-bank="1">Bank 1 (A–H)</button>
+      <button type="button" class="btn${activeSceneBank === 2 ? " active" : ""}" data-bank="2">Bank 2 (I–P)</button>`;
+    toggle.querySelectorAll("button").forEach(b => b.addEventListener("click", () => setActiveSceneBank(+b.dataset.bank)));
+    host.appendChild(toggle);
+
+    const offset = (activeSceneBank - 1) * 8;
+    for (let k = 0; k < 8; k++) {
+      const i = offset + k;
+      const label = SCENE_LABELS[i];
       const filled = !!all[i];
       const row = document.createElement("div");
       row.className = "scene-row";
       row.innerHTML = `<span class="sname">${label}</span>
         <button type="button" class="btn scene-recall${filled ? "" : " empty"}">${filled ? "Recall" : "—"}</button>
         <button type="button" class="btn scene-save">Save</button>`;
-      const recall = row.querySelector(".scene-recall");
-      recall.addEventListener("click", () => { if (all[i]) recallScene(i); });
+      row.querySelector(".scene-recall").addEventListener("click", () => { if (all[i]) recallScene(i); });
       row.querySelector(".scene-save").addEventListener("click", () => saveScene(i));
       host.appendChild(row);
-    });
+    }
   };
 
   try {
