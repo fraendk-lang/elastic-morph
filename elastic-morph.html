@@ -10964,12 +10964,12 @@ function initFreemium() {
    v71 — Scene bank fix: B/C/D save + localStorage quota guard
    ============================================================ */
 
-const SCENE_LABELS = ["A", "B", "C", "D"];
+const SCENE_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"];
 
 function normalizeScenes(raw) {
   const out = {};
   if (!raw || typeof raw !== "object") return out;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 16; i++) {
     const slot = raw[i] ?? raw[String(i)];
     if (slot && slot.app === "ElasticMorph") out[i] = slot;
   }
@@ -10999,7 +10999,7 @@ function patchSceneBank() {
 
   saveScene = function (i) {
     const idx = i | 0;
-    if (idx < 0 || idx > 3) return;
+    if (idx < 0 || idx > 15) return;
     const all = loadScenes();
     const snap = sceneSnapshot();
     all[idx] = snap;

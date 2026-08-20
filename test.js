@@ -560,6 +560,15 @@ ok("Both draws sample the same downsized buffer (no second downscale)", (() => {
   return drawImageCalls.length === 2;
 })());
 
+/* ---------------- Scene Banks 4→16 expansion ---------------- */
+section("Scene Banks: 16-slot data model");
+ok("SCENE_LABELS has 16 letters A–P", script.includes('const SCENE_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"];'));
+ok("normalizeScenes iterates 16 slots", (() => {
+  const fn = extractFn("normalizeScenes");
+  return fn && fn.includes("i < 16");
+})());
+ok("saveScene bounds check allows indices up to 15", script.includes("idx < 0 || idx > 15"));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
