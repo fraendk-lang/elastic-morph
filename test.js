@@ -536,6 +536,19 @@ ok("C6: FX3 beat-triggered brighteners respect reduceFlash", (() => {
 section("Keyboard ignores open modals (C4)");
 ok("C4: keydown handler bails when any modal has aria-hidden=false", script.includes('document.querySelector(\'[aria-hidden="false"]\')'));
 
+/* ---------------- SW offline coverage: landing/legal + demo MP3 (C3) ---------------- */
+section("SW offline coverage: landing/legal + demo MP3 (C3)");
+const swSrc2 = fs.readFileSync(path.join(__dirname, "sw.js"), "utf8");
+ok("SHELL_ASSETS still fail-loud for the app itself (unchanged)", swSrc2.includes('"elastic-morph.html"') && swSrc2.includes("c.addAll(SHELL_ASSETS)"));
+["index.html", "impressum.html", "datenschutz.html"].forEach(f =>
+  ok("EXTRA_ASSETS precaches " + f, new RegExp("EXTRA_ASSETS[\\s\\S]*?\"" + f + "\"").test(swSrc2)));
+ok("EXTRA_ASSETS precaches the demo MP3 (not the 51MB WAV)", swSrc2.includes('"assets/demo/Elastic Field - Dust Reel.mp3"') && !swSrc2.includes(".wav"));
+ok("EXTRA_ASSETS installs best-effort via Promise.allSettled, not addAll",
+  swSrc2.includes("...EXTRA_ASSETS.map(url => c.add(url))") && swSrc2.includes("Promise.allSettled(["));
+["index.html", "impressum.html", "datenschutz.html"].forEach(f =>
+  ok(f + " exists on disk", fs.existsSync(path.join(__dirname, f))));
+ok("demo MP3 exists on disk", fs.existsSync(path.join(__dirname, "assets/demo/Elastic Field - Dust Reel.mp3")));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

@@ -22,14 +22,27 @@ const FONT_ASSETS = [
   "assets/fonts/bricolage-grotesque-500.woff2",
   "assets/fonts/bricolage-grotesque-800.woff2"
 ];
+// C3: landing/legal pages + the demo track (MP3 only — the 51MB source WAV is a rarely-used
+// fallback, not worth the offline storage cost). Best-effort like fonts, not core shell: a
+// missing legal page must never break the app itself installing for offline use.
+const EXTRA_ASSETS = [
+  "index.html",
+  "impressum.html",
+  "datenschutz.html",
+  "assets/demo/Elastic Field - Dust Reel.mp3"
+];
 
 self.addEventListener("install", e => {
   e.waitUntil(
     caches.open(CACHE).then(c =>
       // Core shell: fail loudly if any of these 5 are missing — that should be fatal.
       c.addAll(SHELL_ASSETS).then(() =>
-        // Fonts: install best-effort so one missing/renamed font can't take down offline mode.
-        Promise.allSettled(FONT_ASSETS.map(url => c.add(url)))
+        // Fonts + landing/legal pages + demo track: best-effort, so one missing/renamed
+        // asset can't take down offline mode for the app itself.
+        Promise.allSettled([
+          ...FONT_ASSETS.map(url => c.add(url)),
+          ...EXTRA_ASSETS.map(url => c.add(url))
+        ])
       )
     ).then(() => self.skipWaiting())
   );
