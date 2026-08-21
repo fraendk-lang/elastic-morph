@@ -624,6 +624,29 @@ ok("#presetGrid/#customGrid + .preset-card sizing enlarged (48px -> 120px previe
     && block.includes('.preset-card .pcanvas { display: block; width: 100%; height: 120px; border-radius: 8px; margin-bottom: 12px; }');
 })());
 
+/* ---------------- ArrowUp/Down preset switch ---------------- */
+section("ArrowUp/Down preset switch");
+ok("flashLookSwipe accepts an optional glyph override, defaults preserved", (() => {
+  const fn = extractFn("flashLookSwipe");
+  return !!fn && fn.includes("function flashLookSwipe(name, dir, index, total, glyph)")
+    && fn.includes('(glyph || (dir > 0 ? "→ " : "← "))');
+})());
+ok("cyclePresetLook defined, cycles full PRESETS list with wrap-around", (() => {
+  const fn = extractFn("cyclePresetLook");
+  return !!fn && fn.includes("PRESETS.indexOf(S.preset)")
+    && fn.includes("(idx + delta + PRESETS.length) % PRESETS.length")
+    && fn.includes("applyPreset(PRESETS[idx])")
+    && fn.includes("hapticLookPulse()")
+    && !fn.includes("getCreatorLookPicks");
+})());
+ok("ArrowDown/ArrowUp bound to cyclePresetLook (next/previous) with preventDefault", (() => {
+  const idx = script.indexOf('e.key === "ArrowRight"');
+  if (idx < 0) return false;
+  const block = script.slice(idx, idx + 300);
+  return block.includes('if (e.key === "ArrowDown") { e.preventDefault(); cyclePresetLook(1); }')
+    && block.includes('if (e.key === "ArrowUp") { e.preventDefault(); cyclePresetLook(-1); }');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
