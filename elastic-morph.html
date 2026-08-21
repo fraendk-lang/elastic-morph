@@ -379,20 +379,20 @@
   .page h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin: 24px 0 12px; }
   .page .sub { color: var(--text-dim); font-size: 12px; margin-bottom: 22px; }
 
-  #presetGrid, #customGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  #presetGrid, #customGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
   .preset-card {
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 12px;
-    padding: 14px;
+    padding: 16px;
     cursor: pointer;
     transition: all .15s;
     position: relative;
   }
   .preset-card:hover { border-color: var(--violet); transform: translateY(-2px); }
   .preset-card.active { border-color: var(--cyan); box-shadow: 0 0 20px rgba(75,225,232,0.12); }
-  .preset-card .swatch { height: 44px; border-radius: 8px; margin-bottom: 10px; }
-  .preset-card .pcanvas { display: block; width: 100%; height: 48px; border-radius: 8px; margin-bottom: 10px; }
+  .preset-card .swatch { height: 120px; border-radius: 8px; margin-bottom: 12px; }
+  .preset-card .pcanvas { display: block; width: 100%; height: 120px; border-radius: 8px; margin-bottom: 12px; }
   .preset-card h4 { font-size: 13px; margin-bottom: 4px; }
   .preset-card p { font-size: 11px; color: var(--text-dim); line-height: 1.45; }
   .preset-card .del {

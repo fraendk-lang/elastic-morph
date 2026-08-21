@@ -612,6 +612,18 @@ ok("Escape still closes overlays even while a modal is open (guard must not bloc
   return escapeIdx >= 0 && guardIdx >= 0 && escapeIdx < guardIdx;
 })());
 
+/* ---------------- DNA grid visual polish ---------------- */
+section("Visual DNA grid: larger preset previews");
+ok("#presetGrid/#customGrid + .preset-card sizing enlarged (48px -> 120px previews)", (() => {
+  const idx = html.indexOf('#presetGrid, #customGrid {');
+  if (idx < 0) return false;
+  const block = html.slice(idx, idx + 900);
+  return block.includes('minmax(220px, 1fr)); gap: 14px;')
+    && block.includes('padding: 16px;')
+    && block.includes('.preset-card .swatch { height: 120px; border-radius: 8px; margin-bottom: 12px; }')
+    && block.includes('.preset-card .pcanvas { display: block; width: 100%; height: 120px; border-radius: 8px; margin-bottom: 12px; }');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
