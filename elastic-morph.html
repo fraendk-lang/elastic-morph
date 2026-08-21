@@ -7893,6 +7893,14 @@ function resize() {
 window.addEventListener("resize", resize);
 
 /* ---- keyboard shortcuts ---- */
+const B_REMAP_LS = "elasticMorph.bRemapNoticeShown";
+function noteBRemapOnce() {
+  try {
+    if (localStorage.getItem(B_REMAP_LS)) return;
+    localStorage.setItem(B_REMAP_LS, "1");
+  } catch (e) { }
+  showAppToast("B ruft jetzt die Basis Szene ab — Blackout ist jetzt Shift+B.", 5500);
+}
 document.addEventListener("keydown", e => {
   // don't hijack keys while interacting with any form control (inputs, sliders, selects, textareas)
   if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
@@ -7906,8 +7914,8 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft") { e.preventDefault(); skip(-5); }
   if (e.key === "ArrowRight") { e.preventDefault(); skip(5); }
   if (e.key === "f") goFullscreen();
-  if ((e.key === "b" || e.key === "B") && !e.shiftKey) recallBasisScene();
-  if ((e.key === "b" || e.key === "B") && e.shiftKey) { e.preventDefault(); $("blackoutBtn").click(); }
+  if ((e.key === "b" || e.key === "B") && !e.shiftKey) { noteBRemapOnce(); recallBasisScene(); }
+  if ((e.key === "b" || e.key === "B") && e.shiftKey) { e.preventDefault(); noteBRemapOnce(); $("blackoutBtn").click(); }
   // v35: Dual-Deck live crossfade nudge ( [ toward A, ] toward B )
   if (e.key === "[" && !e.altKey) { e.preventDefault(); setCrossfade(S.blendAmt - 0.08); }
   if (e.key === "]" && !e.altKey) { e.preventDefault(); setCrossfade(S.blendAmt + 0.08); }

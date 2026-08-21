@@ -591,10 +591,14 @@ ok("renderScenes always shows the Basis Szene row", (() => {
 
 /* ---------------- Scene Banks: keyboard shortcuts (Task 4) ---------------- */
 section("Scene Banks: keyboard shortcuts");
-ok("B recalls Basis Szene, Shift+B triggers blackout (Caps-Lock-safe: checks e.shiftKey, not key case)", script.includes('if ((e.key === "b" || e.key === "B") && !e.shiftKey) recallBasisScene();') && script.includes('if ((e.key === "b" || e.key === "B") && e.shiftKey) { e.preventDefault(); $("blackoutBtn").click(); }'));
+ok("B recalls Basis Szene, Shift+B triggers blackout (Caps-Lock-safe: checks e.shiftKey, not key case)", script.includes('if ((e.key === "b" || e.key === "B") && !e.shiftKey) { noteBRemapOnce(); recallBasisScene(); }') && script.includes('if ((e.key === "b" || e.key === "B") && e.shiftKey) { e.preventDefault(); noteBRemapOnce(); $("blackoutBtn").click(); }'));
 ok("Shift+1-8 recalls within the active bank", script.includes('/^Digit[1-8]$/.test(e.code)') && script.includes("(activeSceneBank - 1) * 8"));
 ok("Tab toggles the active scene bank", script.includes('e.key === "Tab"') && script.includes('setActiveSceneBank(activeSceneBank === 1 ? 2 : 1)'));
 ok("Tab toggle is scoped to when the scene bank panel is visible (doesn't hijack global Tab navigation)", script.includes('e.key === "Tab" && $("sceneBank")?.offsetParent != null'));
+ok("B_REMAP_LS key + noteBRemapOnce defined, shown at most once via localStorage flag", script.includes('const B_REMAP_LS = "elasticMorph.bRemapNoticeShown";') && (() => {
+  const fn = extractFn("noteBRemapOnce");
+  return fn && fn.includes("localStorage.getItem(B_REMAP_LS)") && fn.includes("localStorage.setItem(B_REMAP_LS,") && fn.includes("showAppToast(");
+})());
 ok("Listener 3 bails on open modal (guard parity with listener 1)", (() => {
   const idx = script.indexOf("/* extra keyboard:");
   const block = script.slice(idx, idx + 700);
