@@ -3038,6 +3038,14 @@ float fbm(vec2 p){
   for(int i=0;i<5;i++){ v += amp*vnoise(p); p = m*p; amp *= 0.5; }
   return v;
 }
+vec3 applyEyeCatcherFX(vec3 col, vec2 uv){
+  col += col * col * 0.35;                            // self-bloom
+  float d = length(uv);
+  col.r *= 1.0 + d * 0.12;                             // chromatic-aberration-Anmutung -
+  col.b *= 1.0 - d * 0.12;                             // channel tilt, no resample needed
+  col += (hash(uv * 500.0 + uTime) - 0.5) * 0.03;      // grain
+  return col;
+}
 
 // ---- styles ----
 vec3 fluidStyle(vec2 uv){
@@ -3093,6 +3101,8 @@ vec3 tunnelStyle(vec2 uv){
 vec3 auroraStyle(vec2 uv){
   float t = uTime*0.12;
   vec3 col = vec3(0.0);
+  vec3 auroraA = vec3(0.05, 0.9, 0.55);
+  vec3 auroraB = vec3(0.55, 0.15, 0.95);
   for(int i=0;i<4;i++){
     float fi = float(i);
     float depth = 0.6 + fi*0.35;
@@ -3102,11 +3112,12 @@ vec3 auroraStyle(vec2 uv){
     float band = smoothstep(0.2, 1.0, flow);
     float vfade = smoothstep(-1.0, 0.85, uv.y);
     float inten = band * vfade / depth * (0.7 + uLoud*0.8 + uBeat*0.5);
-    float hue = uHue + 0.08*fi + 0.12*flow + uHighs*0.1;
-    col += hsv2rgb(vec3(fract(hue), 0.70 + 0.20*uMids, inten*(0.5 + uIntensity)));
+    float mixT = fract(uHue + 0.08*fi + 0.12*flow + uHighs*0.1);
+    col += mix(auroraA, auroraB, mixT) * (inten*(0.5 + uIntensity));
   }
   float stars = pow(hash(floor(uv*60.0)), 40.0);
   col += vec3(stars)*0.4*(1.0 - uBeat);
+  col = applyEyeCatcherFX(col, uv);
   return col;
 }
 vec3 electricStyle(vec2 uv){
@@ -3143,6 +3154,8 @@ vec3 chromeStyle(vec2 uv){
 }
 float gyroid(vec3 p){ return dot(sin(p), cos(p.yzx)); }
 vec3 gyroidStyle(vec2 uv){
+  vec3 gyroidA = vec3(0.0, 0.7, 0.9);
+  vec3 gyroidB = vec3(0.3, 0.1, 0.9);
   vec3 ro = vec3(0.0, 0.0, -3.0);
   vec3 rd = normalize(vec3(uv, 1.6));
   float a = uTime*0.15 + uBass*0.3;
@@ -3158,10 +3171,11 @@ vec3 gyroidStyle(vec2 uv){
     t += 0.16;                                      // fixed march through the volume
   }
   glow *= 0.08;
-  float hue = uHue + glow*0.15 + uHighs*0.1 + uMids*0.05;
+  float mixT = fract(uHue + glow*0.15 + uHighs*0.1 + uMids*0.05);
   float v = glow * (0.7 + uIntensity*0.6) * (0.7 + uLoud*0.6);
-  vec3 col = hsv2rgb(vec3(fract(hue), 0.72, v));
-  col += hsv2rgb(vec3(fract(hue+0.12), 0.5, pow(glow, 3.0)*0.6));   // bright cores
+  vec3 col = mix(gyroidA, gyroidB, mixT) * v;
+  col += mix(gyroidB, gyroidA, mixT) * (pow(glow, 3.0)*0.6);   // bright cores, swapped anchors
+  col = applyEyeCatcherFX(col, uv);
   return col;
 }
 vec3 raymarchStyle(vec2 uv){
@@ -3191,9 +3205,13 @@ vec3 raymarchStyle(vec2 uv){
     dO += max(d, 0.02);
     if(dO > 8.0) break;
   }
-  return col * (0.85 + uLoud*0.35 + uBeat*0.15);
+  col *= (0.85 + uLoud*0.35 + uBeat*0.15);
+  col = applyEyeCatcherFX(col, uv);
+  return col;
 }
 vec3 feedbackStyle(vec2 uv){
+  vec3 feedbackA = vec3(1.0, 0.0, 0.6);
+  vec3 feedbackB = vec3(0.0, 1.0, 1.0);
   float t = uTime*0.28;
   float a = atan(uv.y, uv.x);
   float r = length(uv) + 0.001;
@@ -3201,8 +3219,10 @@ vec3 feedbackStyle(vec2 uv){
   float f = fbm(p*2.8 + t);
   float zoom = 0.45 + 0.55*sin(t*0.7 + uBeat*3.5);
   f += fbm(p*4.5 - t*1.1) * zoom;
-  float hue = uHue + f*0.18 + a*0.12 + uHighs*0.08;
-  return hsv2rgb(vec3(fract(hue), 0.78, pow(clamp(f,0.0,1.0), 1.15)*(0.65 + uLoud*0.65)));
+  float mixT = fract(uHue + f*0.18 + a*0.12 + uHighs*0.08);
+  vec3 col = mix(feedbackA, feedbackB, mixT) * (pow(clamp(f,0.0,1.0), 1.15)*(0.65 + uLoud*0.65));
+  col = applyEyeCatcherFX(col, uv);
+  return col;
 }
 vec3 strobeStyle(vec2 uv){
   float t = uTime*0.38;

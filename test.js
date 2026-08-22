@@ -33,6 +33,19 @@ function loadFns(names) {
   return eval("(function(){ " + src.join("\n") + "\n return {" + names.join(",") + "}; })()");
 }
 
+/* pull a GLSL function's full source via brace matching, anchored on its exact signature
+   (GLSL functions aren't JS `function` declarations, so extractFn can't find them) */
+function extractGlslFn(signature) {
+  const start = script.indexOf(signature);
+  if (start < 0) return null;
+  let i = script.indexOf("{", start), depth = 0;
+  for (let j = i; j < script.length; j++) {
+    if (script[j] === "{") depth++;
+    else if (script[j] === "}") { depth--; if (depth === 0) return script.slice(start, j + 1); }
+  }
+  return null;
+}
+
 /* ---------------- 1) static checks ---------------- */
 section("Static checks");
 ok("script parses", (() => { try { new Function(script); return true; } catch (e) { return false; } })());
@@ -667,6 +680,54 @@ ok("raymarchStyle uses an elevated camera above a floor plane and shades each hi
     && block.includes("if(d < 0.015){")
     && !block.includes("col += hsv2rgb");
 })());
+
+/* ---------------- Shader eye-catcher palette + FX ---------------- */
+section("Shader eye-catcher palette + FX (Aurora/Gyroid/Feedback/SDF Blob)");
+
+ok("applyEyeCatcherFX helper defined with self-bloom, chromatic-tilt, and grain", (() => {
+  const fn = extractGlslFn("vec3 applyEyeCatcherFX(vec3 col, vec2 uv){");
+  return !!fn
+    && /col\s*\+=\s*col\s*\*\s*col/.test(fn)                 // self-bloom
+    && /col\.r\s*\*=/.test(fn) && /col\.b\s*\*=/.test(fn)    // chromatic channel tilt
+    && /hash\(uv\s*\*/.test(fn);                             // grain via hash noise
+})());
+
+[
+  ["auroraStyle", "vec3 auroraStyle(vec2 uv){", "auroraA", "auroraB"],
+  ["gyroidStyle", "vec3 gyroidStyle(vec2 uv){", "gyroidA", "gyroidB"],
+  ["feedbackStyle", "vec3 feedbackStyle(vec2 uv){", "feedbackA", "feedbackB"],
+].forEach(([name, sig, a, b]) => {
+  ok(name + " mixes a named two-color palette and calls applyEyeCatcherFX", (() => {
+    const fn = extractGlslFn(sig);
+    return !!fn
+      && fn.includes("mix(" + a + ", " + b + ", ")
+      && fn.includes("applyEyeCatcherFX(col, uv)");
+  })());
+});
+
+ok("raymarchStyle (SDF Blob) calls applyEyeCatcherFX without changing its existing warm/cool hit coloring", (() => {
+  const fn = extractGlslFn("vec3 raymarchStyle(vec2 uv){");
+  return !!fn
+    && fn.includes("applyEyeCatcherFX(col, uv)")
+    && fn.includes("hsv2rgb(vec3(fract(hue), 0.78, 0.85 + uBeat*0.5 + uLoud*0.3))")
+    && fn.includes("hsv2rgb(vec3(fract(hue), 0.30, 0.30 + uBass*0.25))");
+})());
+
+[
+  ["fluidStyle", "vec3 fluidStyle(vec2 uv){"],
+  ["metaStyle", "vec3 metaStyle(vec2 uv){"],
+  ["tunnelStyle", "vec3 tunnelStyle(vec2 uv){"],
+  ["electricStyle", "vec3 electricStyle(vec2 uv){"],
+  ["chromeStyle", "vec3 chromeStyle(vec2 uv){"],
+  ["strobeStyle", "vec3 strobeStyle(vec2 uv){"],
+  ["warehouseStyle", "vec3 warehouseStyle(vec2 uv){"],
+  ["laserStyle", "vec3 laserStyle(vec2 uv){"],
+].forEach(([name, sig]) => {
+  ok(name + " untouched (no applyEyeCatcherFX call)", (() => {
+    const fn = extractGlslFn(sig);
+    return !!fn && !fn.includes("applyEyeCatcherFX");
+  })());
+});
 
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
