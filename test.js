@@ -669,16 +669,16 @@ ok("welSkip listener uses dynamic lookup (arrow fn), not a direct function refer
   return line.includes('() => closeWelcome()');
 })());
 
-/* ---------------- SDF Blob (raymarchStyle): fix flat white-out ---------------- */
-section("SDF Blob shader: single-hit shading instead of per-step glow accumulation");
-ok("raymarchStyle uses an elevated camera above a floor plane and shades each hit once (no more per-step accumulation that blew out to flat white/gray)", (() => {
-  const idx = script.indexOf("vec3 raymarchStyle(vec2 uv){");
-  if (idx < 0) return false;
-  const block = script.slice(idx, idx + 1400);
-  return block.includes("ro = vec3(0.0, 0.55, -2.6)")
-    && block.includes("dSphere < dFloor")
-    && block.includes("if(d < 0.015){")
-    && !block.includes("col += hsv2rgb");
+/* ---------------- SDF Blob (raymarchStyle): triangular lattice network-glow ---------------- */
+section("SDF Blob shader: glowing triangular-lattice network with pulsing nodes");
+ok("raymarchStyle builds a triangular lattice (3 line families) with node glow at their crossings", (() => {
+  const fn = extractGlslFn("vec3 raymarchStyle(vec2 uv){");
+  return !!fn
+    && /vec3 g = vec3\(/.test(fn)
+    && fn.includes("float lines = lx + ly + lz")
+    && fn.includes("float nodes = lx*ly + ly*lz + lx*lz")
+    && fn.includes("mix(hotA, hotB, mixT)")
+    && fn.includes("applyEyeCatcherFX(col, uv)");
 })());
 
 /* ---------------- Shader eye-catcher palette + FX ---------------- */
@@ -704,14 +704,6 @@ ok("applyEyeCatcherFX helper defined with self-bloom, chromatic-tilt, and grain"
       && fn.includes("applyEyeCatcherFX(col, uv)");
   })());
 });
-
-ok("raymarchStyle (SDF Blob) calls applyEyeCatcherFX without changing its existing warm/cool hit coloring", (() => {
-  const fn = extractGlslFn("vec3 raymarchStyle(vec2 uv){");
-  return !!fn
-    && fn.includes("applyEyeCatcherFX(col, uv)")
-    && fn.includes("hsv2rgb(vec3(fract(hue), 0.78, 0.85 + uBeat*0.5 + uLoud*0.3))")
-    && fn.includes("hsv2rgb(vec3(fract(hue), 0.30, 0.30 + uBass*0.25))");
-})());
 
 [
   ["fluidStyle", "vec3 fluidStyle(vec2 uv){"],

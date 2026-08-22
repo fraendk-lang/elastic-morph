@@ -3099,22 +3099,25 @@ vec3 tunnelStyle(vec2 uv){
 
 // ---- v33 styles ----
 vec3 auroraStyle(vec2 uv){
-  float t = uTime*0.12;
-  vec3 col = vec3(0.0);
   vec3 auroraA = vec3(0.05, 0.9, 0.55);
   vec3 auroraB = vec3(0.55, 0.15, 0.95);
-  for(int i=0;i<4;i++){
-    float fi = float(i);
-    float depth = 0.6 + fi*0.35;
-    float sway = fbm(vec2(uv.x*1.2 + fi*3.1, t*0.6 + fi))*0.5;
-    float xpos = uv.x*1.4 + sway*(0.8 + uMids);
-    float flow = fbm(vec2(xpos*2.0 + fi*5.0, uv.y*1.5 - t*(1.0 + uBass*1.5) + fi));
-    float band = smoothstep(0.2, 1.0, flow);
-    float vfade = smoothstep(-1.0, 0.85, uv.y);
-    float inten = band * vfade / depth * (0.7 + uLoud*0.8 + uBeat*0.5);
-    float mixT = fract(uHue + 0.08*fi + 0.12*flow + uHighs*0.1);
-    col += mix(auroraA, auroraB, mixT) * (inten*(0.5 + uIntensity));
+  float t = uTime*0.25;
+  float curtain = 0.0;
+  for(int ii=0; ii<6; ii++){
+    float i = float(ii);
+    float freq = 2.2 + i*0.9;
+    float phase = t*(0.5 + i*0.15) + uBass*(1.0 + i*0.3);
+    float wave = sin(uv.x*freq + phase + sin(uv.x*freq*0.5 + t)*(0.6 + uMids*0.8));
+    float y = uv.y - wave*0.3 + i*0.15 - 0.25;
+    float bandWidth = 0.03 + i*0.006;
+    float band = smoothstep(bandWidth, bandWidth*0.15, abs(y));   // crisp ribbon edge, not a soft glow
+    curtain += band * (1.0 - i*0.12);
   }
+  curtain = clamp(curtain, 0.0, 1.5);
+  float shimmer = sin(uv.x*30.0 + t*5.0)*0.5 + 0.5;
+  float mixT = fract(uHue + uv.x*0.2 + curtain*0.3 + t*0.05);
+  vec3 col = mix(auroraA, auroraB, mixT) * (curtain * (0.6 + uIntensity) * (1.0 + uLoud*1.5 + uBeat*0.5));
+  col += curtain * shimmer * (0.5 + uHighs*0.5) * 2.0;
   float stars = pow(hash(floor(uv*60.0)), 40.0);
   col += vec3(stars)*0.4*(1.0 - uBeat);
   col = applyEyeCatcherFX(col, uv);
@@ -3179,33 +3182,27 @@ vec3 gyroidStyle(vec2 uv){
   return col;
 }
 vec3 raymarchStyle(vec2 uv){
-  vec3 ro = vec3(0.0, 0.55, -2.6);                      // camera lifted above the floor plane
-  vec3 rd = normalize(vec3(uv.x, uv.y - 0.15, 1.4));     // slight downward tilt onto the blob
-  float dO = 0.0;
-  vec3 col = vec3(0.0);                                  // stays black (background) unless we hit something below
-  float floorY = -0.62;                                  // sits just below the blob's resting radius
-  float rad = 0.55 + uBass*0.18 + uBeat*0.08;
-  for(int i=0;i<64;i++){
-    vec3 p = ro + rd*dO;
-    float dSphere = length(p) - rad;
-    float dFloor = p.y - floorY;
-    float d = min(dSphere, dFloor);
-    if(d < 0.015){
-      // shade the single hit point once - no per-step accumulation, so nothing can blow out to white
-      if(dSphere < dFloor){
-        float hue = uHue + 0.06*sin(p.x*3.0 + p.y*2.0 + uMids*0.3);
-        col = hsv2rgb(vec3(fract(hue), 0.78, 0.85 + uBeat*0.5 + uLoud*0.3));
-      } else {
-        float hue = uHue + 0.5;
-        col = hsv2rgb(vec3(fract(hue), 0.30, 0.30 + uBass*0.25));
-      }
-      col *= exp(-dO*0.12);                              // gentle depth fog toward the horizon
-      break;
-    }
-    dO += max(d, 0.02);
-    if(dO > 8.0) break;
-  }
-  col *= (0.85 + uLoud*0.35 + uBeat*0.15);
+  vec3 hotA = vec3(1.0, 0.05, 0.4);   // magenta/red
+  vec3 hotB = vec3(1.0, 0.85, 0.1);   // yellow
+  float t = uTime*0.2;
+  float rot = t*0.15 + uBass*0.2;
+  vec2 p = mat2(cos(rot),-sin(rot),sin(rot),cos(rot)) * (uv * (3.0 + uMids*1.2));
+  // three families of parallel lines at 0/60/120 degrees form a triangular lattice;
+  // where two families cross is a lattice vertex - that's where the "nodes" glow
+  vec3 g = vec3(
+    fract(p.x) - 0.5,
+    fract(p.x*0.5 + p.y*0.866) - 0.5,
+    fract(p.x*0.5 - p.y*0.866) - 0.5
+  );
+  float lx = smoothstep(0.05, 0.0, abs(g.x));
+  float ly = smoothstep(0.05, 0.0, abs(g.y));
+  float lz = smoothstep(0.05, 0.0, abs(g.z));
+  float lines = lx + ly + lz;
+  float nodes = lx*ly + ly*lz + lx*lz;
+  float pulse = 0.6 + 0.4*sin(t*3.0 + hash(floor(p*2.0))*30.0 + uBeat*5.0);
+  float glowVal = lines*0.4 + nodes*2.2*pulse*(0.6 + uLoud*0.7 + uBeat*0.7);
+  float mixT = fract(uHue + nodes*0.5 + lines*0.1 + uHighs*0.12);
+  vec3 col = mix(hotA, hotB, mixT) * glowVal;
   col = applyEyeCatcherFX(col, uv);
   return col;
 }
