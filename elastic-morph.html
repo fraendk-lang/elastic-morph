@@ -5787,7 +5787,7 @@ function applyPostFX2(W, H, dt) {
   // Posterize — banded colour crush (reduced-res), fewer bands on bass
   if (fx.posterize) {
     const pw = Math.max(2, Math.round(W * 0.5)), ph = Math.max(2, Math.round(H * 0.5));
-    fxctx.globalCompositeOperation = "copy"; fxctx.globalAlpha = 1; fxctx.imageSmoothingEnabled = true;
+    fxctx.globalCompositeOperation = "copy"; fxctx.globalAlpha = 1; fxctx.imageSmoothingEnabled = false;
     fxctx.drawImage(canvas, 0, 0, pw, ph);
     const img = fxctx.getImageData(0, 0, pw, ph), d = img.data;
     const levels = Math.max(3, 6 - Math.round(S.bass * 3)), step = 255 / (levels - 1);

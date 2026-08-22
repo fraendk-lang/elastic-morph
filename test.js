@@ -721,6 +721,16 @@ ok("applyEyeCatcherFX helper defined with self-bloom, chromatic-tilt, and grain"
   })());
 });
 
+/* ---------------- FX Posterize: crisp edges instead of smudged bands ---------------- */
+section("FX Posterize: quantizes without pre-blurring, so band edges stay hard");
+ok("posterize downsample uses imageSmoothingEnabled = false before quantizing (no blur baked in before the color-band crush)", (() => {
+  const idx = script.indexOf("if (fx.posterize) {");
+  if (idx < 0) return false;
+  const block = script.slice(idx, idx + 700);
+  return block.includes('fxctx.imageSmoothingEnabled = false;\n    fxctx.drawImage(canvas, 0, 0, pw, ph);')
+    && block.includes("Math.round(d[i] / step) * step");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
