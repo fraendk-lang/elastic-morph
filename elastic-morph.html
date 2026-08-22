@@ -8559,7 +8559,7 @@ function closeWelcome() {
   $("welcomeOverlay").style.display = "none";
   try { localStorage.setItem(WELCOME_LS, "1"); } catch (e) { }
 }
-$("welSkip").addEventListener("click", closeWelcome);
+$("welSkip").addEventListener("click", () => closeWelcome());
 $("welDemo").addEventListener("click", () => { closeWelcome(); const b = $("heroDemoBtn"); if (b) b.click(); });
 $("welLoad").addEventListener("click", () => { closeWelcome(); $("fileInput").click(); });
 $("welcomeOverlay").addEventListener("click", e => { if (e.target.id === "welcomeOverlay") closeWelcome(); });

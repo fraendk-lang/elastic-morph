@@ -647,6 +647,15 @@ ok("ArrowDown/ArrowUp bound to cyclePresetLook (next/previous) with preventDefau
     && block.includes('if (e.key === "ArrowUp") { e.preventDefault(); cyclePresetLook(-1); }');
 })());
 
+/* ---------------- Welcome overlay: welSkip aria-hidden fix ---------------- */
+section("Welcome overlay: welSkip must not capture a stale closeWelcome reference");
+ok("welSkip listener uses dynamic lookup (arrow fn), not a direct function reference captured at registration time", (() => {
+  const idx = script.indexOf('$("welSkip").addEventListener("click"');
+  if (idx < 0) return false;
+  const line = script.slice(idx, script.indexOf("\n", idx));
+  return line.includes('() => closeWelcome()');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
