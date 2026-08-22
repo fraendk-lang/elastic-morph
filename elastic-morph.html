@@ -3165,21 +3165,33 @@ vec3 gyroidStyle(vec2 uv){
   return col;
 }
 vec3 raymarchStyle(vec2 uv){
-  float t = uTime*0.2;
-  vec3 ro = vec3(0.0, 0.0, -2.8);
-  vec3 rd = normalize(vec3(uv, 1.5));
+  vec3 ro = vec3(0.0, 0.55, -2.6);                      // camera lifted above the floor plane
+  vec3 rd = normalize(vec3(uv.x, uv.y - 0.15, 1.4));     // slight downward tilt onto the blob
   float dO = 0.0;
-  vec3 col = vec3(0.0);
-  for(int i=0;i<36;i++){
+  vec3 col = vec3(0.0);                                  // stays black (background) unless we hit something below
+  float floorY = -0.62;                                  // sits just below the blob's resting radius
+  float rad = 0.55 + uBass*0.18 + uBeat*0.08;
+  for(int i=0;i<64;i++){
     vec3 p = ro + rd*dO;
-    float d = length(p) - (0.55 + uBass*0.18 + uBeat*0.08);
-    d = min(d, abs(p.y) + 0.12);
-    if(d < 0.001) break;
-    dO += d * 0.55;
-    col += hsv2rgb(vec3(uHue + dO*0.07 + uMids*0.05, 0.72, 0.07/(d+0.015)));
-    if(dO > 6.0) break;
+    float dSphere = length(p) - rad;
+    float dFloor = p.y - floorY;
+    float d = min(dSphere, dFloor);
+    if(d < 0.015){
+      // shade the single hit point once - no per-step accumulation, so nothing can blow out to white
+      if(dSphere < dFloor){
+        float hue = uHue + 0.06*sin(p.x*3.0 + p.y*2.0 + uMids*0.3);
+        col = hsv2rgb(vec3(fract(hue), 0.78, 0.85 + uBeat*0.5 + uLoud*0.3));
+      } else {
+        float hue = uHue + 0.5;
+        col = hsv2rgb(vec3(fract(hue), 0.30, 0.30 + uBass*0.25));
+      }
+      col *= exp(-dO*0.12);                              // gentle depth fog toward the horizon
+      break;
+    }
+    dO += max(d, 0.02);
+    if(dO > 8.0) break;
   }
-  return col * (0.75 + uLoud*0.55 + uBeat*0.2);
+  return col * (0.85 + uLoud*0.35 + uBeat*0.15);
 }
 vec3 feedbackStyle(vec2 uv){
   float t = uTime*0.28;

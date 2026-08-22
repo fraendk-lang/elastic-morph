@@ -656,6 +656,18 @@ ok("welSkip listener uses dynamic lookup (arrow fn), not a direct function refer
   return line.includes('() => closeWelcome()');
 })());
 
+/* ---------------- SDF Blob (raymarchStyle): fix flat white-out ---------------- */
+section("SDF Blob shader: single-hit shading instead of per-step glow accumulation");
+ok("raymarchStyle uses an elevated camera above a floor plane and shades each hit once (no more per-step accumulation that blew out to flat white/gray)", (() => {
+  const idx = script.indexOf("vec3 raymarchStyle(vec2 uv){");
+  if (idx < 0) return false;
+  const block = script.slice(idx, idx + 1400);
+  return block.includes("ro = vec3(0.0, 0.55, -2.6)")
+    && block.includes("dSphere < dFloor")
+    && block.includes("if(d < 0.015){")
+    && !block.includes("col += hsv2rgb");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
