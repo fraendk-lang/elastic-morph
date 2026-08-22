@@ -652,13 +652,8 @@ ok("cyclePresetLook defined, cycles full PRESETS list with wrap-around", (() => 
     && fn.includes("hapticLookPulse()")
     && !fn.includes("getCreatorLookPicks");
 })());
-ok("ArrowDown/ArrowUp bound to cyclePresetLook (next/previous) with preventDefault", (() => {
-  const idx = script.indexOf('e.key === "ArrowRight"');
-  if (idx < 0) return false;
-  const block = script.slice(idx, idx + 300);
-  return block.includes('if (e.key === "ArrowDown") { e.preventDefault(); cyclePresetLook(1); }')
-    && block.includes('if (e.key === "ArrowUp") { e.preventDefault(); cyclePresetLook(-1); }');
-})());
+/* superseded by the more complete "plain ArrowUp/Down guard against Shift..." assertion below,
+   once Shift+ArrowUp/Down was added alongside the plain bindings */
 
 /* ---------------- Welcome overlay: welSkip aria-hidden fix ---------------- */
 section("Welcome overlay: welSkip must not capture a stale closeWelcome reference");
@@ -729,6 +724,26 @@ ok("posterize downsample uses imageSmoothingEnabled = false before quantizing (n
   const block = script.slice(idx, idx + 700);
   return block.includes('fxctx.imageSmoothingEnabled = false;\n    fxctx.drawImage(canvas, 0, 0, pw, ph);')
     && block.includes("Math.round(d[i] / step) * step");
+})());
+
+/* ---------------- Shift+ArrowUp/Down: Layer B overlay cycling ---------------- */
+section("Shift+ArrowUp/Down cycles Layer B overlay types");
+ok("cycleLayerBType defined, cycles LAYERB_TYPES with wrap-around and updates the lbType select", (() => {
+  const fn = extractFn("cycleLayerBType");
+  return !!fn
+    && fn.includes("LAYERB_TYPES.findIndex(([id]) => id === S.layerB.type)")
+    && fn.includes("(idx + delta + LAYERB_TYPES.length) % LAYERB_TYPES.length")
+    && fn.includes('$("lbType").value = id')
+    && fn.includes("flashLookSwipe(label,");
+})());
+ok("plain ArrowUp/Down guard against Shift, Shift+ArrowUp/Down bound to cycleLayerBType (next/previous)", (() => {
+  const idx = script.indexOf('e.key === "ArrowRight"');
+  if (idx < 0) return false;
+  const block = script.slice(idx, idx + 500);
+  return block.includes('if (e.key === "ArrowDown" && !e.shiftKey) { e.preventDefault(); cyclePresetLook(1); }')
+    && block.includes('if (e.key === "ArrowUp" && !e.shiftKey) { e.preventDefault(); cyclePresetLook(-1); }')
+    && block.includes('if (e.key === "ArrowDown" && e.shiftKey) { e.preventDefault(); cycleLayerBType(1); }')
+    && block.includes('if (e.key === "ArrowUp" && e.shiftKey) { e.preventDefault(); cycleLayerBType(-1); }');
 })());
 
 /* ---------------- summary ---------------- */

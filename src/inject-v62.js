@@ -44,6 +44,17 @@ function cyclePresetLook(delta) {
   flashLookSwipe(PRESETS[idx].name, delta, idx + 1, PRESETS.length, delta > 0 ? "↓ " : "↑ ");
 }
 
+function cycleLayerBType(delta) {
+  let idx = LAYERB_TYPES.findIndex(([id]) => id === S.layerB.type);
+  if (idx < 0) idx = 0;
+  idx = (idx + delta + LAYERB_TYPES.length) % LAYERB_TYPES.length;
+  const [id, label] = LAYERB_TYPES[idx];
+  S.layerB.type = id;
+  if ($("lbType")) $("lbType").value = id;
+  if (id === "starfield") initStars();
+  flashLookSwipe(label, delta, idx + 1, LAYERB_TYPES.length, delta > 0 ? "↓ " : "↑ ");
+}
+
 function updateLookSwipeHint() {
   const hint = $("lookSwipeHint");
   if (!hint) return;
