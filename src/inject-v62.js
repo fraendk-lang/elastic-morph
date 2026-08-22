@@ -14,11 +14,11 @@ function hapticLookPulse() {
   if (navigator.vibrate) navigator.vibrate(12);
 }
 
-function flashLookSwipe(name, dir, index, total) {
+function flashLookSwipe(name, dir, index, total, glyph) {
   const el = $("lookSwipeToast");
   if (!el) return;
   const pos = total > 1 ? ` (${index}/${total})` : "";
-  el.textContent = (dir > 0 ? "→ " : "← ") + name + pos;
+  el.textContent = (glyph || (dir > 0 ? "→ " : "← ")) + name + pos;
   el.classList.add("show");
   clearTimeout(flashLookSwipe._t);
   flashLookSwipe._t = setTimeout(() => el.classList.remove("show"), 950);
@@ -33,6 +33,15 @@ function cycleCreatorLook(delta) {
   applyPreset(picks[idx]);
   hapticLookPulse();
   flashLookSwipe(picks[idx].name, delta, idx + 1, picks.length);
+}
+
+function cyclePresetLook(delta) {
+  let idx = PRESETS.indexOf(S.preset);
+  if (idx < 0) idx = 0;
+  idx = (idx + delta + PRESETS.length) % PRESETS.length;
+  applyPreset(PRESETS[idx]);
+  hapticLookPulse();
+  flashLookSwipe(PRESETS[idx].name, delta, idx + 1, PRESETS.length, delta > 0 ? "↓ " : "↑ ");
 }
 
 function updateLookSwipeHint() {
