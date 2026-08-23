@@ -841,6 +841,37 @@ ok("renderShader sets uPalOn/uPalA/uPalB from S.palette each frame", (() => {
     && fn.includes("gl.uniform3f(L.palB,");
 })());
 
+section("Named Palette System — 8 hue-only shader styles");
+
+[
+  ["fluidStyle", "vec3 fluidStyle(vec2 uv){", "uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * val : hsv2rgb(vec3(fract(hue), sat, val))"],
+  ["metaStyle", "vec3 metaStyle(vec2 uv){", "uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (edge*(0.9+uLoud*0.7+uBeat*0.5)) : hsv2rgb(vec3(fract(hue), 0.85, edge*(0.9+uLoud*0.7+uBeat*0.5)))"],
+  ["tunnelStyle", "vec3 tunnelStyle(vec2 uv){", "uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * v : hsv2rgb(vec3(fract(hue), 0.8, v))"],
+  ["electricStyle", "vec3 electricStyle(vec2 uv){", "uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * bolt : hsv2rgb(vec3(fract(hue), 0.55, bolt))"],
+  ["chromeStyle", "vec3 chromeStyle(vec2 uv){", "uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (0.35 + 0.4*h) : hsv2rgb(vec3(fract(hue), 0.5 + 0.3*uMids, 0.35 + 0.4*h))"],
+  ["strobeStyle", "vec3 strobeStyle(vec2 uv){", "uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * v : hsv2rgb(vec3(fract(hue), 0.88, v))"],
+  ["warehouseStyle", "vec3 warehouseStyle(vec2 uv){", "uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (v*(0.65 + uLoud*0.65)) : hsv2rgb(vec3(fract(hue), 0.72, v*(0.65 + uLoud*0.65)))"],
+  ["laserStyle", "vec3 laserStyle(vec2 uv){", "uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (beam*(0.45 + uBeat*1.35 + uLoud*0.55)) : hsv2rgb(vec3(fract(hue), 0.92, beam*(0.45 + uBeat*1.35 + uLoud*0.55)))"],
+].forEach(([name, sig, needle]) => {
+  ok(name + " branches to Named Gradient mix when uPalOn is active", (() => {
+    const fn = extractGlslFn(sig);
+    return !!fn && fn.includes(needle);
+  })());
+});
+
+ok("chromeStyle's second hsv2rgb call (mid-expression) is parenthesized to survive GLSL ?: precedence", (() => {
+  const fn = extractGlslFn("vec3 chromeStyle(vec2 uv){");
+  return !!fn && fn.includes("+ (uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue+0.3)) * (fres*0.6) : hsv2rgb(vec3(fract(hue+0.3), 0.6, fres*0.6)))");
+})());
+
+ok("the 8 hue-only styles still don't call applyEyeCatcherFX (unaffected pre-existing regression check)", (() => {
+  return ["fluidStyle", "metaStyle", "tunnelStyle", "electricStyle", "chromeStyle", "strobeStyle", "warehouseStyle", "laserStyle"]
+    .every(name => {
+      const fn = extractGlslFn("vec3 " + name + "(vec2 uv){");
+      return !!fn && !fn.includes("applyEyeCatcherFX");
+    });
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

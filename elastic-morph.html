@@ -3090,8 +3090,8 @@ vec3 fluidStyle(vec2 uv){
   float hue = uHue + 0.16*r.x + 0.10*f + uHighs*0.12;
   float sat = 0.65 + 0.25*uMids;
   float val = pow(clamp(f*1.15,0.0,1.0), 1.5) * (0.85 + uLoud*0.6 + uBeat*0.4);
-  vec3 col = hsv2rgb(vec3(fract(hue), sat, val));
-  col += hsv2rgb(vec3(fract(hue+0.5), 0.5, pow(f,4.0)*uHighs*1.5));   // accent highlights
+  vec3 col = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * val : hsv2rgb(vec3(fract(hue), sat, val));
+  col += uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue+0.5)) * (pow(f,4.0)*uHighs*1.5) : hsv2rgb(vec3(fract(hue+0.5), 0.5, pow(f,4.0)*uHighs*1.5));   // accent highlights
   return col;
 }
 vec3 metaStyle(vec2 uv){
@@ -3109,8 +3109,8 @@ vec3 metaStyle(vec2 uv){
   float field = m*(0.10 + uIntensity*0.10) + plasma*0.25*uMids;
   float edge = smoothstep(0.7, 1.7, field);
   float hue = uHue + field*0.06 + uHighs*0.10 + 0.04*plasma;
-  vec3 core = hsv2rgb(vec3(fract(hue), 0.85, edge*(0.9+uLoud*0.7+uBeat*0.5)));
-  core += hsv2rgb(vec3(fract(hue+0.12), 0.6, smoothstep(1.4,2.4,field)));   // hot core
+  vec3 core = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (edge*(0.9+uLoud*0.7+uBeat*0.5)) : hsv2rgb(vec3(fract(hue), 0.85, edge*(0.9+uLoud*0.7+uBeat*0.5)));
+  core += uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue+0.12)) * smoothstep(1.4,2.4,field) : hsv2rgb(vec3(fract(hue+0.12), 0.6, smoothstep(1.4,2.4,field)));   // hot core
   return core;
 }
 vec3 tunnelStyle(vec2 uv){
@@ -3125,7 +3125,7 @@ vec3 tunnelStyle(vec2 uv){
   float v = pow(rings*tex, 1.3) * (0.7 + uLoud*0.8);
   v *= smoothstep(0.0, 0.25, rad);                     // dim the singularity
   float hue = uHue + depth*0.05 + a*0.20 + uHighs*0.1;
-  vec3 col = hsv2rgb(vec3(fract(hue), 0.8, v));
+  vec3 col = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * v : hsv2rgb(vec3(fract(hue), 0.8, v));
   return col;
 }
 
@@ -3164,9 +3164,9 @@ vec3 electricStyle(vec2 uv){
   ridge = pow(ridge, 3.0 + 6.0*(1.0 - uIntensity));
   float bolt = pow(ridge, 2.5) * (1.2 + uBeat*3.0 + uBass*1.5);
   float hue = uHue + 0.05 + 0.15*n + uHighs*0.15;
-  vec3 col = hsv2rgb(vec3(fract(hue), 0.55, bolt));
+  vec3 col = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * bolt : hsv2rgb(vec3(fract(hue), 0.55, bolt));
   col += vec3(0.6,0.8,1.0) * pow(ridge, 8.0) * (0.5 + uBeat*2.0);   // hot blue-white core
-  col += hsv2rgb(vec3(fract(uHue+0.55), 0.4, uBeat*0.25));          // beat flash
+  col += uPalOn > 0.5 ? mix(uPalA, uPalB, fract(uHue+0.55)) * (uBeat*0.25) : hsv2rgb(vec3(fract(uHue+0.55), 0.4, uBeat*0.25));          // beat flash
   return col;
 }
 vec3 chromeStyle(vec2 uv){
@@ -3182,9 +3182,9 @@ vec3 chromeStyle(vec2 uv){
   float spec = pow(max(dot(reflect(-ld, nrm), vd), 0.0), 24.0);
   float fres = pow(1.0 - max(nrm.z, 0.0), 3.0);
   float hue = uHue + 0.5*nrm.x + 0.3*h + fres*0.3 + uHighs*0.1;
-  vec3 base = hsv2rgb(vec3(fract(hue), 0.5 + 0.3*uMids, 0.35 + 0.4*h));
+  vec3 base = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (0.35 + 0.4*h) : hsv2rgb(vec3(fract(hue), 0.5 + 0.3*uMids, 0.35 + 0.4*h));
   vec3 col = base*(0.5 + uLoud*0.4) + vec3(spec)*(1.2 + uBeat*1.5)
-           + hsv2rgb(vec3(fract(hue+0.3), 0.6, fres*0.6));
+           + (uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue+0.3)) * (fres*0.6) : hsv2rgb(vec3(fract(hue+0.3), 0.6, fres*0.6)));
   return col;
 }
 float gyroid(vec3 p){ return dot(sin(p), cos(p.yzx)); }
@@ -3261,7 +3261,7 @@ vec3 strobeStyle(vec2 uv){
   float scan = 0.5 + 0.5*sin(uv.y*24.0 - t*5.0 + uBeat*8.0);
   float v = grid*scan*(0.55 + uLoud*0.75) + flash*0.42;
   float hue = uHue + uv.x*0.12 + uBeat*0.06;
-  vec3 col = hsv2rgb(vec3(fract(hue), 0.88, v));
+  vec3 col = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * v : hsv2rgb(vec3(fract(hue), 0.88, v));
   col += vec3(flash*0.35);
   return col;
 }
@@ -3273,7 +3273,7 @@ vec3 warehouseStyle(vec2 uv){
   float pulse = pow(clamp(uBeat,0.0,1.0), 0.75)*(1.0 + uBass*0.8);
   float v = fog*0.38 + col*(0.45 + pulse*0.55);
   float hue = uHue + fog*0.12 + uMids*0.07;
-  return hsv2rgb(vec3(fract(hue), 0.72, v*(0.65 + uLoud*0.65)));
+  return uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (v*(0.65 + uLoud*0.65)) : hsv2rgb(vec3(fract(hue), 0.72, v*(0.65 + uLoud*0.65)));
 }
 vec3 laserStyle(vec2 uv){
   float t = uTime*0.55;
@@ -3285,9 +3285,9 @@ vec3 laserStyle(vec2 uv){
     float beam = exp(-abs(dot(uv, vec2(-dir.y, dir.x)))*20.0);
     beam *= exp(-length(uv - dir*0.28)*2.2);
     float hue = uHue + fi*0.09 + uHighs*0.12;
-    col += hsv2rgb(vec3(fract(hue), 0.92, beam*(0.45 + uBeat*1.35 + uLoud*0.55)));
+    col += uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (beam*(0.45 + uBeat*1.35 + uLoud*0.55)) : hsv2rgb(vec3(fract(hue), 0.92, beam*(0.45 + uBeat*1.35 + uLoud*0.55)));
   }
-  col += hsv2rgb(vec3(fract(uHue+0.48), 0.55, uBeat*0.28));
+  col += uPalOn > 0.5 ? mix(uPalA, uPalB, fract(uHue+0.48)) * (uBeat*0.28) : hsv2rgb(vec3(fract(uHue+0.48), 0.55, uBeat*0.28));
   return col;
 }
 
