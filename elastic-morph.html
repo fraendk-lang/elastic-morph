@@ -2935,7 +2935,7 @@ function blendPresets(a, b, t) {
 }
 function currentDNA() {
   let dna = (!S.blendWith || S.blendAmt <= 0.01) ? S.preset : blendPresets(S.preset, S.blendWith, S.blendAmt);
-  if (S.palette.on) {
+  if (S.palette.on && S.palette.mode !== "named") {
     // clone so we never mutate the shared preset object, then override the colour genes
     dna = (dna === S.preset) ? { ...dna } : dna;
     dna.hue = S.palette.hue;

@@ -881,6 +881,11 @@ ok("drawLayerB's colr() branches to a Named Gradient RGB mix inside the dna colo
     && fn.includes("NAMED_PALETTES.find(p => p.id === S.palette.namedId)");
 })());
 
+ok("currentDNA() does not override preset colour genes when palette.mode is 'named'", (() => {
+  const fn = extractFn("currentDNA");
+  return !!fn && fn.includes('if (S.palette.on && S.palette.mode !== "named") {');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
