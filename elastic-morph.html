@@ -2410,6 +2410,15 @@ const CONTROL_DEFS = [
 const ctrl = {};
 CONTROL_DEFS.forEach(([k,,v]) => ctrl[k] = v);
 
+const NAMED_PALETTES = [
+  { id: "toxic",   name: "Toxic",    a: [0.05, 0.95, 0.15], b: [0.85, 0.05, 0.75] },
+  { id: "sunset",  name: "Sunset",   a: [0.95, 0.45, 0.05], b: [0.45, 0.10, 0.75] },
+  { id: "deepsea", name: "Deep Sea", a: [0.00, 0.70, 0.90], b: [0.05, 0.10, 0.55] },
+  { id: "cherry",  name: "Cherry",   a: [0.95, 0.10, 0.45], b: [0.45, 0.02, 0.10] },
+  { id: "solar",   name: "Solar",    a: [0.95, 0.80, 0.10], b: [0.90, 0.30, 0.05] },
+  { id: "void",    name: "Void",     a: [0.35, 0.10, 0.75], b: [0.04, 0.03, 0.10] },
+];
+
 /* ---------------- App state ---------------- */
 const S = {
   preset: PRESETS[0],
@@ -2454,7 +2463,7 @@ const S = {
   // v22: Set Editor — timed cues that recall a scene (+ optional FX override) deterministically
   cues: [], lastCueApplied: -2, setActive: true, setSel: -1,
   // v34: custom palette override (replaces the preset's hue/hueEnd/sat when on)
-  palette: { on: false, hue: 280, spread: 50, sat: 85 },
+  palette: { on: false, hue: 280, spread: 50, sat: 85, mode: "hsl", namedId: "toxic" },
   // v55: Sacred Geometry — counter-rotating second layer
   geo2: { on: false, style: "same", scale: 0.6, hueShift: 40 },
   // v36: background video layer (drawn as the base, under the visual)
@@ -8195,7 +8204,7 @@ const TEMPLATES = [
 function applyTemplate(tpl) {
   const p = PRESETS.find(x => x.id === tpl.preset);
   if (p) { S.preset = p; S.blendWith = null; S.blendAmt = 0; }
-  if (tpl.palette) Object.assign(S.palette, { on: false, hue: 280, spread: 50, sat: 85 }, tpl.palette);
+  if (tpl.palette) Object.assign(S.palette, { on: false, hue: 280, spread: 50, sat: 85, mode: "hsl", namedId: "toxic" }, tpl.palette);
   if (tpl.ctrl) Object.assign(ctrl, tpl.ctrl);
   syncSliderUI(); if (typeof syncPaletteUI === "function") syncPaletteUI();
   if (typeof renderPresets === "function") renderPresets();

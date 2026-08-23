@@ -757,6 +757,25 @@ ok("cycleShaderStyle defined, cycles SHADER_STYLE_ID with wrap-around, updates t
     && fn.includes("flashLookSwipe(label,");
 })());
 
+/* ---------------- Named Palette System ---------------- */
+section("Named Palette System — data model");
+
+ok("NAMED_PALETTES defined with exactly 6 entries (toxic/sunset/deepsea/cherry/solar/void)", (() => {
+  const m = script.match(/const NAMED_PALETTES = \[([\s\S]*?)\n\];/);
+  if (!m) return false;
+  const ids = [...m[1].matchAll(/id:\s*"(\w+)"/g)].map(x => x[1]);
+  const want = ["toxic", "sunset", "deepsea", "cherry", "solar", "void"];
+  return ids.length === 6 && want.every(id => ids.includes(id));
+})());
+
+ok("S.palette initial state has mode/namedId defaults", script.includes(
+  'palette: { on: false, hue: 280, spread: 50, sat: 85, mode: "hsl", namedId: "toxic" },'
+));
+
+ok("applyTemplate palette-merge defaults include mode/namedId", script.includes(
+  'Object.assign(S.palette, { on: false, hue: 280, spread: 50, sat: 85, mode: "hsl", namedId: "toxic" }, tpl.palette);'
+));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
