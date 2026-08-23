@@ -776,6 +776,35 @@ ok("applyTemplate palette-merge defaults include mode/namedId", script.includes(
   'Object.assign(S.palette, { on: false, hue: 280, spread: 50, sat: 85, mode: "hsl", namedId: "toxic" }, tpl.palette);'
 ));
 
+/* ---------------- Named Palette System — UI panel */
+section("Named Palette System — UI panel");
+
+ok("palette mode select and named-palette select exist, with a static <option> per NAMED_PALETTES entry", (() => {
+  const m = script.match(/const NAMED_PALETTES = \[([\s\S]*?)\n\];/);
+  const ids = m ? [...m[1].matchAll(/id:\s*"(\w+)"/g)].map(x => x[1]) : [];
+  const selectBlock = (html.match(/<select id="palNamed"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || "";
+  const hasOptions = ids.length > 0 && ids.every(id => selectBlock.includes('<option value="' + id + '">'));
+  return html.includes('id="palMode"') && html.includes('id="palNamed"') && hasOptions;
+})());
+
+ok("palMode/palNamed listeners registered", (() => {
+  return script.includes('$("palMode").addEventListener("change"')
+    && script.includes('$("palNamed").addEventListener("change"');
+})());
+
+ok("drawPalettePreview renders the named-gradient branch", (() => {
+  const fn = extractFn("drawPalettePreview");
+  return !!fn && fn.includes('S.palette.mode === "named"');
+})());
+
+ok("syncPaletteUI toggles palHslRow/palNamedRow and syncs #palNamed's selected value", (() => {
+  const fn = extractFn("syncPaletteUI");
+  return !!fn
+    && fn.includes('$("palHslRow")')
+    && fn.includes('$("palNamedRow")')
+    && fn.includes('$("palNamed")');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
