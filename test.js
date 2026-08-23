@@ -872,6 +872,15 @@ ok("the 8 hue-only styles still don't call applyEyeCatcherFX (unaffected pre-exi
     });
 })());
 
+section("Named Palette System — Layer B");
+
+ok("drawLayerB's colr() branches to a Named Gradient RGB mix inside the dna color mode", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn
+    && fn.includes('LB.color === "dna" && S.palette.on && S.palette.mode === "named"')
+    && fn.includes("NAMED_PALETTES.find(p => p.id === S.palette.namedId)");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

@@ -5197,6 +5197,16 @@ function drawLayerB(W, H, hue, dt) {
   const sc = LB.scale * (1 + LB.scaleLfo.depth * lfoWave(LB.scaleLfo.shape, LB._scPhase || 0));
   const colr = (t, a) => {
     if (LB.color === "white") return `rgba(255,255,255,${a})`;
+    if (LB.color === "dna" && S.palette.on && S.palette.mode === "named") {
+      const pal = NAMED_PALETTES.find(p => p.id === S.palette.namedId);
+      if (pal) {
+        const mixT = ((t % 1) + 1) % 1;
+        const r = Math.round(255 * (pal.a[0] + (pal.b[0] - pal.a[0]) * mixT));
+        const g = Math.round(255 * (pal.a[1] + (pal.b[1] - pal.a[1]) * mixT));
+        const bch = Math.round(255 * (pal.a[2] + (pal.b[2] - pal.a[2]) * mixT));
+        return `rgba(${r},${g},${bch},${a})`;
+      }
+    }
     const h = (LB.color === "rainbow" ? (t * 300 + S.time * 30) : (hue + t * 50)) + (LB._hue || 0);
     return `hsla(${((h % 360) + 360) % 360}, 82%, 63%, ${a})`;
   };
