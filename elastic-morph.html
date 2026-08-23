@@ -6710,6 +6710,7 @@ function projectData() {
             custom2: S.textCustom2, gradDir: S.textGradDir, circle: S.textCircle, blend: S.textBlend },
     lyrics: { on: S.lyrics.on, cues: S.lyrics.cues, offset: S.lyrics.offset },
     layerB: (() => { const { _spin, _hue, _opPhase, _scPhase, ...rest } = S.layerB; return rest; })(),
+    feedbackFX: { ...S.feedbackFX },
     shader: { ...S.shader },
     aspect: [...S.aspect], quality: S.quality, reduceFlash: S.reduceFlash
   };
@@ -6942,6 +6943,16 @@ function applyProject(o, fromScene) {
     shape: lb.scaleLfo && ["sine", "triangle", "square"].includes(lb.scaleLfo.shape) ? lb.scaleLfo.shape : "sine"
   };
   S.layerB._spin = 0; S.layerB._hue = 0; S.layerB._opPhase = 0; S.layerB._scPhase = 0;
+  const fb = o.feedbackFX || {};
+  S.feedbackFX.zoom = fb.zoom != null ? +fb.zoom : 1.045;
+  S.feedbackFX.rotation = fb.rotation != null ? +fb.rotation : 0.69;
+  S.feedbackFX.decay = fb.decay != null ? +fb.decay : 0.28;
+  S.feedbackFX.alpha = fb.alpha != null ? +fb.alpha : 0.38;
+  S.feedbackFX.hueShift = fb.hueShift != null ? +fb.hueShift : 0;
+  S.feedbackFX.dirX = fb.dirX != null ? +fb.dirX : 0;
+  S.feedbackFX.dirY = fb.dirY != null ? +fb.dirY : 0;
+  S.feedbackFX.blend = fb.blend || "lighter";
+  if (typeof syncFeedbackFXUI === "function") syncFeedbackFXUI();
   $("lbOn").checked = !!S.layerB.on;
   $("lbType").value = S.layerB.type; $("lbBlend").value = S.layerB.blend; $("lbColor").value = S.layerB.color;
   $("lbOp").value = Math.round(S.layerB.opacity * 100); $("lbOpVal").textContent = Math.round(S.layerB.opacity * 100);

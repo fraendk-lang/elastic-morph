@@ -941,6 +941,31 @@ ok("decay/alpha/dirX/dirY sliders use the established value/100 fraction convent
 
 ok("syncFeedbackFXUI is called at boot", script.includes("syncFeedbackFXUI();"));
 
+section("Feedback Loop Deepening — persistence");
+
+ok("projectData() includes feedbackFX", script.includes(
+  "feedbackFX: { ...S.feedbackFX },"
+));
+
+ok("applyProject restores feedbackFX with safe defaults for every field", (() => {
+  const fn = extractFn("applyProject");
+  return !!fn
+    && fn.includes("const fb = o.feedbackFX || {};")
+    && fn.includes("S.feedbackFX.zoom = fb.zoom != null ? +fb.zoom : 1.045;")
+    && fn.includes("S.feedbackFX.rotation = fb.rotation != null ? +fb.rotation : 0.69;")
+    && fn.includes("S.feedbackFX.decay = fb.decay != null ? +fb.decay : 0.28;")
+    && fn.includes("S.feedbackFX.alpha = fb.alpha != null ? +fb.alpha : 0.38;")
+    && fn.includes("S.feedbackFX.hueShift = fb.hueShift != null ? +fb.hueShift : 0;")
+    && fn.includes("S.feedbackFX.dirX = fb.dirX != null ? +fb.dirX : 0;")
+    && fn.includes("S.feedbackFX.dirY = fb.dirY != null ? +fb.dirY : 0;")
+    && fn.includes('S.feedbackFX.blend = fb.blend || "lighter";');
+})());
+
+ok("applyProject calls syncFeedbackFXUI after restoring project state", (() => {
+  const fn = extractFn("applyProject");
+  return !!fn && fn.includes("if (typeof syncFeedbackFXUI === \"function\") syncFeedbackFXUI();");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
