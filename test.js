@@ -886,6 +886,13 @@ ok("currentDNA() does not override preset colour genes when palette.mode is 'nam
   return !!fn && fn.includes('if (S.palette.on && S.palette.mode !== "named") {');
 })());
 
+/* ---------------- Feedback Loop Deepening — data model ---------------- */
+section("Feedback Loop Deepening — data model");
+
+ok("S.feedbackFX initial state has all 8 fields at today's defaults", script.includes(
+  'feedbackFX: { zoom: 1.045, rotation: 0.69, decay: 0.28, alpha: 0.38, hueShift: 0, dirX: 0, dirY: 0, blend: "lighter" },'
+));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
