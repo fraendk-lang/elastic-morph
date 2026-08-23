@@ -55,6 +55,20 @@ function cycleLayerBType(delta) {
   flashLookSwipe(label, delta, idx + 1, LAYERB_TYPES.length, delta > 0 ? "↓ " : "↑ ");
 }
 
+function cycleShaderStyle(delta) {
+  const ids = Object.keys(SHADER_STYLE_ID);
+  let idx = ids.indexOf(S.shader.style);
+  if (idx < 0) idx = 0;
+  idx = (idx + delta + ids.length) % ids.length;
+  const id = ids[idx];
+  S.shader.style = id;
+  const sel = $("shStyle");
+  if (sel) sel.value = id;
+  const opt = sel ? sel.querySelector(`option[value="${id}"]`) : null;
+  const label = opt ? opt.textContent.replace(/^Style:\s*/, "") : id;
+  flashLookSwipe(label, delta, idx + 1, ids.length, delta > 0 ? "↓ " : "↑ ");
+}
+
 function updateLookSwipeHint() {
   const hint = $("lookSwipeHint");
   if (!hint) return;

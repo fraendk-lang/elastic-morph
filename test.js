@@ -736,14 +736,25 @@ ok("cycleLayerBType defined, cycles LAYERB_TYPES with wrap-around and updates th
     && fn.includes('$("lbType").value = id')
     && fn.includes("flashLookSwipe(label,");
 })());
-ok("plain ArrowUp/Down guard against Shift, Shift+ArrowUp/Down bound to cycleLayerBType (next/previous)", (() => {
+ok("Arrow keys route to mutually-exclusive cyclers by modifier: plain -> preset, Shift -> Layer B, Option -> Shader style", (() => {
   const idx = script.indexOf('e.key === "ArrowRight"');
   if (idx < 0) return false;
-  const block = script.slice(idx, idx + 500);
-  return block.includes('if (e.key === "ArrowDown" && !e.shiftKey) { e.preventDefault(); cyclePresetLook(1); }')
-    && block.includes('if (e.key === "ArrowUp" && !e.shiftKey) { e.preventDefault(); cyclePresetLook(-1); }')
-    && block.includes('if (e.key === "ArrowDown" && e.shiftKey) { e.preventDefault(); cycleLayerBType(1); }')
-    && block.includes('if (e.key === "ArrowUp" && e.shiftKey) { e.preventDefault(); cycleLayerBType(-1); }');
+  const block = script.slice(idx, idx + 700);
+  return block.includes('if (e.key === "ArrowDown" && !e.shiftKey && !e.altKey) { e.preventDefault(); cyclePresetLook(1); }')
+    && block.includes('if (e.key === "ArrowUp" && !e.shiftKey && !e.altKey) { e.preventDefault(); cyclePresetLook(-1); }')
+    && block.includes('if (e.key === "ArrowDown" && e.shiftKey && !e.altKey) { e.preventDefault(); cycleLayerBType(1); }')
+    && block.includes('if (e.key === "ArrowUp" && e.shiftKey && !e.altKey) { e.preventDefault(); cycleLayerBType(-1); }')
+    && block.includes('if (e.key === "ArrowDown" && e.altKey && !e.shiftKey) { e.preventDefault(); cycleShaderStyle(1); }')
+    && block.includes('if (e.key === "ArrowUp" && e.altKey && !e.shiftKey) { e.preventDefault(); cycleShaderStyle(-1); }');
+})());
+ok("cycleShaderStyle defined, cycles SHADER_STYLE_ID with wrap-around, updates the shStyle select, and derives the toast label from its option text (not a duplicated label list)", (() => {
+  const fn = extractFn("cycleShaderStyle");
+  return !!fn
+    && fn.includes("Object.keys(SHADER_STYLE_ID)")
+    && fn.includes("(idx + delta + ids.length) % ids.length")
+    && fn.includes('sel.value = id')
+    && fn.includes('option[value="${id}"]')
+    && fn.includes("flashLookSwipe(label,");
 })());
 
 /* ---------------- summary ---------------- */
