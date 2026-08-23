@@ -966,6 +966,30 @@ ok("applyProject calls syncFeedbackFXUI after restoring project state", (() => {
   return !!fn && fn.includes("if (typeof syncFeedbackFXUI === \"function\") syncFeedbackFXUI();");
 })());
 
+section("Feedback Loop Deepening — render logic");
+
+ok("applyPostFX's feedback block reads every parameter from S.feedbackFX instead of literals", (() => {
+  const fn = extractFn("applyPostFX");
+  return !!fn
+    && fn.includes("const F = S.feedbackFX;")
+    && fn.includes("ctx.globalCompositeOperation = F.blend;")
+    && fn.includes("ctx.globalAlpha = F.alpha + S.beat * 0.08;")
+    && fn.includes("ctx.translate(W / 2 + F.dirX * W, H / 2 + F.dirY * H);")
+    && fn.includes("ctx.scale(F.zoom, F.zoom);")
+    && fn.includes("ctx.rotate(F.rotation * Math.PI / 180 + S.stereo * 0.01);")
+    && fn.includes("fbctx.fillStyle = `rgba(0,0,0,${F.decay})`;");
+})());
+
+ok("hue-rotate filter applies only to the fbC redraw, is reset immediately after, and is skipped when hueShift is 0", (() => {
+  const fn = extractFn("applyPostFX");
+  return !!fn
+    && fn.includes("if (F.hueShift) ctx.filter = `hue-rotate(${F.hueShift}deg)`;")
+    && fn.includes("ctx.drawImage(fbC, 0, 0, W, H);")
+    && fn.includes('ctx.filter = "none";')
+    && fn.indexOf("if (F.hueShift) ctx.filter") < fn.indexOf("ctx.drawImage(fbC, 0, 0, W, H);")
+    && fn.indexOf("ctx.drawImage(fbC, 0, 0, W, H);") < fn.indexOf('ctx.filter = "none";');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

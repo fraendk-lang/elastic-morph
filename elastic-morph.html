@@ -5568,21 +5568,24 @@ function applyPostFX(W, H) {
 
   /* --- Feedback Delay: re-add the previous frame, zoomed & rotated --- */
   if (fx.feedback) {
+    const F = S.feedbackFX;
     ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.38 + S.beat * 0.08;
-    ctx.translate(W / 2, H / 2);
-    ctx.scale(1.045, 1.045);
-    ctx.rotate(0.012 + S.stereo * 0.01);
+    ctx.globalCompositeOperation = F.blend;
+    ctx.globalAlpha = F.alpha + S.beat * 0.08;
+    ctx.translate(W / 2 + F.dirX * W, H / 2 + F.dirY * H);
+    ctx.scale(F.zoom, F.zoom);
+    ctx.rotate(F.rotation * Math.PI / 180 + S.stereo * 0.01);
     ctx.translate(-W / 2, -H / 2);
+    if (F.hueShift) ctx.filter = `hue-rotate(${F.hueShift}deg)`;
     ctx.drawImage(fbC, 0, 0, W, H);
+    ctx.filter = "none";
     ctx.restore();
     // store current combined frame, then darken it so the loop strictly decays (no whiteout)
     fbctx.globalCompositeOperation = "copy";
     fbctx.globalAlpha = 1;
     fbctx.drawImage(canvas, 0, 0, fbC.width, fbC.height);
     fbctx.globalCompositeOperation = "source-over";
-    fbctx.fillStyle = "rgba(0,0,0,0.28)";   // stronger decay so the feedback loop can't run away to white
+    fbctx.fillStyle = `rgba(0,0,0,${F.decay})`;
     fbctx.fillRect(0, 0, fbC.width, fbC.height);
   }
 
