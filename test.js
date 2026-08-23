@@ -805,6 +805,20 @@ ok("syncPaletteUI toggles palHslRow/palNamedRow and syncs #palNamed's selected v
     && fn.includes('$("palNamed")');
 })());
 
+/* ---------------- Named Palette System — persistence */
+section("Named Palette System — persistence");
+
+ok("projectData() spreads S.palette wholesale (mode/namedId ride along for free)", script.includes(
+  "palette: { ...S.palette },"
+));
+
+ok("applyProject restores palette.mode/namedId with safe defaults", (() => {
+  const fn = extractFn("applyProject");
+  return !!fn
+    && fn.includes('S.palette.mode = pl.mode === "named" ? "named" : "hsl";')
+    && fn.includes('S.palette.namedId = pl.namedId || "toxic";');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

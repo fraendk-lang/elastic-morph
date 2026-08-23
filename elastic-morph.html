@@ -6706,6 +6706,8 @@ function applyProject(o, fromScene) {
   S.palette.hue = pl.hue != null ? +pl.hue : 280;
   S.palette.spread = pl.spread != null ? +pl.spread : 50;
   S.palette.sat = pl.sat != null ? +pl.sat : 85;
+  S.palette.mode = pl.mode === "named" ? "named" : "hsl";
+  S.palette.namedId = pl.namedId || "toxic";
 
   const mxo = o.mix || {};
   S.mix.bass = mxo.bass != null ? +mxo.bass : 1; S.mix.mid = mxo.mid != null ? +mxo.mid : 1; S.mix.high = mxo.high != null ? +mxo.high : 1;
