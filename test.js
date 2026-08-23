@@ -893,6 +893,54 @@ ok("S.feedbackFX initial state has all 8 fields at today's defaults", script.inc
   'feedbackFX: { zoom: 1.045, rotation: 0.69, decay: 0.28, alpha: 0.38, hueShift: 0, dirX: 0, dirY: 0, blend: "lighter" },'
 ));
 
+/* ---------------- Feedback Loop Deepening — UI panel */
+section("Feedback Loop Deepening — UI panel");
+
+ok("Feedback Loop panel HTML has all 9 controls", (() => {
+  const ids = ["fbOn", "fbBlend", "fbZoom", "fbRot", "fbDecay", "fbAlpha", "fbHue", "fbDirX", "fbDirY"];
+  return ids.every(id => html.includes('id="' + id + '"'));
+})());
+
+ok("#fbOn reuses toggleFX(\"feedback\") so it stays in lockstep with the FX Rack chip", script.includes(
+  '$("fbOn").addEventListener("change", () => toggleFX("feedback"));'
+));
+
+ok("syncFXUI also syncs #fbOn to S.fx.feedback", (() => {
+  const fn = extractFn("syncFXUI");
+  return !!fn && fn.includes('$("fbOn").checked = !!S.fx.feedback;');
+})());
+
+ok("syncFeedbackFXUI sets every control from S.feedbackFX", (() => {
+  const fn = extractFn("syncFeedbackFXUI");
+  return !!fn
+    && fn.includes('$("fbBlend").value = S.feedbackFX.blend;')
+    && fn.includes("S.feedbackFX.zoom")
+    && fn.includes("S.feedbackFX.rotation")
+    && fn.includes("S.feedbackFX.decay")
+    && fn.includes("S.feedbackFX.alpha")
+    && fn.includes("S.feedbackFX.hueShift")
+    && fn.includes("S.feedbackFX.dirX")
+    && fn.includes("S.feedbackFX.dirY");
+})());
+
+ok("zoom slider converts percent-growth to an absolute scale factor (1 + value/100)", script.includes(
+  "S.feedbackFX.zoom = 1 + (+e.target.value) / 100;"
+));
+
+ok("rotation/hueShift sliders write degrees directly (no radian conversion in the UI layer)",
+  script.includes("S.feedbackFX.rotation = +e.target.value;")
+  && script.includes("S.feedbackFX.hueShift = +e.target.value;")
+);
+
+ok("decay/alpha/dirX/dirY sliders use the established value/100 fraction convention",
+  script.includes("S.feedbackFX.decay = e.target.value / 100;")
+  && script.includes("S.feedbackFX.alpha = e.target.value / 100;")
+  && script.includes("S.feedbackFX.dirX = e.target.value / 100;")
+  && script.includes("S.feedbackFX.dirY = e.target.value / 100;")
+);
+
+ok("syncFeedbackFXUI is called at boot", script.includes("syncFeedbackFXUI();"));
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

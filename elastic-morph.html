@@ -1651,6 +1651,48 @@
     <h3>FX Rack</h3>
     <div id="fxChips"></div>
     <div class="divider"></div>
+    <h3>Feedback Loop</h3>
+    <label class="check" style="margin-bottom:10px"><input type="checkbox" id="fbOn"> Enable feedback loop</label>
+    <select id="fbBlend" class="pm-select">
+      <option value="lighter" selected>Blend: Add</option>
+      <option value="screen">Blend: Screen</option>
+      <option value="source-over">Blend: Normal</option>
+      <option value="multiply">Blend: Multiply</option>
+      <option value="overlay">Blend: Overlay</option>
+      <option value="difference">Blend: Difference</option>
+      <option value="color-dodge">Blend: Color Dodge</option>
+      <option value="hard-light">Blend: Hard Light</option>
+      <option value="hue">Blend: Hue</option>
+    </select>
+    <div class="slider-row" style="margin-top:10px">
+      <label>Zoom <span class="val" id="fbZoomVal">4.5</span></label>
+      <input type="range" id="fbZoom" min="0" max="15" value="4.5" step="0.5">
+    </div>
+    <div class="slider-row">
+      <label>Rotation° <span class="val" id="fbRotVal">0.69</span></label>
+      <input type="range" id="fbRot" min="-3" max="3" value="0.69" step="0.01">
+    </div>
+    <div class="slider-row">
+      <label>Decay <span class="val" id="fbDecayVal">28</span></label>
+      <input type="range" id="fbDecay" min="5" max="60" value="28">
+    </div>
+    <div class="slider-row">
+      <label>Intensität <span class="val" id="fbAlphaVal">38</span></label>
+      <input type="range" id="fbAlpha" min="0" max="90" value="38">
+    </div>
+    <div class="slider-row">
+      <label>Hue-Shift <span class="val" id="fbHueVal">0</span></label>
+      <input type="range" id="fbHue" min="0" max="8" value="0" step="0.5">
+    </div>
+    <div class="slider-row">
+      <label>Drift X <span class="val" id="fbDirXVal">0</span></label>
+      <input type="range" id="fbDirX" min="-5" max="5" value="0">
+    </div>
+    <div class="slider-row">
+      <label>Drift Y <span class="val" id="fbDirYVal">0</span></label>
+      <input type="range" id="fbDirY" min="-5" max="5" value="0">
+    </div>
+    <div class="divider"></div>
     <h3>FX Rack II — Geometry <small style="color:var(--text-dim);font-weight:400">(Ctrl+1–0)</small></h3>
     <div id="fx2Chips"></div>
     <div class="divider"></div>
@@ -6487,7 +6529,33 @@ function toggleFX(key) {
 function syncFXUI() {
   document.querySelectorAll("[data-fx]").forEach(el =>
     el.classList.toggle("on", !!S.fx[el.dataset.fx]));
+  $("fbOn").checked = !!S.fx.feedback;
 }
+
+function syncFeedbackFXUI() {
+  $("fbBlend").value = S.feedbackFX.blend;
+  const zoomPct = Math.round((S.feedbackFX.zoom - 1) * 1000) / 10;
+  $("fbZoom").value = zoomPct; $("fbZoomVal").textContent = zoomPct;
+  $("fbRot").value = S.feedbackFX.rotation; $("fbRotVal").textContent = S.feedbackFX.rotation;
+  const decayPct = Math.round(S.feedbackFX.decay * 100);
+  $("fbDecay").value = decayPct; $("fbDecayVal").textContent = decayPct;
+  const alphaPct = Math.round(S.feedbackFX.alpha * 100);
+  $("fbAlpha").value = alphaPct; $("fbAlphaVal").textContent = alphaPct;
+  $("fbHue").value = S.feedbackFX.hueShift; $("fbHueVal").textContent = S.feedbackFX.hueShift;
+  const dirXPct = Math.round(S.feedbackFX.dirX * 100);
+  $("fbDirX").value = dirXPct; $("fbDirXVal").textContent = dirXPct;
+  const dirYPct = Math.round(S.feedbackFX.dirY * 100);
+  $("fbDirY").value = dirYPct; $("fbDirYVal").textContent = dirYPct;
+}
+$("fbOn").addEventListener("change", () => toggleFX("feedback"));
+$("fbBlend").addEventListener("change", e => S.feedbackFX.blend = e.target.value);
+$("fbZoom").addEventListener("input", e => { S.feedbackFX.zoom = 1 + (+e.target.value) / 100; $("fbZoomVal").textContent = e.target.value; });
+$("fbRot").addEventListener("input", e => { S.feedbackFX.rotation = +e.target.value; $("fbRotVal").textContent = e.target.value; });
+$("fbDecay").addEventListener("input", e => { S.feedbackFX.decay = e.target.value / 100; $("fbDecayVal").textContent = e.target.value; });
+$("fbAlpha").addEventListener("input", e => { S.feedbackFX.alpha = e.target.value / 100; $("fbAlphaVal").textContent = e.target.value; });
+$("fbHue").addEventListener("input", e => { S.feedbackFX.hueShift = +e.target.value; $("fbHueVal").textContent = e.target.value; });
+$("fbDirX").addEventListener("input", e => { S.feedbackFX.dirX = e.target.value / 100; $("fbDirXVal").textContent = e.target.value; });
+$("fbDirY").addEventListener("input", e => { S.feedbackFX.dirY = e.target.value / 100; $("fbDirYVal").textContent = e.target.value; });
 
 /* ---- FX Rack II (geometry) ---- */
 function buildFX2() {
@@ -16164,6 +16232,7 @@ renderSongMap();
 renderMidiRows();
 renderScenes();
 syncPaletteUI();
+syncFeedbackFXUI();
 makeCollapsible();
 
 /* ---- progressive disclosure: group the right control panel into collapsible sections ---- */
