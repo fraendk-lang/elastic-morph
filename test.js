@@ -939,7 +939,7 @@ ok("decay/alpha/dirX/dirY sliders use the established value/100 fraction convent
   && script.includes("S.feedbackFX.dirY = e.target.value / 100;")
 );
 
-ok("syncFeedbackFXUI is called at boot", script.includes("syncFeedbackFXUI();"));
+ok("syncFeedbackFXUI is called at boot", /^syncFeedbackFXUI\(\);$/m.test(script));
 
 section("Feedback Loop Deepening — persistence");
 
@@ -951,19 +951,30 @@ ok("applyProject restores feedbackFX with safe defaults for every field", (() =>
   const fn = extractFn("applyProject");
   return !!fn
     && fn.includes("const fb = o.feedbackFX || {};")
-    && fn.includes("S.feedbackFX.zoom = fb.zoom != null ? +fb.zoom : 1.045;")
-    && fn.includes("S.feedbackFX.rotation = fb.rotation != null ? +fb.rotation : 0.69;")
-    && fn.includes("S.feedbackFX.decay = fb.decay != null ? +fb.decay : 0.28;")
-    && fn.includes("S.feedbackFX.alpha = fb.alpha != null ? +fb.alpha : 0.38;")
-    && fn.includes("S.feedbackFX.hueShift = fb.hueShift != null ? +fb.hueShift : 0;")
-    && fn.includes("S.feedbackFX.dirX = fb.dirX != null ? +fb.dirX : 0;")
-    && fn.includes("S.feedbackFX.dirY = fb.dirY != null ? +fb.dirY : 0;")
-    && fn.includes('S.feedbackFX.blend = fb.blend || "lighter";');
+    && fn.includes("S.feedbackFX.zoom = fb.zoom != null ? fbClamp(fb.zoom, 1, 1.15, 1.045) : 1.045;")
+    && fn.includes("S.feedbackFX.rotation = fb.rotation != null ? fbClamp(fb.rotation, -3, 3, 0.69) : 0.69;")
+    && fn.includes("S.feedbackFX.decay = fb.decay != null ? fbClamp(fb.decay, 0.05, 0.60, 0.28) : 0.28;")
+    && fn.includes("S.feedbackFX.alpha = fb.alpha != null ? fbClamp(fb.alpha, 0, 0.90, 0.38) : 0.38;")
+    && fn.includes("S.feedbackFX.hueShift = fb.hueShift != null ? fbClamp(fb.hueShift, 0, 8, 0) : 0;")
+    && fn.includes("S.feedbackFX.dirX = fb.dirX != null ? fbClamp(fb.dirX, -0.05, 0.05, 0) : 0;")
+    && fn.includes("S.feedbackFX.dirY = fb.dirY != null ? fbClamp(fb.dirY, -0.05, 0.05, 0) : 0;")
+    && fn.includes('S.feedbackFX.blend = ["lighter", "screen", "source-over", "multiply", "overlay", "difference", "color-dodge", "hard-light", "hue"].includes(fb.blend) ? fb.blend : "lighter";');
 })());
 
 ok("applyProject calls syncFeedbackFXUI after restoring project state", (() => {
   const fn = extractFn("applyProject");
   return !!fn && fn.includes("if (typeof syncFeedbackFXUI === \"function\") syncFeedbackFXUI();");
+})());
+
+ok("applyProject clamps/validates restored feedbackFX values instead of trusting untrusted input verbatim", (() => {
+  const fn = extractFn("applyProject");
+  return !!fn
+    && fn.includes("const fbClamp = (v, lo, hi, d) => { const n = +v; return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };")
+    && fn.includes("fbClamp(fb.zoom, 1, 1.15, 1.045)")
+    && fn.includes("fbClamp(fb.rotation, -3, 3, 0.69)")
+    && fn.includes("fbClamp(fb.decay, 0.05, 0.60, 0.28)")
+    && fn.includes("fbClamp(fb.alpha, 0, 0.90, 0.38)")
+    && fn.includes('["lighter", "screen", "source-over", "multiply", "overlay", "difference", "color-dodge", "hard-light", "hue"].includes(fb.blend)');
 })());
 
 section("Feedback Loop Deepening — render logic");
@@ -973,7 +984,7 @@ ok("applyPostFX's feedback block reads every parameter from S.feedbackFX instead
   return !!fn
     && fn.includes("const F = S.feedbackFX;")
     && fn.includes("ctx.globalCompositeOperation = F.blend;")
-    && fn.includes("ctx.globalAlpha = F.alpha + S.beat * 0.08;")
+    && fn.includes("ctx.globalAlpha = Math.min(F.alpha, aMax) + S.beat * 0.08;")
     && fn.includes("ctx.translate(W / 2 + F.dirX * W, H / 2 + F.dirY * H);")
     && fn.includes("ctx.scale(F.zoom, F.zoom);")
     && fn.includes("ctx.rotate(F.rotation * Math.PI / 180 + S.stereo * 0.01);")
@@ -988,6 +999,13 @@ ok("hue-rotate filter applies only to the fbC redraw, is reset immediately after
     && fn.includes('ctx.filter = "none";')
     && fn.indexOf("if (F.hueShift) ctx.filter") < fn.indexOf("ctx.drawImage(fbC, 0, 0, W, H);")
     && fn.indexOf("ctx.drawImage(fbC, 0, 0, W, H);") < fn.indexOf('ctx.filter = "none";');
+})());
+
+ok("applyPostFX clamps feedback alpha against decay (runaway-whiteout guard) and respects S.reduceFlash", (() => {
+  const fn = extractFn("applyPostFX");
+  return !!fn
+    && fn.includes("const aMax = S.reduceFlash ? 0.5 : Math.min(0.9, 0.8 / Math.max(0.05, 1 - F.decay));")
+    && fn.includes("ctx.globalAlpha = Math.min(F.alpha, aMax) + S.beat * 0.08;");
 })());
 
 /* ---------------- summary ---------------- */
