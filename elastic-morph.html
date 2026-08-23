@@ -3042,6 +3042,9 @@ uniform float uBass, uMids, uHighs, uBeat, uLoud;
 uniform float uHue;        // 0..1 base hue
 uniform float uStyle;      // 0 fluid, 1 metaballs/plasma, 2 tunnel/kaleido
 uniform float uIntensity;  // 0..1
+uniform float uPalOn;      // 1 when a Named Gradient palette is active
+uniform vec3 uPalA;       // Named Gradient anchor colour A
+uniform vec3 uPalB;       // Named Gradient anchor colour B
 
 // ---- helpers ----
 vec3 hsv2rgb(vec3 c){
@@ -3145,7 +3148,7 @@ vec3 auroraStyle(vec2 uv){
   curtain = clamp(curtain, 0.0, 1.5);
   float shimmer = sin(uv.x*30.0 + t*5.0)*0.5 + 0.5;
   float mixT = fract(uHue + uv.x*0.2 + curtain*0.3 + t*0.05);
-  vec3 col = mix(auroraA, auroraB, mixT) * (curtain * (0.6 + uIntensity) * (1.0 + uLoud*1.5 + uBeat*0.5));
+  vec3 col = mix(uPalOn > 0.5 ? uPalA : auroraA, uPalOn > 0.5 ? uPalB : auroraB, mixT) * (curtain * (0.6 + uIntensity) * (1.0 + uLoud*1.5 + uBeat*0.5));
   col += curtain * shimmer * (0.5 + uHighs*0.5) * 2.0;
   float stars = pow(hash(floor(uv*60.0)), 40.0);
   col += vec3(stars)*0.4*(1.0 - uBeat);
@@ -3205,8 +3208,8 @@ vec3 gyroidStyle(vec2 uv){
   glow *= 0.08;
   float mixT = fract(uHue + glow*0.15 + uHighs*0.1 + uMids*0.05);
   float v = glow * (0.7 + uIntensity*0.6) * (0.7 + uLoud*0.6);
-  vec3 col = mix(gyroidA, gyroidB, mixT) * v;
-  col += mix(gyroidB, gyroidA, mixT) * (pow(glow, 3.0)*0.6);   // bright cores, swapped anchors
+  vec3 col = mix(uPalOn > 0.5 ? uPalA : gyroidA, uPalOn > 0.5 ? uPalB : gyroidB, mixT) * v;
+  col += mix(uPalOn > 0.5 ? uPalB : gyroidB, uPalOn > 0.5 ? uPalA : gyroidA, mixT) * (pow(glow, 3.0)*0.6);   // bright cores, swapped anchors
   col = applyEyeCatcherFX(col, uv);
   return col;
 }
@@ -3231,7 +3234,7 @@ vec3 raymarchStyle(vec2 uv){
   float pulse = 0.6 + 0.4*sin(t*3.0 + hash(floor(p*2.0))*30.0 + uBeat*5.0);
   float glowVal = lines*0.4 + nodes*2.2*pulse*(0.6 + uLoud*0.7 + uBeat*0.7);
   float mixT = fract(uHue + nodes*0.5 + lines*0.1 + uHighs*0.12);
-  vec3 col = mix(hotA, hotB, mixT) * glowVal;
+  vec3 col = mix(uPalOn > 0.5 ? uPalA : hotA, uPalOn > 0.5 ? uPalB : hotB, mixT) * glowVal;
   col = applyEyeCatcherFX(col, uv);
   return col;
 }
@@ -3246,7 +3249,7 @@ vec3 feedbackStyle(vec2 uv){
   float zoom = 0.45 + 0.55*sin(t*0.7 + uBeat*3.5);
   f += fbm(p*4.5 - t*1.1) * zoom;
   float mixT = fract(uHue + f*0.18 + a*0.12 + uHighs*0.08);
-  vec3 col = mix(feedbackA, feedbackB, mixT) * (pow(clamp(f,0.0,1.0), 1.15)*(0.65 + uLoud*0.65));
+  vec3 col = mix(uPalOn > 0.5 ? uPalA : feedbackA, uPalOn > 0.5 ? uPalB : feedbackB, mixT) * (pow(clamp(f,0.0,1.0), 1.15)*(0.65 + uLoud*0.65));
   col = applyEyeCatcherFX(col, uv);
   return col;
 }
@@ -3360,7 +3363,10 @@ function initGL(){
       loud: gl.getUniformLocation(prog, "uLoud"),
       hue: gl.getUniformLocation(prog, "uHue"),
       style: gl.getUniformLocation(prog, "uStyle"),
-      intensity: gl.getUniformLocation(prog, "uIntensity")
+      intensity: gl.getUniformLocation(prog, "uIntensity"),
+      palOn: gl.getUniformLocation(prog, "uPalOn"),
+      palA: gl.getUniformLocation(prog, "uPalA"),
+      palB: gl.getUniformLocation(prog, "uPalB")
     };
     GL.canvas = cv; GL.gl = gl; GL.prog = prog; GL.t0 = performance.now();
     GL.ok = true;
@@ -3404,6 +3410,10 @@ function renderShader(W, H, hue){
   gl.uniform1f(L.hue, ((hue % 360) + 360) % 360 / 360);
   gl.uniform1f(L.style, SHADER_STYLE_ID[SH.style] ?? 0);
   gl.uniform1f(L.intensity, SH.intensity);
+  const namedActive = S.palette.on && S.palette.mode === "named";
+  const pal = namedActive ? NAMED_PALETTES.find(p => p.id === S.palette.namedId) : null;
+  gl.uniform1f(L.palOn, pal ? 1 : 0);
+  if (pal) { gl.uniform3f(L.palA, pal.a[0], pal.a[1], pal.a[2]); gl.uniform3f(L.palB, pal.b[0], pal.b[1], pal.b[2]); }
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
   ctx.save();

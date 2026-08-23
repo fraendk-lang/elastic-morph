@@ -672,7 +672,7 @@ ok("raymarchStyle builds a triangular lattice (3 line families) with node glow a
     && /vec3 g = vec3\(/.test(fn)
     && fn.includes("float lines = lx + ly + lz")
     && fn.includes("float nodes = lx*ly + ly*lz + lx*lz")
-    && fn.includes("mix(hotA, hotB, mixT)")
+    && fn.includes("mix(uPalOn > 0.5 ? uPalA : hotA, uPalOn > 0.5 ? uPalB : hotB, mixT)")
     && fn.includes("applyEyeCatcherFX(col, uv)");
 })());
 
@@ -690,12 +690,13 @@ ok("applyEyeCatcherFX helper defined with self-bloom, chromatic-tilt, and grain"
 [
   ["auroraStyle", "vec3 auroraStyle(vec2 uv){", "auroraA", "auroraB"],
   ["gyroidStyle", "vec3 gyroidStyle(vec2 uv){", "gyroidA", "gyroidB"],
+  ["raymarchStyle", "vec3 raymarchStyle(vec2 uv){", "hotA", "hotB"],
   ["feedbackStyle", "vec3 feedbackStyle(vec2 uv){", "feedbackA", "feedbackB"],
 ].forEach(([name, sig, a, b]) => {
-  ok(name + " mixes a named two-color palette and calls applyEyeCatcherFX", (() => {
+  ok(name + " mixes uPalA/uPalB when uPalOn is active, falls back to its own anchors otherwise, still calls applyEyeCatcherFX", (() => {
     const fn = extractGlslFn(sig);
     return !!fn
-      && fn.includes("mix(" + a + ", " + b + ", ")
+      && fn.includes("mix(uPalOn > 0.5 ? uPalA : " + a + ", uPalOn > 0.5 ? uPalB : " + b)
       && fn.includes("applyEyeCatcherFX(col, uv)");
   })());
 });
@@ -817,6 +818,27 @@ ok("applyProject restores palette.mode/namedId with safe defaults", (() => {
   return !!fn
     && fn.includes('S.palette.mode = pl.mode === "named" ? "named" : "hsl";')
     && fn.includes('S.palette.namedId = pl.namedId || "toxic";');
+})());
+
+section("Named Palette System — shader uniforms");
+
+ok("uPalOn/uPalA/uPalB uniforms declared in SHADER_FRAG", script.includes("uniform float uPalOn;")
+  && script.includes("uniform vec3 uPalA;") && script.includes("uniform vec3 uPalB;"));
+
+ok("GL.loc looks up palOn/palA/palB uniform locations", (() => {
+  const m = script.match(/GL\.loc = \{([\s\S]*?)\};/);
+  return !!m && /palOn:\s*gl\.getUniformLocation\(prog, "uPalOn"\)/.test(m[1])
+    && /palA:\s*gl\.getUniformLocation\(prog, "uPalA"\)/.test(m[1])
+    && /palB:\s*gl\.getUniformLocation\(prog, "uPalB"\)/.test(m[1]);
+})());
+
+ok("renderShader sets uPalOn/uPalA/uPalB from S.palette each frame", (() => {
+  const fn = extractFn("renderShader");
+  return !!fn
+    && fn.includes('S.palette.mode === "named"')
+    && fn.includes("gl.uniform1f(L.palOn,")
+    && fn.includes("gl.uniform3f(L.palA,")
+    && fn.includes("gl.uniform3f(L.palB,");
 })());
 
 /* ---------------- summary ---------------- */
