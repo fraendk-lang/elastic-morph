@@ -1100,6 +1100,24 @@ ok("S.bands.* are clamped to 1.0 (S.gain can push bandEnergy() above 1 unclamped
     && fn.includes("S.bands.air = Math.min(1, bandEnergy(6000, 16000) * g);");
 })());
 
+/* ---------------- Community Look-Sharing Gallery — data loading ---------------- */
+section("Community Look-Sharing Gallery — data loading");
+
+ok("assets/gallery/gallery.json exists and is a valid empty-array JSON file", (() => {
+  const p = path.join(__dirname, "assets/gallery/gallery.json");
+  if (!fs.existsSync(p)) return false;
+  try { return Array.isArray(JSON.parse(fs.readFileSync(p, "utf8"))); } catch (e) { return false; }
+})());
+
+ok("loadGallery() fetches assets/gallery/gallery.json with cache:no-store, caches the result, and never throws on failure", (() => {
+  const fn = extractFn("loadGallery");
+  return !!fn
+    && fn.includes('fetch("assets/gallery/gallery.json", { cache: "no-store" })')
+    && fn.includes("galleryData")
+    && fn.includes("try {")
+    && fn.includes("catch (e)");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

@@ -12544,6 +12544,16 @@ async function loadDemoManifest() {
   return { ...DEMO_INLINE_MANIFEST };
 }
 
+let galleryData = null;
+async function loadGallery() {
+  if (galleryData) return galleryData;
+  try {
+    const res = await fetch("assets/gallery/gallery.json", { cache: "no-store" });
+    if (res.ok) galleryData = await res.json();
+  } catch (e) { /* offline / file:// / missing file — empty gallery, no crash */ }
+  return galleryData || [];
+}
+
 function xhrArrayBuffer(url) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
