@@ -1053,6 +1053,29 @@ ok("existing S.bass/S.mids/S.highs/S.loudness/S.transient calculation lines are 
     && fn.includes("S.transient = Math.max(S.transient * 0.88, jump > (M.beatThresh || 0.04) ? Math.min(1, jump * 8) : 0);");
 })());
 
+section("Frequency-Band Reactivity — live meter UI");
+
+ok("#bandMeter canvas exists in the Audio Mixer panel", html.includes('id="bandMeter"'));
+
+ok("drawBandMeters draws 6 bars from S.bands plus kick/snare onset indicators", (() => {
+  const fn = extractFn("drawBandMeters");
+  return !!fn
+    && fn.includes('$("bandMeter")')
+    && fn.includes("S.bands.subBass")
+    && fn.includes("S.bands.bass")
+    && fn.includes("S.bands.lowMid")
+    && fn.includes("S.bands.mid")
+    && fn.includes("S.bands.highMid")
+    && fn.includes("S.bands.air")
+    && fn.includes("S.kickOnset")
+    && fn.includes("S.snareOnset");
+})());
+
+ok("updateAudioFeatures calls drawBandMeters every frame, regardless of live/idle/paused branch", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  return !!fn && fn.includes('if (typeof drawBandMeters === "function") drawBandMeters();');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

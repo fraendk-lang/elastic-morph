@@ -1561,6 +1561,9 @@
         <div class="opt"><span>Glättung</span><input type="range" id="mixSmooth" min="0" max="100" value="0"><span class="val" id="mixSmoothVal">0</span></div>
         <div class="opt"><span>Beat-Empf.</span><input type="range" id="mixBeat" min="1" max="20" value="4"><span class="val" id="mixBeatVal">4</span></div>
         <div class="opt"><span>Auto-Pegel</span><label class="check" style="flex:1"><input type="checkbox" id="mixAuto"> leise Tracks anheben</label></div>
+        <div class="opt"><span>Bänder</span>
+          <canvas id="bandMeter" width="200" height="30" style="flex:1;border-radius:6px;border:1px solid var(--line)"></canvas>
+        </div>
       </div>
 
       <h3>MIDI Control</h3>
@@ -2671,6 +2674,23 @@ function bandEnergy(lo, hi) {
   return (sum / n) / 255;
 }
 
+function drawBandMeters() {
+  const cv = $("bandMeter"); if (!cv) return;
+  const c = cv.getContext("2d"), w = cv.width, h = cv.height;
+  c.clearRect(0, 0, w, h);
+  const bands = [S.bands.subBass, S.bands.bass, S.bands.lowMid, S.bands.mid, S.bands.highMid, S.bands.air];
+  const bw = w / bands.length;
+  c.fillStyle = "#b14bff";
+  bands.forEach((v, i) => {
+    const bh = Math.max(1, v * h);
+    c.fillRect(i * bw + 1, h - bh, bw - 2, bh);
+  });
+  c.fillStyle = S.kickOnset > 0.15 ? "#f87171" : "rgba(248,113,113,0.25)";
+  c.beginPath(); c.arc(w - 14, 6, 4, 0, Math.PI * 2); c.fill();
+  c.fillStyle = S.snareOnset > 0.15 ? "#fbbf24" : "rgba(251,191,36,0.25)";
+  c.beginPath(); c.arc(w - 4, 6, 4, 0, Math.PI * 2); c.fill();
+}
+
 let prevLoud = 0, prevKick = 0, prevSnare = 0;
 function updateAudioFeatures(dt) {
   const live = S.playing || S.micMode;
@@ -2754,6 +2774,7 @@ function updateAudioFeatures(dt) {
 
   S.segIndex = segmentAt(S.progress);
   S.phase = songMap()[S.segIndex].label;
+  if (typeof drawBandMeters === "function") drawBandMeters();
 }
 
 /* ============================================================
