@@ -1524,6 +1524,7 @@
       <h2>Gallery</h2>
       <div class="sub">Community-Looks — von Frank kuratiert. Klick lädt den Look direkt.</div>
       <div id="galleryGrid" class="preset-grid"></div>
+      <p class="note" id="galleryEmpty">Noch keine Community-Looks — Frank kuratiert laufend neue.</p>
     </div>
 
     <!-- ---- SETTINGS PAGE ---- -->
@@ -2495,20 +2496,22 @@ const NAMED_PALETTES = [
   { id: "void",    name: "Void",     a: [0.35, 0.10, 0.75], b: [0.04, 0.03, 0.10] },
 ];
 
-let galleryData = null;
-async function loadGallery() {
-  if (galleryData) return galleryData;
-  try {
-    const res = await fetch("assets/gallery/gallery.json", { cache: "no-store" });
-    if (res.ok) galleryData = await res.json();
-  } catch (e) { /* offline / file:// / missing file — empty gallery, no crash */ }
-  return galleryData || [];
+let galleryPromise = null;
+function loadGallery() {
+  if (!galleryPromise) galleryPromise = (async () => {
+    try {
+      const res = await fetch("assets/gallery/gallery.json", { cache: "no-store" });
+      if (res.ok) { const d = await res.json(); if (Array.isArray(d)) return d; }
+    } catch (e) { /* offline / file:// / missing file — empty gallery, no crash */ }
+    return [];
+  })();
+  return galleryPromise;
 }
 
 function renderGallery() {
   const grid = $("galleryGrid");
-  grid.innerHTML = "";
   loadGallery().then(entries => {
+    grid.innerHTML = "";
     entries.forEach(entry => {
       const card = document.createElement("div");
       card.className = "preset-card";
@@ -2529,6 +2532,7 @@ function renderGallery() {
       card.addEventListener("click", () => applyProject(entry.project));
       grid.appendChild(card);
     });
+    $("galleryEmpty").style.display = entries.length ? "none" : "block";
   });
 }
 

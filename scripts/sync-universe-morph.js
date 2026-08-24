@@ -48,6 +48,23 @@ for (const f of COPY_FILES) {
   copyFile(src, path.join(MORPH_OUT, f));
 }
 
+console.log("\nGallery (best effort — empty until Frank curates content):");
+const gallerySrc = path.join(ROOT, "assets", "gallery");
+if (fs.existsSync(gallerySrc)) {
+  const galleryOut = path.join(MORPH_OUT, "assets", "gallery");
+  fs.mkdirSync(galleryOut, { recursive: true });
+  const galleryJsonSrc = path.join(gallerySrc, "gallery.json");
+  if (fs.existsSync(galleryJsonSrc)) copyFile(galleryJsonSrc, path.join(galleryOut, "gallery.json"));
+  const thumbsSrc = path.join(gallerySrc, "thumbs");
+  if (fs.existsSync(thumbsSrc)) {
+    const thumbsOut = path.join(galleryOut, "thumbs");
+    fs.mkdirSync(thumbsOut, { recursive: true });
+    for (const f of fs.readdirSync(thumbsSrc)) copyFile(path.join(thumbsSrc, f), path.join(thumbsOut, f));
+  }
+} else {
+  console.warn("  ⚠ assets/gallery/ fehlt — Gallery-Tab wird im Universe-Embed leer bleiben");
+}
+
 console.log("\nDemo (MP3 only — kein WAV im Universe-Embed):");
 const demoDir = path.join(MORPH_OUT, "assets", "demo");
 fs.mkdirSync(demoDir, { recursive: true });

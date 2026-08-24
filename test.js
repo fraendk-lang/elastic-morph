@@ -1109,11 +1109,13 @@ ok("assets/gallery/gallery.json exists and is a valid empty-array JSON file", ((
   try { return Array.isArray(JSON.parse(fs.readFileSync(p, "utf8"))); } catch (e) { return false; }
 })());
 
-ok("loadGallery() fetches assets/gallery/gallery.json with cache:no-store, caches the result, and never throws on failure", (() => {
+ok("loadGallery() fetches assets/gallery/gallery.json with cache:no-store, caches the in-flight PROMISE (not the resolved value, to avoid a duplicate-fetch race), validates that the parsed JSON is an array before returning it, and never throws on failure", (() => {
   const fn = extractFn("loadGallery");
   return !!fn
     && fn.includes('fetch("assets/gallery/gallery.json", { cache: "no-store" })')
-    && fn.includes("galleryData")
+    && fn.includes("galleryPromise")
+    && !fn.includes("galleryData")
+    && fn.includes("Array.isArray(d)")
     && fn.includes("try {")
     && fn.includes("catch (e)");
 })());
@@ -1121,21 +1123,25 @@ ok("loadGallery() fetches assets/gallery/gallery.json with cache:no-store, cache
 /* ---------------- Community Look-Sharing Gallery — UI ---------------- */
 section("Community Look-Sharing Gallery — UI");
 
-ok("Gallery nav button and page exist", html.includes('data-mode="gallery"') && html.includes('id="page-gallery"') && html.includes('id="galleryGrid"'));
+ok("Gallery nav button, page and empty-state note exist", html.includes('data-mode="gallery"') && html.includes('id="page-gallery"') && html.includes('id="galleryGrid"') && html.includes('id="galleryEmpty"'));
 
 ok("setMode opens #page-gallery and calls renderGallery for the gallery mode", (() => {
   const fn = extractFn("setMode");
   return !!fn && fn.includes('if (mode === "gallery") { $("page-gallery").classList.add("open"); renderGallery(); }');
 })());
 
-ok("renderGallery builds cards via loadGallery() and loads a look via applyProject on click, using textContent not innerHTML for name/author", (() => {
+ok("renderGallery builds cards via loadGallery() and loads a look via applyProject on click, using textContent not innerHTML for name/author, clears+repopulates the grid atomically inside the resolved callback (not before, to avoid a duplicate-card race on rapid tab switches), and toggles the empty-state note", (() => {
   const fn = extractFn("renderGallery");
-  return !!fn
-    && fn.includes("loadGallery()")
+  if (!fn) return false;
+  const thenIdx = fn.indexOf("loadGallery().then(entries =>");
+  const clearIdx = fn.indexOf('grid.innerHTML = "";');
+  return fn.includes("loadGallery()")
     && fn.includes('$("galleryGrid")')
     && fn.includes("applyProject(entry.project)")
     && fn.includes("h4.textContent = entry.name;")
-    && fn.includes('p.textContent = "by " + entry.author;');
+    && fn.includes('p.textContent = "by " + entry.author;')
+    && thenIdx >= 0 && clearIdx > thenIdx
+    && fn.includes('$("galleryEmpty").style.display = entries.length ? "none" : "block";');
 })());
 
 /* ---------------- summary ---------------- */
