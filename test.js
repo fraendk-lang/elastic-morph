@@ -1008,6 +1008,51 @@ ok("applyPostFX clamps feedback alpha against decay (runaway-whiteout guard) and
     && fn.includes("ctx.globalAlpha = Math.min(F.alpha, aMax) + S.beat * 0.08;");
 })());
 
+/* ---------------- Frequency-Band Reactivity — data model + calculation (Task 1) ---------------- */
+section("Frequency-Band Reactivity — data model + calculation");
+
+ok("S.bands/kickOnset/snareOnset initial state present with all 6 band fields at 0", script.includes(
+  "bands: { subBass: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, air: 0 }, kickOnset: 0, snareOnset: 0,"
+));
+
+ok("prevKick/prevSnare module variables declared next to prevLoud", script.includes(
+  "let prevLoud = 0, prevKick = 0, prevSnare = 0;"
+));
+
+ok("updateAudioFeatures computes all 6 new bands with the documented frequency ranges", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  return !!fn
+    && fn.includes("S.bands.subBass = bandEnergy(20, 60) * g;")
+    && fn.includes("S.bands.bass = bandEnergy(60, 160) * g;")
+    && fn.includes("S.bands.lowMid = bandEnergy(160, 500) * g;")
+    && fn.includes("S.bands.mid = bandEnergy(500, 2000) * g;")
+    && fn.includes("S.bands.highMid = bandEnergy(2000, 6000) * g;")
+    && fn.includes("S.bands.air = bandEnergy(6000, 16000) * g;");
+})());
+
+ok("updateAudioFeatures computes kick/snare onset via the same jump-detection technique as S.transient", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  return !!fn
+    && fn.includes("const kickE = (S.bands.subBass + S.bands.bass) * 0.5;")
+    && fn.includes("S.kickOnset = Math.max(S.kickOnset * 0.88, kickJump > (M.beatThresh || 0.04) ? Math.min(1, kickJump * 8) : 0);")
+    && fn.includes("const snareE = (S.bands.mid + S.bands.highMid) * 0.5;")
+    && fn.includes("S.snareOnset = Math.max(S.snareOnset * 0.88, snareJump > (M.beatThresh || 0.04) ? Math.min(1, snareJump * 8) : 0);");
+})());
+
+ok("the paused branch decays the new fields, matching the existing S.bass/S.transient decay pattern there", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  return !!fn && fn.includes("S.bands.subBass *= 0.95; S.bands.bass *= 0.95; S.bands.lowMid *= 0.95; S.bands.mid *= 0.95; S.bands.highMid *= 0.95; S.bands.air *= 0.95;")
+    && fn.includes("S.kickOnset *= 0.9; S.snareOnset *= 0.9;");
+})());
+
+ok("existing S.bass/S.mids/S.highs/S.loudness/S.transient calculation lines are untouched", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  return !!fn
+    && fn.includes("S.bass += (tb - S.bass) * a; S.mids += (tm - S.mids) * a; S.highs += (th - S.highs) * a;")
+    && fn.includes("S.loudness = Math.min(1, (S.bass * 0.5 + S.mids * 0.35 + S.highs * 0.15));")
+    && fn.includes("S.transient = Math.max(S.transient * 0.88, jump > (M.beatThresh || 0.04) ? Math.min(1, jump * 8) : 0);");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
