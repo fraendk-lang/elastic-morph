@@ -137,7 +137,8 @@ git commit -m "feat: add gallery.json asset + loadGallery() data loader"
 **Files:**
 - Modify: `elastic-morph.html:1040` (nav — new `data-mode="gallery"` button)
 - Modify: `elastic-morph.html:1519` (new `#page-gallery` page, inserted before `#page-settings`)
-- Modify: `elastic-morph.html:7314-7326` (`setMode()` — new `gallery` case)
+- Modify: `elastic-morph.html:7324-7336` (`setMode()` — new `gallery` case; exact line numbers
+  drift as earlier edits land — match by the text shown in Step 6, not the number)
 - Modify: `elastic-morph.html` (new CSS rule `.gallery-thumb`, new `renderGallery()` function)
 - Test: `test.js`
 
@@ -223,7 +224,7 @@ Add these two new rules directly after the existing `#presetGrid, #customGrid { 
 
 - [ ] **Step 6: Implement — `setMode()` wiring**
 
-Change `elastic-morph.html:7325` from:
+Change `elastic-morph.html:7335` (line number approximate, drifts — find it by the exact text below) from:
 ```js
   if (mode === "settings") $("page-settings").classList.add("open");
 }
