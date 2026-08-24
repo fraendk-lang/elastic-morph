@@ -1144,6 +1144,47 @@ ok("renderGallery builds cards via loadGallery() and loads a look via applyProje
     && fn.includes('$("galleryEmpty").style.display = entries.length ? "none" : "block";');
 })());
 
+/* --- Graphic EQ DNA Visual --- */
+section("Graphic EQ DNA Visual");
+
+ok("PRESETS contains the Graphic EQ preset with engine: \"eq\"", (() => {
+  const m = script.match(/id: "eq", name: "Graphic EQ",[\s\S]*?engine: "eq",/);
+  return !!m;
+})());
+
+ok("drawEqualizer reads S.bands (all 6 fields), S.kickOnset, and S.snareOnset", (() => {
+  const fn = extractFn("drawEqualizer");
+  return !!fn
+    && fn.includes("S.bands.subBass")
+    && fn.includes("S.bands.bass")
+    && fn.includes("S.bands.lowMid")
+    && fn.includes("S.bands.mid")
+    && fn.includes("S.bands.highMid")
+    && fn.includes("S.bands.air")
+    && fn.includes("S.kickOnset")
+    && fn.includes("S.snareOnset");
+})());
+
+ok("drawScene dispatches dnaEngine === \"eq\" to drawEqualizer with the standard engine-function signature", (() => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes('} else if (dnaEngine === "eq") {\n    drawEqualizer(base, hue, growthF, energySize, seed);\n  }');
+})());
+
+ok("renderPreviews' mini-preview renderer has a branch for p.engine === \"eq\"", (() => {
+  const fn = extractFn("renderPreviews");
+  return !!fn && fn.includes('p.engine === "eq"');
+})());
+
+ok("existing tape/sacred engine dispatch and preview branches are untouched", (() => {
+  const sceneFn = extractFn("drawScene");
+  const previewFn = extractFn("renderPreviews");
+  return !!sceneFn && !!previewFn
+    && sceneFn.includes('drawTape(base, hue, growthF, energySize, seed);')
+    && sceneFn.includes('drawSacred(base, hue, growthF, energySize, seed);')
+    && previewFn.includes('p.engine === "tape"')
+    && previewFn.includes('p.engine === "dance"');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

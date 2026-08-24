@@ -2356,6 +2356,17 @@ const PRESETS = [
     engine: "tape",
     gradient: ["#140e04", "#5a3e12", "#f5b04b"]
   },
+  {
+    id: "eq", name: "Graphic EQ",
+    desc: "6-Band-Equalizer — reagiert direkt auf die Frequenzbänder. Technisch, clean, DJ-Set.",
+    hue: 190, hueEnd: 220, sat: 75, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.05, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.4, waveRing: false,
+    engine: "eq",
+    gradient: ["#04141c", "#0d3a52", "#4bd6f5"]
+  },
   /* v54: Sacred Geometry — precise symmetric patterns that breathe & rotate */
   {
     id: "sgFlower", name: "Flower of Life",
@@ -4058,6 +4069,35 @@ function drawTape(base, hue, growthF, energySize, seed) {
   ctx.restore();
 }
 
+/* --- v114: GRAPHIC EQ — 6-band equalizer driven directly by S.bands, peak-hold caps flash on kick/snare --- */
+let eqPeaks = [0, 0, 0, 0, 0, 0];
+function drawEqualizer(base, hue, growthF, energySize, seed) {
+  const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
+  const w = mn * 0.5 * (0.9 + growthF * 0.15), h = mn * 0.32;
+  const bands = [S.bands.subBass, S.bands.bass, S.bands.lowMid, S.bands.mid, S.bands.highMid, S.bands.air];
+  const n = bands.length, bw = w / n;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#0c0c10";
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeStyle = "rgba(205,212,222,0.4)"; ctx.lineWidth = Math.max(1, mn * 0.003);
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+  ctx.globalCompositeOperation = "lighter";
+  const onset = Math.max(S.kickOnset || 0, S.snareOnset || 0);
+  for (let i = 0; i < n; i++) {
+    const v = Math.max(0, Math.min(1, bands[i]));
+    const bh = v * h * 0.92;
+    const bx = -w / 2 + i * bw + bw * 0.12;
+    ctx.fillStyle = `hsl(${(hue + i * 22) % 360},${P.sat}%,56%)`;
+    ctx.fillRect(bx, h / 2 - bh, bw * 0.76, bh);
+    eqPeaks[i] = Math.max(v + onset * 0.15, eqPeaks[i] - 0.012);
+    const py = h / 2 - eqPeaks[i] * h * 0.92;
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillRect(bx, py - 1, bw * 0.76, Math.max(1.5, mn * 0.004));
+  }
+  ctx.restore();
+}
+
 /* --- v54: SACRED GEOMETRY — precise, symmetric patterns that breathe & rotate with the music.
    preset.geoStyle: "flower" (Flower of Life), "metatron" (Metatron's Cube), "mandala" (Sri Yantra),
    "recursive" (nested polygons), "spiral" (golden/phyllotaxis). Line-based additive glow; deterministic. */
@@ -4651,6 +4691,8 @@ function drawScene(dt) {
     drawVinyl(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "tape") {
     drawTape(base, hue, growthF, energySize, seed);
+  } else if (dnaEngine === "eq") {
+    drawEqualizer(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "sacred") {
     drawSacred(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "oscilloscope") {
@@ -6109,6 +6151,14 @@ function renderPreviews() {
         c.fillStyle = `hsl(${hue % 360},${p.sat}%,52%)`; c.beginPath(); c.arc(0, 0, rr * 0.2, 0, 6.2832); c.fill();
         c.restore();
       });
+    } else if (p.engine === "eq") {
+      const nb = 6, bw = W / nb;
+      for (let i = 0; i < nb; i++) {
+        const v = 0.3 + 0.6 * Math.abs(Math.sin(i * 0.9 + t * 2.2 + pv.seed));
+        const bh = v * H * 0.42;
+        c.fillStyle = `hsl(${(hue + i * 22) % 360},${p.sat}%,56%)`;
+        c.fillRect(-W / 2 + i * bw + 1, H * 0.5 - bh, bw - 2, bh);
+      }
     } else if (p.engine === "dance") {
       const st = p.danceStyle;
       if (st === "retro") {
