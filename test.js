@@ -1118,6 +1118,26 @@ ok("loadGallery() fetches assets/gallery/gallery.json with cache:no-store, cache
     && fn.includes("catch (e)");
 })());
 
+/* ---------------- Community Look-Sharing Gallery — UI ---------------- */
+section("Community Look-Sharing Gallery — UI");
+
+ok("Gallery nav button and page exist", html.includes('data-mode="gallery"') && html.includes('id="page-gallery"') && html.includes('id="galleryGrid"'));
+
+ok("setMode opens #page-gallery and calls renderGallery for the gallery mode", (() => {
+  const fn = extractFn("setMode");
+  return !!fn && fn.includes('if (mode === "gallery") { $("page-gallery").classList.add("open"); renderGallery(); }');
+})());
+
+ok("renderGallery builds cards via loadGallery() and loads a look via applyProject on click, using textContent not innerHTML for name/author", (() => {
+  const fn = extractFn("renderGallery");
+  return !!fn
+    && fn.includes("loadGallery()")
+    && fn.includes('$("galleryGrid")')
+    && fn.includes("applyProject(entry.project)")
+    && fn.includes("h4.textContent = entry.name;")
+    && fn.includes('p.textContent = "by " + entry.author;');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

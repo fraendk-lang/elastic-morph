@@ -402,6 +402,9 @@
   }
   .preset-card .del:hover { color: var(--amber); background: var(--panel2); }
 
+  .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .gallery-thumb { display: block; width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 12px; }
+
   .blend-row { display: flex; align-items: center; gap: 12px; max-width: 520px; }
   .blend-row select {
     background: var(--panel2); color: var(--text);
@@ -1038,6 +1041,7 @@
     <button type="button" class="navitem" data-mode="lyrics">Lyrics</button>
     <button type="button" class="navitem" data-mode="dna">Visual DNA</button>
     <button type="button" class="navitem" data-mode="settings">Settings</button>
+    <button type="button" class="navitem" data-mode="gallery">Gallery</button>
     <div class="navspacer"></div>
     <div class="hint">Audio auf das Canvas ziehen oder Upload — Energie-Wellenform, Phasen und ⚡ Drops in der Timeline.</div>
   </div>
@@ -1513,6 +1517,13 @@
           <button class="btn" id="cueClearBtn" style="margin-top:8px;font-size:11px">Clear all cues</button>
         </div>
       </div>
+    </div>
+
+    <!-- ---- GALLERY PAGE ---- -->
+    <div class="page" id="page-gallery">
+      <h2>Gallery</h2>
+      <div class="sub">Community-Looks — von Frank kuratiert. Klick lädt den Look direkt.</div>
+      <div id="galleryGrid" class="preset-grid"></div>
     </div>
 
     <!-- ---- SETTINGS PAGE ---- -->
@@ -2492,6 +2503,33 @@ async function loadGallery() {
     if (res.ok) galleryData = await res.json();
   } catch (e) { /* offline / file:// / missing file — empty gallery, no crash */ }
   return galleryData || [];
+}
+
+function renderGallery() {
+  const grid = $("galleryGrid");
+  grid.innerHTML = "";
+  loadGallery().then(entries => {
+    entries.forEach(entry => {
+      const card = document.createElement("div");
+      card.className = "preset-card";
+      const head = document.createElement("div");
+      head.className = "pc-head";
+      const h4 = document.createElement("h4");
+      h4.textContent = entry.name;
+      head.appendChild(h4);
+      card.appendChild(head);
+      const img = document.createElement("img");
+      img.className = "gallery-thumb";
+      img.src = entry.thumbnail;
+      img.alt = entry.name;
+      card.appendChild(img);
+      const p = document.createElement("p");
+      p.textContent = "by " + entry.author;
+      card.appendChild(p);
+      card.addEventListener("click", () => applyProject(entry.project));
+      grid.appendChild(card);
+    });
+  });
 }
 
 /* ---------------- App state ---------------- */
@@ -7333,6 +7371,7 @@ function setMode(mode) {
   if (mode === "dna") $("page-dna").classList.add("open");
   if (mode === "lyrics") { $("page-lyrics").classList.add("open"); renderCueList(); }
   if (mode === "settings") $("page-settings").classList.add("open");
+  if (mode === "gallery") { $("page-gallery").classList.add("open"); renderGallery(); }
 }
 document.querySelectorAll(".navitem").forEach(n =>
   n.addEventListener("click", () => setMode(n.dataset.mode)));
