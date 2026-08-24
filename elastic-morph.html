@@ -2484,6 +2484,16 @@ const NAMED_PALETTES = [
   { id: "void",    name: "Void",     a: [0.35, 0.10, 0.75], b: [0.04, 0.03, 0.10] },
 ];
 
+let galleryData = null;
+async function loadGallery() {
+  if (galleryData) return galleryData;
+  try {
+    const res = await fetch("assets/gallery/gallery.json", { cache: "no-store" });
+    if (res.ok) galleryData = await res.json();
+  } catch (e) { /* offline / file:// / missing file — empty gallery, no crash */ }
+  return galleryData || [];
+}
+
 /* ---------------- App state ---------------- */
 const S = {
   preset: PRESETS[0],
@@ -12542,16 +12552,6 @@ async function loadDemoManifest() {
     if (res.ok) return await res.json();
   } catch (e) { /* file:// — use inline manifest */ }
   return { ...DEMO_INLINE_MANIFEST };
-}
-
-let galleryData = null;
-async function loadGallery() {
-  if (galleryData) return galleryData;
-  try {
-    const res = await fetch("assets/gallery/gallery.json", { cache: "no-store" });
-    if (res.ok) galleryData = await res.json();
-  } catch (e) { /* offline / file:// / missing file — empty gallery, no crash */ }
-  return galleryData || [];
 }
 
 function xhrArrayBuffer(url) {
