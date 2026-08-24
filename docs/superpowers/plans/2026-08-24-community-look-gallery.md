@@ -48,7 +48,7 @@ zero-dependency text-based test harness (`test.js`).
 
 **Files:**
 - Create: `assets/gallery/gallery.json`
-- Modify: `elastic-morph.html` (new `loadGallery()` function, placed near `loadDemoManifest()`)
+- Modify: `elastic-morph.html:2485` (new `loadGallery()` function, inserted right after the `NAMED_PALETTES` constant)
 - Test: `test.js`
 
 **Interfaces:**
@@ -95,8 +95,16 @@ Create `assets/gallery/gallery.json`:
 
 - [ ] **Step 4: Implement — `loadGallery()`**
 
-Add this new function directly after `loadDemoManifest()` (`elastic-morph.html:12539-12545`,
-ends with the closing `}` on what is currently line 12545):
+**Important:** do NOT place this next to `loadDemoManifest()`
+(`elastic-morph.html:12539-12545`) — that function itself lives *inside* the generated region
+(`/* @BUILD-INJECT-V58 */` at ~line 8969 through `/* ---- boot ---- */` at ~line 16205; verify
+both markers' current line numbers with `grep -n '@BUILD-INJECT-V58\|/\* ---- boot ---- \*/'
+elastic-morph.html` before placing anything). It is cited elsewhere in this plan only as a
+*pattern reference* (the try/catch/`cache:"no-store"` shape), not as a placement anchor.
+
+Insert this function immediately after the `NAMED_PALETTES` constant's closing `];`
+(`elastic-morph.html:2485`), before the `/* ---------------- App state ---------------- */`
+comment that precedes `const S = {`:
 
 ```js
 let galleryData = null;
@@ -229,8 +237,9 @@ to:
 
 - [ ] **Step 7: Implement — `renderGallery()`**
 
-Add this new function directly after `loadGallery()` (added in Task 1, right after
-`elastic-morph.html:12539-12545`'s `loadDemoManifest()`/`loadGallery()` pair):
+Add this new function directly after `loadGallery()` (added in Task 1 right after the
+`NAMED_PALETTES` constant, `elastic-morph.html:2485` area — confirmed static-region, before
+`/* @BUILD-INJECT-V58 */`):
 
 ```js
 function renderGallery() {
