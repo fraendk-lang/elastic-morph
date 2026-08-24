@@ -105,28 +105,34 @@ Innerhalb des bestehenden `if (analyser && live) { ... }`-Blocks, nach der beste
 `eb`/`em`/`eh`-Berechnung, sechs neue `bandEnergy()`-Aufrufe plus Kick/Snare-Onset nach dem
 etablierten Sprung-Erkennungs-Muster:
 ```js
-S.bands.subBass = bandEnergy(20, 60) * g;
-S.bands.bass = bandEnergy(60, 160) * g;
-S.bands.lowMid = bandEnergy(160, 500) * g;
-S.bands.mid = bandEnergy(500, 2000) * g;
-S.bands.highMid = bandEnergy(2000, 6000) * g;
-S.bands.air = bandEnergy(6000, 16000) * g;
+S.bands.subBass = Math.min(1, bandEnergy(20, 60) * g);
+S.bands.bass = Math.min(1, bandEnergy(60, 160) * g);
+S.bands.lowMid = Math.min(1, bandEnergy(160, 500) * g);
+S.bands.mid = Math.min(1, bandEnergy(500, 2000) * g);
+S.bands.highMid = Math.min(1, bandEnergy(2000, 6000) * g);
+S.bands.air = Math.min(1, bandEnergy(6000, 16000) * g);
 
 const kickE = (S.bands.subBass + S.bands.bass) * 0.5;
-prevKick = prevKick * 0.7 + kickE * 0.3;
 const kickJump = Math.max(0, kickE - prevKick);
 S.kickOnset = Math.max(S.kickOnset * 0.88, kickJump > (M.beatThresh || 0.04) ? Math.min(1, kickJump * 8) : 0);
+prevKick = prevKick * 0.7 + kickE * 0.3;
 
 const snareE = (S.bands.mid + S.bands.highMid) * 0.5;
-prevSnare = prevSnare * 0.7 + snareE * 0.3;
 const snareJump = Math.max(0, snareE - prevSnare);
 S.snareOnset = Math.max(S.snareOnset * 0.88, snareJump > (M.beatThresh || 0.04) ? Math.min(1, snareJump * 8) : 0);
+prevSnare = prevSnare * 0.7 + snareE * 0.3;
 ```
 `prevKick`/`prevSnare` sind neue modulweite `let`-Variablen direkt neben dem bestehenden
 `let prevLoud = 0;` (Zeile 2673) — gleiches Muster, gleiche Nachbarschaft. Wiederverwendet
 `M.beatThresh` (bestehender Mixer-Regler) statt einen weiteren neuen Schwellwert-Regler
 einzuführen — ein Sprung-Schwellwert für alle drei Erkennungen (Gesamt/Kick/Snare) bleibt
-konsistent mit dem, was der Nutzer im Mixer-Panel schon einstellt.
+konsistent mit dem, was der Nutzer im Mixer-Panel schon einstellt. `prevKick`/`prevSnare` werden
+**nach** der Sprung-Berechnung aktualisiert (nicht davor) — exakt wie das bestehende `prevLoud`
+es schon macht (Zeile 2712-2714) — sonst würde jeder Sprung um 30% zu klein berechnet.
+`Math.min(1, ...)` deckelt jeden Band-Wert, da der globale `g = S.gain`-Faktor bis 2.5 reichen
+kann (`#gainSel`) und `bandEnergy()` selbst nur 0-1 liefert — ohne Deckel könnten Werte >1
+sowohl die Meter-Balken-Höhe als auch jeden späteren Konsumenten (z.B. die künftige
+Routing-Matrix-Runde) durcheinanderbringen.
 
 Die 6 neuen `bandEnergy()`-Aufrufe laufen **nicht** durch `S.mix`-Gain/Glättung/Auto-Pegel —
 das bleibt exklusiv den bestehenden 3 Bändern vorbehalten (kein neuer Gain-Regler, siehe
@@ -158,8 +164,10 @@ Meter auch dann live sind, wenn das Options-Panel geöffnet aber sonst nichts an
 - **Kein volles Spectral-Flux-Onset-Tracking** — nur band-limitierte Wiederverwendung des
   bestehenden Sprung-Erkennungs-Musters.
 - **Idle-Demo-Modus** (kein Track geladen) bekommt keine simulierten Werte für die neuen
-  Felder — sie bleiben bei ihren `0`-Defaults, bis echtes Audio läuft (die Meter zeigen dann
-  einfach "still", was korrekt ist).
+  Felder — sie werden dort nicht neu berechnet. Sie klingen aber ab (Faktor 0.9/Frame, gleiches
+  Muster wie der bestehende Pause-Zweig), falls zuvor Live-Input (Mic) lief und Werte
+  hinterlassen hat — sonst würde die Meter-Anzeige nach Mic-Stopp für immer auf dem letzten
+  Mic-Frame einfrieren. Bleiben exakt bei `0`, wenn nie echtes Audio lief.
 
 ## Testing
 
