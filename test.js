@@ -1019,15 +1019,15 @@ ok("prevKick/prevSnare module variables declared next to prevLoud", script.inclu
   "let prevLoud = 0, prevKick = 0, prevSnare = 0;"
 ));
 
-ok("updateAudioFeatures computes all 6 new bands with the documented frequency ranges", (() => {
+ok("updateAudioFeatures computes all 6 new bands with the documented frequency ranges, clamped to 1.0", (() => {
   const fn = extractFn("updateAudioFeatures");
   return !!fn
-    && fn.includes("S.bands.subBass = bandEnergy(20, 60) * g;")
-    && fn.includes("S.bands.bass = bandEnergy(60, 160) * g;")
-    && fn.includes("S.bands.lowMid = bandEnergy(160, 500) * g;")
-    && fn.includes("S.bands.mid = bandEnergy(500, 2000) * g;")
-    && fn.includes("S.bands.highMid = bandEnergy(2000, 6000) * g;")
-    && fn.includes("S.bands.air = bandEnergy(6000, 16000) * g;");
+    && fn.includes("S.bands.subBass = Math.min(1, bandEnergy(20, 60) * g);")
+    && fn.includes("S.bands.bass = Math.min(1, bandEnergy(60, 160) * g);")
+    && fn.includes("S.bands.lowMid = Math.min(1, bandEnergy(160, 500) * g);")
+    && fn.includes("S.bands.mid = Math.min(1, bandEnergy(500, 2000) * g);")
+    && fn.includes("S.bands.highMid = Math.min(1, bandEnergy(2000, 6000) * g);")
+    && fn.includes("S.bands.air = Math.min(1, bandEnergy(6000, 16000) * g);");
 })());
 
 ok("updateAudioFeatures computes kick/snare onset via the same jump-detection technique as S.transient", (() => {
@@ -1074,6 +1074,30 @@ ok("drawBandMeters draws 6 bars from S.bands plus kick/snare onset indicators", 
 ok("updateAudioFeatures calls drawBandMeters every frame, regardless of live/idle/paused branch", (() => {
   const fn = extractFn("updateAudioFeatures");
   return !!fn && fn.includes('if (typeof drawBandMeters === "function") drawBandMeters();');
+})());
+
+/* ---------------- Frequency-Band Reactivity — post-review fixes ---------------- */
+section("Frequency-Band Reactivity — post-review fixes");
+
+ok("idle-demo branch decays S.bands/kickOnset/snareOnset so the live meter doesn't freeze after mic input stops with no file loaded", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  if (!fn) return false;
+  const idleBranch = fn.split("} else if (!audioEl.src) {")[1];
+  if (!idleBranch) return false;
+  const idleBranchBody = idleBranch.split("} else {")[0];
+  return idleBranchBody.includes("S.bands.subBass *= 0.9; S.bands.bass *= 0.9; S.bands.lowMid *= 0.9; S.bands.mid *= 0.9; S.bands.highMid *= 0.9; S.bands.air *= 0.9;")
+    && idleBranchBody.includes("S.kickOnset *= 0.9; S.snareOnset *= 0.9;");
+})());
+
+ok("S.bands.* are clamped to 1.0 (S.gain can push bandEnergy() above 1 unclamped)", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  return !!fn
+    && fn.includes("S.bands.subBass = Math.min(1, bandEnergy(20, 60) * g);")
+    && fn.includes("S.bands.bass = Math.min(1, bandEnergy(60, 160) * g);")
+    && fn.includes("S.bands.lowMid = Math.min(1, bandEnergy(160, 500) * g);")
+    && fn.includes("S.bands.mid = Math.min(1, bandEnergy(500, 2000) * g);")
+    && fn.includes("S.bands.highMid = Math.min(1, bandEnergy(2000, 6000) * g);")
+    && fn.includes("S.bands.air = Math.min(1, bandEnergy(6000, 16000) * g);");
 })());
 
 /* ---------------- summary ---------------- */

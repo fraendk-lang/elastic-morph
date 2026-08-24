@@ -2712,12 +2712,12 @@ function updateAudioFeatures(dt) {
     const jump = Math.max(0, S.loudness - prevLoud);
     S.transient = Math.max(S.transient * 0.88, jump > (M.beatThresh || 0.04) ? Math.min(1, jump * 8) : 0);
     prevLoud = prevLoud * 0.7 + S.loudness * 0.3;
-    S.bands.subBass = bandEnergy(20, 60) * g;
-    S.bands.bass = bandEnergy(60, 160) * g;
-    S.bands.lowMid = bandEnergy(160, 500) * g;
-    S.bands.mid = bandEnergy(500, 2000) * g;
-    S.bands.highMid = bandEnergy(2000, 6000) * g;
-    S.bands.air = bandEnergy(6000, 16000) * g;
+    S.bands.subBass = Math.min(1, bandEnergy(20, 60) * g);
+    S.bands.bass = Math.min(1, bandEnergy(60, 160) * g);
+    S.bands.lowMid = Math.min(1, bandEnergy(160, 500) * g);
+    S.bands.mid = Math.min(1, bandEnergy(500, 2000) * g);
+    S.bands.highMid = Math.min(1, bandEnergy(2000, 6000) * g);
+    S.bands.air = Math.min(1, bandEnergy(6000, 16000) * g);
     const kickE = (S.bands.subBass + S.bands.bass) * 0.5;
     const kickJump = Math.max(0, kickE - prevKick);
     S.kickOnset = Math.max(S.kickOnset * 0.88, kickJump > (M.beatThresh || 0.04) ? Math.min(1, kickJump * 8) : 0);
@@ -2762,6 +2762,8 @@ function updateAudioFeatures(dt) {
     S.loudness = S.bass * 0.5 + S.mids * 0.35 + S.highs * 0.15;
     S.energyAvg += (S.loudness - S.energyAvg) * 0.01;
     S.transient *= 0.9; S.beat *= 0.9;
+    S.bands.subBass *= 0.9; S.bands.bass *= 0.9; S.bands.lowMid *= 0.9; S.bands.mid *= 0.9; S.bands.highMid *= 0.9; S.bands.air *= 0.9;
+    S.kickOnset *= 0.9; S.snareOnset *= 0.9;
     S.virtualT += dt;
     S.progress = (S.virtualT / 180) % 1;
   } else {
