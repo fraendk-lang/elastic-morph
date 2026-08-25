@@ -1973,7 +1973,11 @@
     <select id="lbMirror" class="pm-select" style="margin-top:8px">
       <option value="off" selected>Mirror: Off</option>
       <option value="h">Mirror: Horizontal</option>
+      <option value="v">Mirror: Vertical</option>
+      <option value="diag">Mirror: Diagonal</option>
       <option value="quad">Mirror: 4-way (Kaleido)</option>
+      <option value="hex">Mirror: 6-way (Kaleido)</option>
+      <option value="oct">Mirror: 8-way (Kaleido)</option>
     </select>
   </div>
 
@@ -5810,16 +5814,32 @@ function drawLayerB(W, H, hue, dt) {
   ctx.translate(-cx, -cy);
 
   // v43: optional kaleidoscopic mirror — render the chosen type once per reflection pass
-  // v57: drop mirror passes under load (4-way → 2-way → off) so heavy types stay smooth
+  // v57: drop mirror passes under load (8/6/4-way → progressively lighter) so heavy types stay smooth
+  // v120: added vertical, diagonal, and 6/8-way rotational-kaleidoscope patterns
   const pf57 = S.exporting ? 1 : (S.perfScale || 1);
   let mir = LB.mirror;
+  if (pf57 < 0.75 && mir === "oct") mir = "hex";
+  if (pf57 < 0.65 && mir === "hex") mir = "quad";
   if (pf57 < 0.55 && mir === "quad") mir = "h";
   if (pf57 < 0.45 && mir !== "off") mir = "off";
-  const passes = mir === "quad" ? [[1, 1], [-1, 1], [1, -1], [-1, -1]]
-    : mir === "h" ? [[1, 1], [-1, 1]] : [[1, 1]];
+  const rotPasses = n => Array.from({ length: n }, (_, i) => ({ rot: i * Math.PI * 2 / n, flip: i % 2 === 1 }));
+  const passes =
+    mir === "quad" ? [{ sx: 1, sy: 1 }, { sx: -1, sy: 1 }, { sx: 1, sy: -1 }, { sx: -1, sy: -1 }]
+    : mir === "h" ? [{ sx: 1, sy: 1 }, { sx: -1, sy: 1 }]
+    : mir === "v" ? [{ sx: 1, sy: 1 }, { sx: 1, sy: -1 }]
+    : mir === "diag" ? [{ sx: 1, sy: 1 }, { diag: true }]
+    : mir === "hex" ? rotPasses(6)
+    : mir === "oct" ? rotPasses(8)
+    : [{ sx: 1, sy: 1 }];
   for (const mp of passes) {
     ctx.save();
-    if (mp[0] !== 1 || mp[1] !== 1) { ctx.translate(cx, cy); ctx.scale(mp[0], mp[1]); ctx.translate(-cx, -cy); }
+    if (mp.rot != null) {
+      ctx.translate(cx, cy); ctx.rotate(mp.rot); if (mp.flip) ctx.scale(1, -1); ctx.translate(-cx, -cy);
+    } else if (mp.diag) {
+      ctx.translate(cx, cy); ctx.transform(0, 1, 1, 0, 0, 0); ctx.translate(-cx, -cy);
+    } else if (mp.sx !== 1 || mp.sy !== 1) {
+      ctx.translate(cx, cy); ctx.scale(mp.sx, mp.sy); ctx.translate(-cx, -cy);
+    }
   switch (LB.type) {
     case "spectrumRing": {
       const n = 76, R = mn * 0.26 * sc;
@@ -7566,7 +7586,7 @@ function applyProject(o, fromScene) {
   S.layerB.spin = lb.spin != null ? +lb.spin : 0;
   S.layerB.sway = lb.sway != null ? +lb.sway : 1;
   S.layerB.hueDrift = lb.hueDrift != null ? +lb.hueDrift : 0;
-  S.layerB.mirror = ["off", "h", "quad"].includes(lb.mirror) ? lb.mirror : "off";
+  S.layerB.mirror = ["off", "h", "v", "diag", "quad", "hex", "oct"].includes(lb.mirror) ? lb.mirror : "off";
   S.layerB.opLfo = {
     rate: Math.max(0.05, Math.min(4, lb.opLfo && lb.opLfo.rate != null ? +lb.opLfo.rate : 0.3)),
     depth: Math.max(0, Math.min(1, lb.opLfo && lb.opLfo.depth != null ? +lb.opLfo.depth : 0)),
