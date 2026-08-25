@@ -204,6 +204,7 @@
     border: 1px dashed #2a2a3c; padding: 9px 20px; border-radius: 30px;
   }
   #canvasArea.dragover { outline: 2px dashed var(--cyan); outline-offset: -8px; }
+  #bgVidTLTrack.dragover { outline: 2px dashed var(--cyan); outline-offset: -4px; }
   #canvasArea.dragover #dropHint { background: radial-gradient(120% 90% at 50% 42%, rgba(75,225,232,.06), rgba(7,7,11,.7)); }
 
   #phaseBadge {
@@ -2108,7 +2109,7 @@
     </div>
     <canvas id="bgVidTLTrack"></canvas>
     <div class="set-panel" id="bgVidTLPanel"></div>
-    <p class="note">Klicke oder ziehe die Leiste zum Scrubben. Ziehe einen Clip-Block, um seinen Startzeitpunkt zu verschieben. Wähle einen Clip aus, um seinen Übergang <b>relativ zum vorherigen Clip</b> einzustellen (Cut/Dissolve/Wipe/Slide). Läuft deterministisch mit, inkl. Export — echtes Frame-genaues Video-Seeking im HQ-Export ist noch nicht garantiert.</p>
+    <p class="note">Video-Datei direkt auf die Leiste ziehen, um sie an dieser Stelle einzufügen — oder <b>+ Clip @ Playhead</b> für einen Datei-Dialog. Klicke oder ziehe die Leiste (außerhalb eines Clips) zum Scrubben. Ziehe einen Clip-Block, um seinen Startzeitpunkt zu verschieben. Wähle einen Clip aus, um seinen Übergang <b>relativ zum vorherigen Clip</b> einzustellen (Cut/Dissolve/Wipe/Slide). Läuft deterministisch mit, inkl. Export — echtes Frame-genaues Video-Seeking im HQ-Export ist noch nicht garantiert.</p>
     <input type="file" id="bgVidTLInput" accept="video/*" hidden>
   </div>
 </div>
@@ -9838,6 +9839,25 @@ window.addEventListener("mousemove", bgVidTLPointerMove);
 window.addEventListener("touchmove", bgVidTLPointerMove, { passive: false });
 window.addEventListener("mouseup", bgVidTLPointerUp);
 window.addEventListener("touchend", bgVidTLPointerUp);
+/* v122: drag a video file from the OS straight onto the timeline — drop position becomes the
+   clip's start time. Without this, an unhandled drop lets the browser hijack it and open the
+   file in its own native player instead of handing it to the app. */
+["dragover", "dragenter"].forEach(ev => bgVidTLTrack.addEventListener(ev, e => {
+  e.preventDefault(); e.dataTransfer.dropEffect = "copy"; bgVidTLTrack.classList.add("dragover");
+}));
+["dragleave"].forEach(ev => bgVidTLTrack.addEventListener(ev, () => bgVidTLTrack.classList.remove("dragover")));
+bgVidTLTrack.addEventListener("drop", e => {
+  e.preventDefault();
+  bgVidTLTrack.classList.remove("dragover");
+  const f = e.dataTransfer.files[0];
+  if (!f || !f.type.startsWith("video")) return;
+  const r = bgVidTLTrack.getBoundingClientRect(), W = bgVidTLTrack.width, dur = bgVidTLDuration();
+  const x = (e.clientX - r.left) / r.width * W;
+  addBgVidClipAt(Math.max(0, Math.min(dur, x / W * dur)), f);
+});
+/* safety net: dropping anywhere else inside the modal (not just the canvas) must not let the
+   browser take over the tab either */
+["dragover", "drop"].forEach(ev => $("bgVidTLCard").addEventListener(ev, e => e.preventDefault()));
 
 /* extra keyboard: Shift+P = PNG, ? = help, Esc = close help, Tab = toggle scene bank, Shift+1..8 = recall scene */
 document.addEventListener("keydown", e => {
