@@ -1644,6 +1644,17 @@
     </div>
     <div class="divider"></div>
     <h3>DNA Control</h3>
+    <select id="dnaBlend" class="pm-select" style="margin-bottom:10px">
+      <option value="screen" selected>Blend: Screen</option>
+      <option value="lighter">Blend: Add</option>
+      <option value="source-over">Blend: Normal</option>
+      <option value="multiply">Blend: Multiply</option>
+      <option value="overlay">Blend: Overlay</option>
+      <option value="difference">Blend: Difference</option>
+      <option value="color-dodge">Blend: Color Dodge</option>
+      <option value="hard-light">Blend: Hard Light</option>
+      <option value="hue">Blend: Hue</option>
+    </select>
     <div id="sliders"></div>
     <div class="divider"></div>
     <h3>Audio</h3>
@@ -2669,7 +2680,9 @@ const S = {
   exportCancel: false,             // v29.2: cancel-requested flag for HQ export
   autoVJ: { on: false, intensity: 0.5, t: 0 },
   // v17: WebGL shader engine (fluid / metaballs / tunnel)
-  shader: { on: false, style: "fluid", intensity: 0.7, opacity: 0.85, blend: "lighter", warp: false }
+  shader: { on: false, style: "fluid", intensity: 0.7, opacity: 0.85, blend: "lighter", warp: false },
+  // v114: blend mode for the central DNA organism (all engines share one composite op)
+  dnaBlend: "screen"
 };
 
 /* ---------------- DOM ---------------- */
@@ -4667,7 +4680,7 @@ function drawScene(dt) {
   const gravOff = lg * base * 0.38 * (1 - S.bass * 0.35);
   ctx.translate(0, gravOff);
 
-  ctx.globalCompositeOperation = "screen";
+  ctx.globalCompositeOperation = S.dnaBlend || "screen";
 
   /* --- central morphing organism (v99: S.dnaOn === false skips shape + preset particles) --- */
   if (S.dnaOn !== false) {
@@ -6695,6 +6708,7 @@ function syncFeedbackFXUI() {
 }
 $("fbOn").addEventListener("change", () => toggleFX("feedback"));
 $("fbBlend").addEventListener("change", e => S.feedbackFX.blend = e.target.value);
+$("dnaBlend").addEventListener("change", e => S.dnaBlend = e.target.value);
 $("fbZoom").addEventListener("input", e => { S.feedbackFX.zoom = 1 + (+e.target.value) / 100; $("fbZoomVal").textContent = e.target.value; });
 $("fbRot").addEventListener("input", e => { S.feedbackFX.rotation = +e.target.value; $("fbRotVal").textContent = e.target.value; });
 $("fbDecay").addEventListener("input", e => { S.feedbackFX.decay = e.target.value / 100; $("fbDecayVal").textContent = e.target.value; });
@@ -6858,6 +6872,7 @@ function projectData() {
     layerB: (() => { const { _spin, _hue, _opPhase, _scPhase, ...rest } = S.layerB; return rest; })(),
     feedbackFX: { ...S.feedbackFX },
     shader: { ...S.shader },
+    dnaBlend: S.dnaBlend,
     aspect: [...S.aspect], quality: S.quality, reduceFlash: S.reduceFlash
   };
 }
@@ -7132,6 +7147,8 @@ function applyProject(o, fromScene) {
     $("shOp").value = Math.round(S.shader.opacity * 100); $("shOpVal").textContent = Math.round(S.shader.opacity * 100);
     if (S.shader.on) initGL();
   }
+  S.dnaBlend = ["lighter", "screen", "source-over", "multiply", "overlay", "difference", "color-dodge", "hard-light", "hue"].includes(o.dnaBlend) ? o.dnaBlend : "screen";
+  if ($("dnaBlend")) $("dnaBlend").value = S.dnaBlend;
 }
 
 /* ============================================================
