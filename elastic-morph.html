@@ -4961,12 +4961,12 @@ function drawBgVideoTimeline(W, H) {
   if (!S.bgVidCues.length || !S.bgVidTrans) { drawBgVideo(W, H); return; }
   const v = S.bgVid;
   if (!v.on) return;
-  const drawClip = (el, alpha, xOff) => {
+  const drawClip = (el, alpha, xOff, yOff = 0, scale = 1) => {
     if (!el || el.readyState < 2) return;
     const vw = el.videoWidth, vh = el.videoHeight;
     if (!vw || !vh) return;
-    const scale = v.cover ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
-    const dw = vw * scale, dh = vh * scale, dx = (W - dw) / 2 + xOff, dy = (H - dh) / 2;
+    const s = v.cover ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
+    const dw = vw * scale * s, dh = vh * scale * s, dx = (W - dw) / 2 + xOff, dy = (H - dh) / 2 + yOff;
     ctx.save();
     ctx.globalAlpha = v.opacity * alpha;
     ctx.globalCompositeOperation = v.blend;

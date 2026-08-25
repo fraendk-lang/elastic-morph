@@ -1185,6 +1185,21 @@ ok("existing tape/sacred engine dispatch and preview branches are untouched", ((
     && previewFn.includes('p.engine === "dance"');
 })());
 
+/* ---------------- Video Timeline: more transition types ---------------- */
+section("Video Timeline — more transition types");
+
+ok("drawClip accepts optional yOff and scale params with backward-compatible defaults", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn && fn.includes("const drawClip = (el, alpha, xOff, yOff = 0, scale = 1)");
+})());
+
+ok("drawClip applies yOff to dy and scale to dw/dh before centering", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes("const dw = vw * scale * s, dh = vh * scale * s")
+    && fn.includes("dy = (H - dh) / 2 + yOff");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
