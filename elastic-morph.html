@@ -4985,6 +4985,13 @@ function drawBgVideoTimeline(W, H) {
   } else if (type === "slide") {
     drawClip(from.el, 1, -W * p);
     drawClip(to.el, 1, W * (1 - p));
+  } else if (type === "iris") {
+    drawClip(from.el, 1, 0);
+    ctx.save(); ctx.beginPath();
+    ctx.arc(W / 2, H / 2, Math.max(1, Math.hypot(W, H) / 2 * p), 0, Math.PI * 2);
+    ctx.clip();
+    drawClip(to.el, 1, 0);
+    ctx.restore();
   }
 }
 /* v41: intro cover card — 1 during the hold, easing to 0 across the fade */

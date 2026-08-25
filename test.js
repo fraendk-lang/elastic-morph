@@ -1200,6 +1200,14 @@ ok("drawClip applies yOff to dy and scale to dw/dh before centering", (() => {
     && fn.includes("dy = (H - dh) / 2 + yOff");
 })());
 
+ok("iris branch clips a growing circle centered on screen for the incoming clip", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes('type === "iris"')
+    && fn.includes("Math.hypot(W, H) / 2 * p")
+    && fn.includes("ctx.arc(W / 2, H / 2,");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
