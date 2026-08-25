@@ -4995,6 +4995,12 @@ function drawBgVideoTimeline(W, H) {
   } else if (type === "zoom") {
     drawClip(from.el, 1 - p, 0);
     drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p);
+  } else if (type === "slide-v") {
+    drawClip(from.el, 1, 0, -H * p);
+    drawClip(to.el, 1, 0, H * (1 - p));
+  } else if (type === "slide-d") {
+    drawClip(from.el, 1, -W * p, -H * p);
+    drawClip(to.el, 1, W * (1 - p), H * (1 - p));
   }
 }
 /* v41: intro cover card — 1 during the hold, easing to 0 across the fade */

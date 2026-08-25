@@ -1216,6 +1216,22 @@ ok("zoom branch scales the incoming clip from 0.3 to 1.0 while the outgoing clip
     && fn.includes("drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p)");
 })());
 
+ok("slide-v branch pushes vertically using yOff, xOff left at 0", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes('type === "slide-v"')
+    && fn.includes("drawClip(from.el, 1, 0, -H * p)")
+    && fn.includes("drawClip(to.el, 1, 0, H * (1 - p))");
+})());
+
+ok("slide-d branch pushes both axes together for a diagonal push", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes('type === "slide-d"')
+    && fn.includes("drawClip(from.el, 1, -W * p, -H * p)")
+    && fn.includes("drawClip(to.el, 1, W * (1 - p), H * (1 - p))");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
