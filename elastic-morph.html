@@ -2389,6 +2389,17 @@ const PRESETS = [
     engine: "sequencer",
     gradient: ["#0a1c0e", "#1d4a28", "#7cff9e"]
   },
+  {
+    id: "tuner", name: "Radio Tuner",
+    desc: "Analoges Sender-Zifferblatt — die Nadel wandert zwischen Bass- und Höhen-Sendern. Retro, warm, Lounge, Chillhop.",
+    hue: 220, hueEnd: 250, sat: 80, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.05, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.4, waveRing: false,
+    engine: "tuner",
+    gradient: ["#070a1c", "#1a2a52", "#7c9cff"]
+  },
   /* v54: Sacred Geometry — precise symmetric patterns that breathe & rotate */
   {
     id: "sgFlower", name: "Flower of Life",
@@ -4194,6 +4205,67 @@ function drawSequencer(base, hue, growthF, energySize, seed) {
   ctx.restore();
 }
 
+/* --- v116: RADIO TUNER — analog frequency dial. The needle's TARGET position is the track's
+   spectral centroid (weighted mean of S.bands, bass end 0 .. treble end 1), but the needle
+   itself is heavily smoothed toward that target so it drifts like a physical tuning knob
+   instead of jittering with the raw bands. Station dots glow when the needle passes near them;
+   a soft backlight pulses with S.loudness. --- */
+let tunerPos = 0.5;
+function drawRadioTuner(base, hue, growthF, energySize, seed) {
+  const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
+  const w = mn * 0.72 * (0.9 + growthF * 0.15), h = mn * 0.28;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#0c0c10";
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeStyle = "rgba(205,212,222,0.4)"; ctx.lineWidth = Math.max(1, mn * 0.003);
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+  const b = S.bands;
+  const weighted = b.bass * 1 + b.lowMid * 2 + b.mid * 3 + b.highMid * 4 + b.air * 5;
+  const total = Math.max(0.001, b.subBass + b.bass + b.lowMid + b.mid + b.highMid + b.air);
+  const target = Math.max(0, Math.min(1, weighted / total / 5));
+  tunerPos += (target - tunerPos) * 0.04;
+
+  const padX = w * 0.08, scaleY = -h * 0.1, scaleW = w - padX * 2;
+  ctx.globalCompositeOperation = "lighter";
+
+  const loud = Math.max(0, Math.min(1, S.loudness || 0));
+  const glow = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  glow.addColorStop(0, `hsla(${hue % 360}, ${P.sat}%, 50%, ${0.05 + loud * 0.1})`);
+  glow.addColorStop(0.5, `hsla(${(hue + 15) % 360}, ${P.sat}%, 55%, ${0.08 + loud * 0.16})`);
+  glow.addColorStop(1, `hsla(${(hue + 30) % 360}, ${P.sat}%, 50%, ${0.05 + loud * 0.1})`);
+  ctx.fillStyle = glow;
+  ctx.fillRect(-w / 2 + 4, -h / 2 + 4, w - 8, h - 8);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = Math.max(1, mn * 0.002);
+  ctx.beginPath(); ctx.moveTo(-w / 2 + padX, scaleY); ctx.lineTo(w / 2 - padX, scaleY); ctx.stroke();
+  const ticks = 24;
+  for (let i = 0; i <= ticks; i++) {
+    const f = i / ticks, x = -w / 2 + padX + f * scaleW, major = i % 4 === 0;
+    ctx.beginPath(); ctx.moveTo(x, scaleY); ctx.lineTo(x, scaleY + (major ? h * 0.09 : h * 0.05)); ctx.stroke();
+  }
+
+  const stations = [0.12, 0.3, 0.5, 0.7, 0.88];
+  for (const s of stations) {
+    const x = -w / 2 + padX + s * scaleW;
+    const near = Math.max(0, 1 - Math.abs(s - tunerPos) * 9);
+    ctx.fillStyle = `hsla(${hue % 360}, ${P.sat}%, ${60 + near * 20}%, ${0.35 + near * 0.5})`;
+    ctx.beginPath(); ctx.arc(x, scaleY + h * 0.15, mn * 0.006 * (1 + near), 0, Math.PI * 2); ctx.fill();
+  }
+
+  const nx = -w / 2 + padX + tunerPos * scaleW;
+  ctx.strokeStyle = `hsla(${hue % 360}, ${P.sat}%, 72%, 0.9)`;
+  ctx.lineWidth = Math.max(1.5, mn * 0.005);
+  ctx.beginPath(); ctx.moveTo(nx, -h * 0.34); ctx.lineTo(nx, h * 0.36); ctx.stroke();
+  ctx.fillStyle = `hsla(${hue % 360}, ${P.sat}%, 80%, 0.9)`;
+  ctx.beginPath();
+  ctx.moveTo(nx, -h * 0.34); ctx.lineTo(nx - mn * 0.012, -h * 0.22); ctx.lineTo(nx + mn * 0.012, -h * 0.22);
+  ctx.closePath(); ctx.fill();
+
+  ctx.restore();
+}
+
 /* --- v54: SACRED GEOMETRY — precise, symmetric patterns that breathe & rotate with the music.
    preset.geoStyle: "flower" (Flower of Life), "metatron" (Metatron's Cube), "mandala" (Sri Yantra),
    "recursive" (nested polygons), "spiral" (golden/phyllotaxis). Line-based additive glow; deterministic. */
@@ -4791,6 +4863,8 @@ function drawScene(dt) {
     drawEqualizer(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "sequencer") {
     drawSequencer(base, hue, growthF, energySize, seed);
+  } else if (dnaEngine === "tuner") {
+    drawRadioTuner(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "sacred") {
     drawSacred(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "oscilloscope") {
@@ -6269,6 +6343,18 @@ function renderPreviews() {
           c.fillRect(-W / 2 + bw * (s + 0.5) - side / 2, -H * 0.31 + rh * (r + 0.5) - side / 2, side, side);
         }
       }
+    } else if (p.engine === "tuner") {
+      const pos = 0.5 + Math.sin(t * 0.5 + pv.seed) * 0.42;
+      const padX = W * 0.08, scaleW = W - padX * 2, scaleY = -H * 0.1;
+      c.strokeStyle = "rgba(255,255,255,0.3)"; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-W / 2 + padX, scaleY); c.lineTo(W / 2 - padX, scaleY); c.stroke();
+      for (let i = 0; i <= 12; i++) {
+        const x = -W / 2 + padX + (i / 12) * scaleW;
+        c.beginPath(); c.moveTo(x, scaleY); c.lineTo(x, scaleY + (i % 4 === 0 ? H * 0.09 : H * 0.05)); c.stroke();
+      }
+      const nx = -W / 2 + padX + pos * scaleW;
+      c.strokeStyle = `hsla(${hue % 360},${p.sat}%,72%,0.9)`; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(nx, -H * 0.3); c.lineTo(nx, H * 0.32); c.stroke();
     } else if (p.engine === "dance") {
       const st = p.danceStyle;
       if (st === "retro") {
