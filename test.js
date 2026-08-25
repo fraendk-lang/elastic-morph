@@ -1248,6 +1248,22 @@ ok("drawGlitchClip falls back to a plain drawClip call when the envelope is negl
   return !!fn && fn.includes("if (!el || el.readyState < 2 || envelope <= 0.02) { drawClip(el, alpha, 0); return; }");
 })());
 
+/* ---------------- Video Timeline UI selects: wire 5 new transition types ----------- */
+section("Video Timeline UI — transition type selects");
+
+const tlTransBlock = (html.match(/<select id="bgVidTLTransType"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || "";
+["cut", "dissolve", "wipe", "slide", "slide-v", "slide-d", "iris", "zoom", "glitch"].forEach(v =>
+  ok("#bgVidTLTransType has option value=" + v, tlTransBlock.includes('value="' + v + '"')));
+ok("#bgVidTLTransType relabels slide to Slide Horizontal", tlTransBlock.includes('value="slide">Slide Horizontal<'));
+
+ok("renderBgVidTLPanel's per-clip select includes all 9 transition options with matching labels", (() => {
+  const fn = extractFn("renderBgVidTLPanel");
+  if (!fn) return false;
+  const opts = ["cut\">Cut", "dissolve\">Dissolve", "wipe\">Wipe", "slide\">Slide Horizontal",
+    "slide-v\">Slide Vertikal", "slide-d\">Slide Diagonal", "iris\">Iris", "zoom\">Zoom-Cross", "glitch\">Glitch"];
+  return opts.every(o => fn.includes(o));
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
