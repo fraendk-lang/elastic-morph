@@ -2405,6 +2405,17 @@ const PRESETS = [
     engine: "tuner",
     gradient: ["#070a1c", "#1a2a52", "#7c9cff"]
   },
+  {
+    id: "vuStudio", name: "Studio VU Wall",
+    desc: "Sechs klassische VU-Nadelmeter — reagieren auf die Frequenzbänder mit echter Nadel-Ballistik. Technisch, clean, Studio, Mastering.",
+    hue: 190, hueEnd: 210, sat: 70, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.08, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.4, waveRing: false,
+    engine: "vu",
+    gradient: ["#04141c", "#0d3a52", "#7ad6f5"]
+  },
   /* v117: DNA Bank 2 ("Rhythm") — House/TripHop/HipHop, less ambient, grittier (grain-heavy)
      look inspired by Elastic Paint's HUD/tactical/kaleidoscope reference set. One new engine
      (Tactical HUD) + 7 presets that reuse existing engines with new hue/grain tuning. */
@@ -2494,6 +2505,17 @@ const PRESETS = [
     verticalStretch: 1.0, grain: 0.15, lineMode: true, petals: 0, glass: false,
     motion: "orbit", flowBias: 0, constellation: false, bloom: 0.5, waveRing: true,
     gradient: ["#0a0420", "#3a1a6e", "#8b7aff"]
+  },
+  {
+    id: "vuClub", name: "Club VU Wall", bank: "rhythm",
+    desc: "Sechs VU-Nadelmeter in heißem Rot/Orange, grobkörnig — Club-Mixer-Ästhetik. House, Techno, Club.",
+    hue: 350, hueEnd: 20, sat: 85, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.35, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.4, waveRing: false,
+    engine: "vu",
+    gradient: ["#1c0604", "#5a1810", "#ff8a4b"]
   },
   /* v54: Sacred Geometry — precise symmetric patterns that breathe & rotate */
   {
@@ -4412,6 +4434,64 @@ function drawTacticalHud(base, hue, growthF, energySize, seed) {
   ctx.restore();
 }
 
+/* --- v118: VU METER WALL — six classic analog VU needle meters (one per frequency band), each
+   with a fan-shaped scale, tick marks, a red zone near the top, and a peak-hold LED. Needles
+   use asymmetric ballistics (fast attack, slow release) instead of following the raw band value
+   1:1, for a real analog-meter feel. --- */
+let vuNeedle = [0, 0, 0, 0, 0, 0], vuPeak = [0, 0, 0, 0, 0, 0];
+function drawVuWall(base, hue, growthF, energySize, seed) {
+  const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
+  const w = mn * 0.72 * (0.9 + growthF * 0.15), h = mn * 0.3;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#0c0c10";
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeStyle = "rgba(205,212,222,0.4)"; ctx.lineWidth = Math.max(1, mn * 0.003);
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+  const bands = [S.bands.subBass, S.bands.bass, S.bands.lowMid, S.bands.mid, S.bands.highMid, S.bands.air];
+  const n = bands.length, mw = w / n;
+  const onset = Math.max(S.kickOnset || 0, S.snareOnset || 0);
+  const startA = -Math.PI / 2 - 0.96, sweepA = 1.92;
+
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < n; i++) {
+    const v = Math.max(0, Math.min(1, bands[i]));
+    const rate = v > vuNeedle[i] ? 0.22 : 0.06;
+    vuNeedle[i] += (v - vuNeedle[i]) * rate;
+    vuPeak[i] = Math.max(v, vuPeak[i] - 0.012);
+
+    const cx = -w / 2 + mw * (i + 0.5), cy = h * 0.36;
+    const r = Math.min(mw, h) * 0.44;
+    const mhue = (hue + i * 10) % 360;
+
+    ctx.strokeStyle = `hsla(${mhue}, ${P.sat}%, 70%, 0.4)`;
+    ctx.lineWidth = Math.max(1, mn * 0.0015);
+    ctx.beginPath(); ctx.arc(cx, cy, r, startA, startA + sweepA); ctx.stroke();
+    for (let t = 0; t <= 8; t++) {
+      const a = startA + (t / 8) * sweepA;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r * 0.86, cy + Math.sin(a) * r * 0.86);
+      ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255,90,90,0.5)"; ctx.lineWidth = Math.max(1.5, mn * 0.002);
+    ctx.beginPath(); ctx.arc(cx, cy, r, startA + sweepA - 0.3, startA + sweepA); ctx.stroke();
+
+    const na = startA + vuNeedle[i] * sweepA;
+    ctx.strokeStyle = `hsla(${mhue}, ${P.sat}%, 82%, 0.9)`;
+    ctx.lineWidth = Math.max(1.5, mn * 0.0035);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(na) * r * 0.92, cy + Math.sin(na) * r * 0.92); ctx.stroke();
+    ctx.fillStyle = `hsla(${mhue}, ${P.sat}%, 85%, 0.9)`;
+    ctx.beginPath(); ctx.arc(cx, cy, mn * 0.004, 0, Math.PI * 2); ctx.fill();
+
+    const peakHot = vuPeak[i] > 0.82 || onset > 0.5;
+    ctx.fillStyle = peakHot ? "rgba(255,80,80,0.9)" : "rgba(255,80,80,0.15)";
+    ctx.beginPath(); ctx.arc(cx, cy - r * 1.12, mn * 0.006, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
 /* --- v54: SACRED GEOMETRY — precise, symmetric patterns that breathe & rotate with the music.
    preset.geoStyle: "flower" (Flower of Life), "metatron" (Metatron's Cube), "mandala" (Sri Yantra),
    "recursive" (nested polygons), "spiral" (golden/phyllotaxis). Line-based additive glow; deterministic. */
@@ -5013,6 +5093,8 @@ function drawScene(dt) {
     drawRadioTuner(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "hud") {
     drawTacticalHud(base, hue, growthF, energySize, seed);
+  } else if (dnaEngine === "vu") {
+    drawVuWall(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "sacred") {
     drawSacred(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "oscilloscope") {
@@ -6515,6 +6597,17 @@ function renderPreviews() {
         c.strokeStyle = `hsla(${hue % 360},${p.sat}%,82%,0.6)`;
         c.beginPath(); c.moveTo(x - s, y); c.lineTo(x + s, y); c.moveTo(x, y - s); c.lineTo(x, y + s); c.stroke();
       });
+    } else if (p.engine === "vu") {
+      const nb = 6, mw = W / nb, startA = -Math.PI / 2 - 0.96, sweepA = 1.92;
+      for (let i = 0; i < nb; i++) {
+        const cx = -W / 2 + mw * (i + 0.5), cy = H * 0.18, r = Math.min(mw, H) * 0.4;
+        const v = 0.3 + 0.6 * Math.abs(Math.sin(i * 1.1 + t * 2.4 + pv.seed));
+        c.strokeStyle = `hsla(${(hue + i * 10) % 360},${p.sat}%,70%,0.4)`; c.lineWidth = 1;
+        c.beginPath(); c.arc(cx, cy, r, startA, startA + sweepA); c.stroke();
+        const na = startA + v * sweepA;
+        c.strokeStyle = `hsla(${(hue + i * 10) % 360},${p.sat}%,82%,0.9)`; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(na) * r * 0.92, cy + Math.sin(na) * r * 0.92); c.stroke();
+      }
     } else if (p.engine === "dance") {
       const st = p.danceStyle;
       if (st === "retro") {
