@@ -1188,6 +1188,14 @@ ok("existing tape/sacred engine dispatch and preview branches are untouched", ((
 /* ---------------- Video Timeline: more transition types ---------------- */
 section("Video Timeline — more transition types");
 
+ok("dissolve/wipe/slide branches are unchanged from before this round", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes('type === "dissolve") {\n    drawClip(from.el, 1 - p, 0);\n    drawClip(to.el, p, 0);')
+    && fn.includes('type === "wipe") {\n    drawClip(from.el, 1, 0);\n    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W * p, H); ctx.clip();\n    drawClip(to.el, 1, 0);\n    ctx.restore();')
+    && fn.includes('type === "slide") {\n    drawClip(from.el, 1, -W * p);\n    drawClip(to.el, 1, W * (1 - p));');
+})());
+
 ok("drawClip accepts optional yOff and scale params with backward-compatible defaults", (() => {
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn && fn.includes("const drawClip = (el, alpha, xOff, yOff = 0, scale = 1)");
@@ -1211,8 +1219,7 @@ ok("iris branch clips a growing circle centered on screen for the incoming clip"
 ok("zoom branch scales the incoming clip from 0.3 to 1.0 while the outgoing clip fades at full scale", (() => {
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn
-    && fn.includes('type === "zoom"')
-    && fn.includes("drawClip(from.el, 1 - p, 0)")
+    && fn.includes('type === "zoom") {\n    drawClip(from.el, 1 - p, 0);')
     && fn.includes("drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p)");
 })());
 
