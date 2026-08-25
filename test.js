@@ -1208,6 +1208,14 @@ ok("iris branch clips a growing circle centered on screen for the incoming clip"
     && fn.includes("ctx.arc(W / 2, H / 2,");
 })());
 
+ok("zoom branch scales the incoming clip from 0.3 to 1.0 while the outgoing clip fades at full scale", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes('type === "zoom"')
+    && fn.includes("drawClip(from.el, 1 - p, 0)")
+    && fn.includes("drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p)");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

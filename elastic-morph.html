@@ -4992,6 +4992,9 @@ function drawBgVideoTimeline(W, H) {
     ctx.clip();
     drawClip(to.el, 1, 0);
     ctx.restore();
+  } else if (type === "zoom") {
+    drawClip(from.el, 1 - p, 0);
+    drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p);
   }
 }
 /* v41: intro cover card — 1 during the hold, easing to 0 across the fade */
