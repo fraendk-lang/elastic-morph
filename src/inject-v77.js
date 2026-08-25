@@ -56,7 +56,7 @@ function applyTextPreset(id) {
   S.textPlate = !!p.plate;
   S.textShadow = !!p.shadow;
   S.textLower = !!p.lower;
-  S.textCircle = !!p.circle;
+  S.textPattern = p.pattern || (p.circle ? "circle" : "straight");
   S.textUpper = !!p.upper;
   S.textWeight = p.weight || "auto";
   S.textTrack = p.track != null ? p.track : 0;
@@ -84,7 +84,7 @@ function syncTextPresetUI() {
   $("textStyle").value = S.textStyle;
   $("textPlate").checked = S.textPlate;
   $("textLower").checked = S.textLower;
-  $("textCircle").checked = S.textCircle;
+  $("textPattern").value = S.textPattern;
   $("textUpper").checked = S.textUpper;
   $("textWeight").value = S.textWeight;
   $("textTrack").value = S.textTrack;

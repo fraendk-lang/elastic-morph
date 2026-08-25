@@ -132,7 +132,7 @@ function drawImageLayerV67(IM, W, H, baseHue, dt, opMul) {
 }
 
 function appendImageFilterSelect(p, IM) {
-  const host = $(p + "Mode")?.parentElement;
+  const host = $(p + "Mode");
   if (!host || $(p + "Filter")) return;
   const lab = document.createElement("label");
   lab.className = "check";
