@@ -1232,8 +1232,14 @@
             <option value="d">⤢ diagonal</option>
           </select>
         </div>
-        <div class="opt"><span>Kreis-Text</span>
-          <label class="check" style="flex:1"><input type="checkbox" id="textCircle"> Titel als Kreis/Pfad</label>
+        <div class="opt"><span>Text-Pattern</span>
+          <select id="textPattern" class="pm-select" style="flex:1">
+            <option value="straight" selected>Gerade</option>
+            <option value="circle">Kreis</option>
+            <option value="arc">Bogen</option>
+            <option value="wave">Welle</option>
+            <option value="zigzag">Zickzack</option>
+          </select>
         </div>
         <div class="opt"><span>Animation</span>
           <select id="textAnim">
@@ -2771,7 +2777,7 @@ const S = {
   // v30: independent shadow + configurable plate
   textShadow: false, textPlateColor: "#000000", textPlateOpacity: 0.5, textBlend: "source-over",
   // v30.1: 2-colour gradient + circle/path text
-  textCustom2: "#d946ef", textGradDir: "h", textCircle: false,
+  textCustom2: "#d946ef", textGradDir: "h", textPattern: "straight",
   // v3: live input, demo, quality
   micMode: false,
   virtualT: 0,        // virtual track time in mic/demo mode
@@ -6839,17 +6845,18 @@ function drawTextLayer(W, H, hue, P) {
     ctx.restore();
   }
 
-  // v30.1: circle/path text — the title curves around a centred ring; other lines stack normally
+  // v119: pattern text — the title follows a fixed per-letter layout (circle/arc/wave/zigzag)
+  // instead of a straight line; other lines stack normally. A static transform, not an animation.
   let stackLines = lines;
-  if (S.textCircle && !lyricMode) {
+  if (S.textPattern && S.textPattern !== "straight" && !lyricMode) {
     const titleLine = lines.find(l => l.role === "title");
-    if (titleLine) { drawCircleText(titleLine); stackLines = lines.filter(l => l !== titleLine); }
+    if (titleLine) { drawPatternText(titleLine, S.textPattern); stackLines = lines.filter(l => l !== titleLine); }
   }
   stackLines.forEach(l => paintLine(l, l.role === "label"));
   if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
 
-  /* draw a line of text around a centred circle, slowly rotating with the beat */
-  function drawCircleText(l) {
+  /* draw a line of text letter-by-letter along a fixed geometric pattern */
+  function drawPatternText(l, pattern) {
     const text = l.t; if (!text) return;
     const ccx = W / 2, ccy = H / 2, size = l.size;
     ctx.save();
@@ -6860,21 +6867,51 @@ function drawTextLayer(W, H, hue, P) {
     const { solid } = resolveColor(ccx, 0, ccy, size);
     if (S.textShadow) { ctx.shadowColor = "rgba(0,0,0,0.85)"; ctx.shadowBlur = size * 0.12; ctx.shadowOffsetX = size * 0.05; ctx.shadowOffsetY = size * 0.06; }
     else { ctx.shadowColor = "rgba(0,0,0,0.7)"; ctx.shadowBlur = size * 0.18; }
-    const radius = Math.min(W, H) * 0.30 * S.textSize + size * 0.6;
+
     const widths = []; let totalW = 0;
     for (const c of text) { const cw = ctx.measureText(c).width; widths.push(cw); totalW += cw; }
-    let ang = -Math.PI / 2 - (totalW / radius) / 2 + S.time * 0.1 + S.beat * 0.08;   // centred at top, slow spin
-    for (let i = 0; i < text.length; i++) {
-      ang += (widths[i] / 2) / radius;
+
+    const drawChar = (ch, x, y, rot) => {
       ctx.save();
-      ctx.translate(ccx + Math.cos(ang) * radius, ccy + Math.sin(ang) * radius);
-      ctx.rotate(ang + Math.PI / 2);
+      ctx.translate(x, y);
+      ctx.rotate(rot);
       ctx.fillStyle = solid; ctx.strokeStyle = solid;
-      if (S.textStyle === "outline") { ctx.lineWidth = Math.max(1.2, size * 0.035); ctx.strokeText(text[i], 0, 0); }
-      else if (S.textStyle === "neon") { ctx.shadowColor = solid; ctx.shadowBlur = size * 0.45 + glow; ctx.fillText(text[i], 0, 0); }
-      else ctx.fillText(text[i], 0, 0);
+      if (S.textStyle === "outline") { ctx.lineWidth = Math.max(1.2, size * 0.035); ctx.strokeText(ch, 0, 0); }
+      else if (S.textStyle === "neon") { ctx.shadowColor = solid; ctx.shadowBlur = size * 0.45 + glow; ctx.fillText(ch, 0, 0); }
+      else ctx.fillText(ch, 0, 0);
       ctx.restore();
-      ang += (widths[i] / 2) / radius;
+    };
+
+    if (pattern === "circle" || pattern === "arc") {
+      const radius = Math.min(W, H) * 0.30 * S.textSize + size * 0.6;
+      const arcSpan = pattern === "arc" ? Math.PI * 0.75 : (totalW / radius);
+      let ang = -Math.PI / 2 - arcSpan / 2 + S.time * 0.1 + S.beat * 0.08;   // centred at top, slow spin
+      for (let i = 0; i < text.length; i++) {
+        const frac = pattern === "arc" ? (widths[i] / 2) / totalW * arcSpan : (widths[i] / 2) / radius;
+        ang += frac;
+        drawChar(text[i], ccx + Math.cos(ang) * radius, ccy + Math.sin(ang) * radius, ang + Math.PI / 2);
+        ang += frac;
+      }
+    } else if (pattern === "wave") {
+      const amp = size * 0.28, freq = 5.5 / Math.max(1, totalW);
+      let x = ccx - totalW / 2;
+      for (let i = 0; i < text.length; i++) {
+        const cx2 = x + widths[i] / 2;
+        const phase = (cx2 - ccx) * freq + S.time * 0.6;
+        const y = ccy + Math.sin(phase) * amp;
+        const slope = Math.cos(phase) * amp * freq;
+        drawChar(text[i], cx2, y, Math.atan(slope));
+        x += widths[i];
+      }
+    } else if (pattern === "zigzag") {
+      const d = size * 0.16;
+      let x = ccx - totalW / 2;
+      for (let i = 0; i < text.length; i++) {
+        const cx2 = x + widths[i] / 2;
+        const y = ccy + (i % 2 === 0 ? -d : d);
+        drawChar(text[i], cx2, y, i % 2 === 0 ? -0.1 : 0.1);
+        x += widths[i];
+      }
     }
     ctx.restore();
     ctx.textBaseline = "alphabetic";
@@ -7303,7 +7340,7 @@ function projectData() {
             custom: S.textCustom, upper: S.textUpper, weight: S.textWeight, track: S.textTrack,
             nudgeX: S.textNudgeX, nudgeY: S.textNudgeY, label: S.textLabel, lower: S.textLower,
             shadow: S.textShadow, plateColor: S.textPlateColor, plateOpacity: S.textPlateOpacity,
-            custom2: S.textCustom2, gradDir: S.textGradDir, circle: S.textCircle, blend: S.textBlend },
+            custom2: S.textCustom2, gradDir: S.textGradDir, pattern: S.textPattern, blend: S.textBlend },
     lyrics: { on: S.lyrics.on, cues: S.lyrics.cues, offset: S.lyrics.offset },
     layerB: (() => { const { _spin, _hue, _opPhase, _scPhase, ...rest } = S.layerB; return rest; })(),
     feedbackFX: { ...S.feedbackFX },
@@ -7364,7 +7401,8 @@ function applyProject(o, fromScene) {
   S.textWeight = t.weight || "auto"; S.textTrack = +t.track || 0;
   S.textNudgeX = +t.nudgeX || 0; S.textNudgeY = +t.nudgeY || 0;
   S.textShadow = !!t.shadow; S.textPlateColor = t.plateColor || "#000000"; S.textPlateOpacity = t.plateOpacity != null ? t.plateOpacity : 0.5;
-  S.textCustom2 = t.custom2 || "#d946ef"; S.textGradDir = t.gradDir || "h"; S.textCircle = !!t.circle;
+  S.textCustom2 = t.custom2 || "#d946ef"; S.textGradDir = t.gradDir || "h";
+  S.textPattern = t.pattern || (t.circle ? "circle" : "straight");   // v119: back-compat with old "circle" boolean
   S.textLabel = t.label || ""; S.textLower = !!t.lower;
   S.textBlend = t.blend || "source-over"; if ($("textBlend")) $("textBlend").value = S.textBlend;
 
@@ -7471,7 +7509,7 @@ function applyProject(o, fromScene) {
   $("textPlateColor").value = /^#[0-9a-fA-F]{6}$/.test(S.textPlateColor) ? S.textPlateColor : "#000000";
   $("textPlateOp").value = Math.round(S.textPlateOpacity * 100); $("textPlateOpVal").textContent = Math.round(S.textPlateOpacity * 100);
   $("textCustom2").value = /^#[0-9a-fA-F]{6}$/.test(S.textCustom2) ? S.textCustom2 : "#d946ef";
-  $("textGradDir").value = S.textGradDir; $("textCircle").checked = S.textCircle;
+  $("textGradDir").value = S.textGradDir; $("textPattern").value = S.textPattern;
 
   const imgUI = (p, IM) => {
     $(p + "Mode").value = IM.mode; $(p + "Tint").checked = IM.tint; $(p + "KB").checked = IM.kenburns;
@@ -8459,7 +8497,7 @@ $("textNudgeY").addEventListener("input", e => { S.textNudgeY = e.target.value /
 $("textShadow").addEventListener("change", e => S.textShadow = e.target.checked);
 $("textCustom2").addEventListener("input", e => { S.textCustom2 = e.target.value; if (S.textColor !== "grad2") { S.textColor = "grad2"; $("textColor").value = "grad2"; } });
 $("textGradDir").addEventListener("change", e => S.textGradDir = e.target.value);
-$("textCircle").addEventListener("change", e => S.textCircle = e.target.checked);
+$("textPattern").addEventListener("change", e => S.textPattern = e.target.value);
 $("textPlateColor").addEventListener("input", e => S.textPlateColor = e.target.value);
 $("textPlateOp").addEventListener("input", e => { S.textPlateOpacity = e.target.value / 100; $("textPlateOpVal").textContent = e.target.value; });
 $("textBlend").addEventListener("change", e => S.textBlend = e.target.value);
@@ -12550,7 +12588,7 @@ function applyTextPreset(id) {
   S.textPlate = !!p.plate;
   S.textShadow = !!p.shadow;
   S.textLower = !!p.lower;
-  S.textCircle = !!p.circle;
+  S.textPattern = p.pattern || (p.circle ? "circle" : "straight");
   S.textUpper = !!p.upper;
   S.textWeight = p.weight || "auto";
   S.textTrack = p.track != null ? p.track : 0;
@@ -12578,7 +12616,7 @@ function syncTextPresetUI() {
   $("textStyle").value = S.textStyle;
   $("textPlate").checked = S.textPlate;
   $("textLower").checked = S.textLower;
-  $("textCircle").checked = S.textCircle;
+  $("textPattern").value = S.textPattern;
   $("textUpper").checked = S.textUpper;
   $("textWeight").value = S.textWeight;
   $("textTrack").value = S.textTrack;
@@ -15469,7 +15507,7 @@ function applyLyricsStudioPreset(id) {
     S.textPlate = !!p.plate;
     S.textShadow = !!p.shadow;
     S.textLower = !!p.lower;
-    S.textCircle = !!p.circle;
+    S.textPattern = p.pattern || (p.circle ? "circle" : "straight");
     S.textUpper = !!p.upper;
     S.textWeight = p.weight || "auto";
     S.textTrack = p.track != null ? p.track : 0;
