@@ -736,6 +736,20 @@
   .set-pill.on { color: var(--cyan); border-color: var(--cyan); }
   #setCard .note { font-size: 11.5px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
 
+  /* ---- v121: Video Timeline (same look as Set Editor) ---- */
+  #bgVidTLOverlay {
+    position: fixed; inset: 0; z-index: 55;
+    background: rgba(3,3,7,0.88); backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  #bgVidTLCard {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px 22px; width: min(1100px, 94vw); max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 0 60px rgba(139,92,246,0.10);
+  }
+  #bgVidTLTrack { display: block; width: 100%; height: 110px; border-radius: 10px; background: #050509; border: 1px solid var(--line); cursor: crosshair; }
+  #bgVidTLCard .note { font-size: 11.5px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
+
   /* ---- First-run welcome / onboarding ---- */
   #welcomeOverlay {
     position: fixed; inset: 0; z-index: 60;
@@ -1812,6 +1826,7 @@
     </div>
     <label class="check" style="margin-top:8px"><input type="checkbox" id="bgVidCover" checked> Fit: cover (fill frame)</label>
     <button class="btn" id="bgVidClear" style="width:100%;font-size:11px">Remove video</button>
+    <button class="btn primary" id="bgVidTLOpenBtn" style="width:100%;margin-top:8px">🎬 Open Video Timeline</button>
 
     <div class="divider"></div>
     <h3>Intro Cover Card</h3>
@@ -2067,6 +2082,34 @@
     <canvas id="setWave"></canvas>
     <div class="set-panel" id="setPanel"></div>
     <p class="note">Click or drag the waveform to scrub. Press <b>M</b> (while the track plays) to stamp a marker at the playhead — markers snap to the beat. Select a marker to assign a <b>scene (A–D)</b> and optionally capture the <b>current FX racks</b> as an override. The set plays back deterministically, including in the export.</p>
+  </div>
+</div>
+
+<!-- v121: Video Timeline — multiple background-video clips placed on the song's absolute timeline -->
+<div id="bgVidTLOverlay">
+  <div id="bgVidTLCard">
+    <div class="set-head">
+      <h2>🎬 Video Timeline</h2>
+      <label style="font-size:11px;color:var(--text-dim)">Übergang (neuer Clip)
+        <select id="bgVidTLTransType" style="margin-left:6px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:11px">
+          <option value="cut">Cut</option>
+          <option value="dissolve" selected>Dissolve</option>
+          <option value="wipe">Wipe</option>
+          <option value="slide">Slide</option>
+        </select>
+        <input type="range" id="bgVidTLTransDur" min="2" max="60" value="10" style="width:70px;vertical-align:middle;margin-left:6px">
+        <span id="bgVidTLTransDurVal" style="font-size:10px">1.0s</span>
+      </label>
+      <div class="set-head-actions">
+        <button class="btn" id="bgVidTLAddBtn">+ Clip @ Playhead</button>
+        <button class="btn" id="bgVidTLClearBtn">Clear all</button>
+        <button class="btn" id="bgVidTLCloseBtn">Close (Esc)</button>
+      </div>
+    </div>
+    <canvas id="bgVidTLTrack"></canvas>
+    <div class="set-panel" id="bgVidTLPanel"></div>
+    <p class="note">Klicke oder ziehe die Leiste zum Scrubben. Ziehe einen Clip-Block, um seinen Startzeitpunkt zu verschieben. Wähle einen Clip aus, um seinen Übergang <b>relativ zum vorherigen Clip</b> einzustellen (Cut/Dissolve/Wipe/Slide). Läuft deterministisch mit, inkl. Export — echtes Frame-genaues Video-Seeking im HQ-Export ist noch nicht garantiert.</p>
+    <input type="file" id="bgVidTLInput" accept="video/*" hidden>
   </div>
 </div>
 
@@ -2757,6 +2800,11 @@ const S = {
   geo2: { on: false, style: "same", scale: 0.6, hueShift: 40 },
   // v36: background video layer (drawn as the base, under the visual)
   bgVid: { on: false, el: null, src: null, opacity: 0.7, blend: "source-over", cover: true, filter: "none" },
+  // v121: Video Timeline — multiple background-video clips placed at absolute song times,
+  // sharing bgVid's opacity/blend/cover/filter. bgVidTrans holds transient (unsaved) per-frame
+  // transition state (set by updateBgVideoTimeline, read by drawBgVideoTimeline).
+  bgVidCues: [], bgVidTLSel: -1, bgVidTransDefault: { type: "dissolve", dur: 1 },
+  bgVidTrans: null,
   alphaExport: false,     // v39: render transparent bg for alpha (WebM/VP9) export
   exportRange: { on: false, start: 0, end: 0 },   // v51: HQ export only a section (seconds; end 0 = full)
   logo: { on: false, img: null, src: null, pos: "br", size: 0.12, opacity: 0.85 },   // v52: watermark/logo
@@ -4662,6 +4710,9 @@ function renderExportFrame(i, fps, feat, dur, t0) {
     for (let k = 0; k < S.cues.length; k++) { if (S.cues[k].t <= t + 0.03) idx = k; else break; }
     if (idx !== S.lastCueApplied) { S.lastCueApplied = idx; if (idx >= 0) applyCue(S.cues[idx]); }
   }
+  // v121: pick the active Video Timeline clip deterministically too (frame-accurate video seek
+  // during HQ export is a separate, deferred problem — see project memory)
+  updateBgVideoTimeline(t);
   tickCueTransition(dt);
   drawScene(dt);
 }
@@ -4819,6 +4870,7 @@ function frame(now) {
   updateAudioFeatures(dt);
   checkLoopAB();
   updateCues();
+  updateBgVideoTimeline(curTimeSec());
   tickCueTransition(dt);
   // NaN safety net: a single bad audio read must not permanently freeze the visuals
   if (!isFinite(S.bass)) S.bass = 0;
@@ -4861,6 +4913,78 @@ function drawBgVideo(W, H) {
   ctx.globalCompositeOperation = v.blend;
   try { ctx.drawImage(v.el, dx, dy, dw, dh); } catch (e) { }
   ctx.restore();
+}
+
+/* --- v121: VIDEO TIMELINE — multiple background-video clips at absolute song times, with
+   DaVinci-style overlapping transitions (dissolve/wipe/slide). Additive: if S.bgVidCues is
+   empty, behavior is byte-for-byte the original single-video drawBgVideo() above. Reuses
+   S.bgVid's opacity/blend/cover for every clip (only the video source changes per clip); the
+   "current" clip is written into S.bgVid.el each frame so drawBgVideo() itself needs no changes.
+   Called from both the live loop (frame() -> updateBgVideoTimeline(curTimeSec())) and the
+   deterministic offline export (renderExportFrame -> updateBgVideoTimeline(t)), sharing one
+   source of truth for "which clip is active at time t". */
+function sortBgVidCues() { S.bgVidCues.sort((a, b) => a.t - b.t); }
+
+function syncClipTime(el, targetT) {
+  if (!el) return;
+  if (Math.abs(el.currentTime - targetT) > 0.35 || el.paused) {
+    try { el.currentTime = Math.max(0, targetT); } catch (e) { }
+  }
+  if (el.paused && S.playing) el.play().catch(() => { });
+}
+
+function updateBgVideoTimeline(t) {
+  S.bgVidTrans = null;
+  if (!S.bgVidCues.length) return;   // legacy single-video mode: drawBgVideo() drives S.bgVid.el untouched
+  let idx = -1;
+  for (let i = 0; i < S.bgVidCues.length; i++) { if (S.bgVidCues[i].t <= t + 0.03) idx = i; else break; }
+  const cue = idx >= 0 ? S.bgVidCues[idx] : null;
+  const next = idx + 1 < S.bgVidCues.length ? S.bgVidCues[idx + 1] : null;
+
+  if (cue && cue.el) {
+    syncClipTime(cue.el, t - cue.t);
+    S.bgVid.el = cue.el; S.bgVid.src = cue.src; S.bgVid.on = true;
+  }
+
+  if (cue && next && next.el && next.transType && next.transType !== "cut" && next.transDur > 0) {
+    const winStart = next.t - next.transDur;
+    if (t >= winStart && t < next.t) {
+      syncClipTime(next.el, t - winStart);
+      const p = Math.min(1, Math.max(0, (t - winStart) / next.transDur));
+      S.bgVidTrans = { from: cue, to: next, p, type: next.transType };
+    }
+  }
+}
+
+function drawBgVideoTimeline(W, H) {
+  if (!S.bgVidCues.length || !S.bgVidTrans) { drawBgVideo(W, H); return; }
+  const v = S.bgVid;
+  if (!v.on) return;
+  const drawClip = (el, alpha, xOff) => {
+    if (!el || el.readyState < 2) return;
+    const vw = el.videoWidth, vh = el.videoHeight;
+    if (!vw || !vh) return;
+    const scale = v.cover ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
+    const dw = vw * scale, dh = vh * scale, dx = (W - dw) / 2 + xOff, dy = (H - dh) / 2;
+    ctx.save();
+    ctx.globalAlpha = v.opacity * alpha;
+    ctx.globalCompositeOperation = v.blend;
+    try { ctx.drawImage(el, dx, dy, dw, dh); } catch (e) { }
+    ctx.restore();
+  };
+  const { from, to, p, type } = S.bgVidTrans;
+  if (type === "dissolve") {
+    drawClip(from.el, 1 - p, 0);
+    drawClip(to.el, p, 0);
+  } else if (type === "wipe") {
+    drawClip(from.el, 1, 0);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W * p, H); ctx.clip();
+    drawClip(to.el, 1, 0);
+    ctx.restore();
+  } else if (type === "slide") {
+    drawClip(from.el, 1, -W * p);
+    drawClip(to.el, 1, W * (1 - p));
+  }
 }
 /* v41: intro cover card — 1 during the hold, easing to 0 across the fade */
 function introAlpha() {
@@ -4995,8 +5119,8 @@ function drawScene(dt) {
     ctx.fillRect(0, 0, W, H);
   }
 
-  /* --- v36: background video layer (base, under everything) — skipped in alpha mode --- */
-  if (!S.alphaExport) drawBgVideo(W, H);
+  /* --- v36/v121: background video layer (base, under everything) — skipped in alpha mode --- */
+  if (!S.alphaExport) drawBgVideoTimeline(W, H);
 
   /* --- evolution state (smoothed: no hard jumps at phase borders) --- */
   const tgt = evolutionTargets();
@@ -5350,6 +5474,7 @@ function drawScene(dt) {
 
   /* --- set editor waveform (own canvas, only while open) --- */
   if (setOpen) drawSetEditor();
+  if (bgVidTLOpen) drawBgVidTL();
 }
 
 /* ============================================================
@@ -9578,10 +9703,146 @@ window.addEventListener("touchmove", setPointerMove, { passive: false });
 window.addEventListener("mouseup", setPointerUp);
 window.addEventListener("touchend", setPointerUp);
 
+/* ---- v121: Video Timeline window (same interaction pattern as the Set Editor above) ---- */
+let bgVidTLOpen = false, bgVidTLDrag = null, bgVidTLScrub = false;
+const bgVidTLTrack = $("bgVidTLTrack");
+function bgVidTLDuration() { return setDuration(); }
+function openBgVidTLEditor() {
+  bgVidTLOpen = true;
+  $("bgVidTLOverlay").style.display = "flex";
+  $("bgVidTLTransType").value = S.bgVidTransDefault.type;
+  $("bgVidTLTransDur").value = S.bgVidTransDefault.dur * 10;
+  $("bgVidTLTransDurVal").textContent = S.bgVidTransDefault.dur.toFixed(1) + "s";
+  sizeBgVidTLTrack(); renderBgVidTLPanel();
+}
+function closeBgVidTLEditor() { bgVidTLOpen = false; $("bgVidTLOverlay").style.display = "none"; }
+function sizeBgVidTLTrack() {
+  const r = bgVidTLTrack.getBoundingClientRect();
+  bgVidTLTrack.width = Math.max(2, Math.round(r.width));
+  bgVidTLTrack.height = Math.max(2, Math.round(r.height));
+}
+/* the visual width of a clip block: capped by both its own footage length (once known) and the gap to the next clip */
+function bgVidClipVisualDur(i) {
+  const cue = S.bgVidCues[i];
+  const footage = (cue.el && cue.el.duration && isFinite(cue.el.duration)) ? cue.el.duration : 8;
+  const nextT = i + 1 < S.bgVidCues.length ? S.bgVidCues[i + 1].t : bgVidTLDuration();
+  return Math.max(0.3, Math.min(footage, nextT - cue.t));
+}
+function drawBgVidTL() {
+  if (!bgVidTLOpen) return;
+  const c = bgVidTLTrack.getContext("2d"), W = bgVidTLTrack.width, H = bgVidTLTrack.height, dur = bgVidTLDuration();
+  c.clearRect(0, 0, W, H);
+  const cur = S.energyCurve;
+  if (cur && cur.length) {
+    const n = cur.length, mid = H * 0.5, amp = H * 0.38;
+    c.beginPath(); c.moveTo(0, mid);
+    for (let i = 0; i < n; i++) c.lineTo(i / (n - 1) * W, mid - Math.max(0.02, cur[i]) * amp);
+    for (let i = n - 1; i >= 0; i--) c.lineTo(i / (n - 1) * W, mid + Math.max(0.02, cur[i]) * amp);
+    c.closePath(); c.fillStyle = "rgba(120,120,150,0.14)"; c.fill();
+  }
+  S.bgVidCues.forEach((cue, i) => {
+    const x0 = cue.t / dur * W, w = Math.max(4, bgVidClipVisualDur(i) / dur * W), sel = i === S.bgVidTLSel;
+    c.fillStyle = sel ? "rgba(139,92,246,0.45)" : "rgba(139,92,246,0.22)";
+    c.strokeStyle = sel ? "#ffffff" : "#8b5cf6"; c.lineWidth = sel ? 2 : 1;
+    c.fillRect(x0, H * 0.12, w, H * 0.76);
+    c.strokeRect(x0, H * 0.12, w, H * 0.76);
+    c.fillStyle = sel ? "#ffffff" : "#d8ccfa";
+    c.font = "11px -apple-system, sans-serif"; c.textAlign = "left";
+    c.fillText(cue.name || "Clip", x0 + 5, H * 0.12 + 14);
+    if (cue.transType && cue.transType !== "cut" && cue.transDur > 0) {
+      c.fillStyle = "#4be1e8";
+      c.beginPath(); c.moveTo(x0, H * 0.12); c.lineTo(x0 + 10, H * 0.12); c.lineTo(x0, H * 0.12 + 10); c.closePath(); c.fill();
+    }
+  });
+  const px = curTimeSec() / dur * W;
+  c.strokeStyle = "#f5a623"; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(px, 0); c.lineTo(px, H); c.stroke();
+}
+function renderBgVidTLPanel() {
+  const p = $("bgVidTLPanel"), cue = S.bgVidCues[S.bgVidTLSel];
+  if (!cue) {
+    p.innerHTML = `<span class="muted">Kein Clip ausgewählt — <b>+ Clip @ Playhead</b> zum Hinzufügen. ${S.bgVidCues.length} Clip(s) auf der Timeline.</span>`;
+    return;
+  }
+  p.innerHTML =
+    `<span class="set-pill">@ ${fmtTime(cue.t)} — ${cue.name}</span>` +
+    `<label>Übergang <select id="bgVidClipTrans"><option value="cut">Cut</option><option value="dissolve">Dissolve</option><option value="wipe">Wipe</option><option value="slide">Slide</option></select></label>` +
+    `<label>Dauer <input type="number" id="bgVidClipTransDur" min="0.2" max="8" step="0.1" value="${cue.transDur}" style="width:48px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:11px"></label>` +
+    `<button class="btn" id="bgVidClipDelBtn">Delete</button>`;
+  $("bgVidClipTrans").value = cue.transType;
+  $("bgVidClipTrans").addEventListener("change", e => cue.transType = e.target.value);
+  $("bgVidClipTransDur").addEventListener("change", e => cue.transDur = +e.target.value);
+  $("bgVidClipDelBtn").addEventListener("click", () => deleteBgVidClip(S.bgVidTLSel));
+}
+function addBgVidClipAt(t, file) {
+  const url = URL.createObjectURL(file);
+  const vid = document.createElement("video");
+  vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true; vid.crossOrigin = "anonymous"; vid.preload = "auto";
+  vid.addEventListener("loadedmetadata", () => { if (bgVidTLOpen) drawBgVidTL(); });
+  t = Math.max(0, Math.min(bgVidTLDuration(), t));
+  const cue = { t, name: file.name.replace(/\.[^.]+$/, ""), src: url, el: vid, transType: S.bgVidTransDefault.type, transDur: S.bgVidTransDefault.dur };
+  S.bgVidCues.push(cue); sortBgVidCues();
+  S.bgVidTLSel = S.bgVidCues.indexOf(cue);
+  S.bgVid.on = true; $("bgVidOn").checked = true;
+  renderBgVidTLPanel();
+}
+function deleteBgVidClip(i) {
+  if (i < 0 || i >= S.bgVidCues.length) return;
+  const cue = S.bgVidCues[i];
+  try { cue.el.pause(); } catch (e) { }
+  try { URL.revokeObjectURL(cue.src); } catch (e) { }
+  S.bgVidCues.splice(i, 1);
+  S.bgVidTLSel = -1;
+  renderBgVidTLPanel();
+}
+const bgVidClientXOf = e => (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX);
+function bgVidTLPointerDown(e) {
+  const r = bgVidTLTrack.getBoundingClientRect(), W = bgVidTLTrack.width, dur = bgVidTLDuration();
+  const x = (bgVidClientXOf(e) - r.left) / r.width * W;
+  let hit = -1;
+  for (let i = 0; i < S.bgVidCues.length; i++) {
+    const x0 = S.bgVidCues[i].t / dur * W, w = Math.max(4, bgVidClipVisualDur(i) / dur * W);
+    if (x >= x0 && x <= x0 + w) { hit = i; break; }
+  }
+  if (hit >= 0) { S.bgVidTLSel = hit; bgVidTLDrag = S.bgVidCues[hit]; renderBgVidTLPanel(); }
+  else { bgVidTLScrub = true; seekFraction(Math.max(0, Math.min(1, x / W))); }
+}
+function bgVidTLPointerMove(e) {
+  if (!bgVidTLOpen || (!bgVidTLDrag && !bgVidTLScrub)) return;
+  const r = bgVidTLTrack.getBoundingClientRect(), W = bgVidTLTrack.width, dur = bgVidTLDuration();
+  const x = (bgVidClientXOf(e) - r.left) / r.width * W;
+  if (bgVidTLDrag) { bgVidTLDrag.t = Math.max(0, Math.min(dur, x / W * dur)); sortBgVidCues(); S.bgVidTLSel = S.bgVidCues.indexOf(bgVidTLDrag); renderBgVidTLPanel(); }
+  else if (bgVidTLScrub) seekFraction(Math.max(0, Math.min(1, x / W)));
+  if (e.cancelable) e.preventDefault();
+}
+function bgVidTLPointerUp() { bgVidTLDrag = null; bgVidTLScrub = false; }
+$("bgVidTLOpenBtn").addEventListener("click", openBgVidTLEditor);
+$("bgVidTLCloseBtn").addEventListener("click", closeBgVidTLEditor);
+$("bgVidTLAddBtn").addEventListener("click", () => $("bgVidTLInput").click());
+$("bgVidTLInput").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  addBgVidClipAt(curTimeSec(), f);
+  e.target.value = "";
+});
+$("bgVidTLClearBtn").addEventListener("click", () => {
+  if (S.bgVidCues.length && confirm("Alle Video-Clips entfernen?")) {
+    S.bgVidCues.forEach(cue => { try { cue.el.pause(); } catch (e) { } try { URL.revokeObjectURL(cue.src); } catch (e) { } });
+    S.bgVidCues = []; S.bgVidTLSel = -1; renderBgVidTLPanel();
+  }
+});
+$("bgVidTLTransType").addEventListener("change", e => S.bgVidTransDefault.type = e.target.value);
+$("bgVidTLTransDur").addEventListener("input", e => { S.bgVidTransDefault.dur = e.target.value / 10; $("bgVidTLTransDurVal").textContent = S.bgVidTransDefault.dur.toFixed(1) + "s"; });
+bgVidTLTrack.addEventListener("mousedown", bgVidTLPointerDown);
+bgVidTLTrack.addEventListener("touchstart", bgVidTLPointerDown, { passive: true });
+window.addEventListener("mousemove", bgVidTLPointerMove);
+window.addEventListener("touchmove", bgVidTLPointerMove, { passive: false });
+window.addEventListener("mouseup", bgVidTLPointerUp);
+window.addEventListener("touchend", bgVidTLPointerUp);
+
 /* extra keyboard: Shift+P = PNG, ? = help, Esc = close help, Tab = toggle scene bank, Shift+1..8 = recall scene */
 document.addEventListener("keydown", e => {
   if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
-  if (e.key === "Escape") { toggleHelp(false); closeSetEditor(); }
+  if (e.key === "Escape") { toggleHelp(false); closeSetEditor(); closeBgVidTLEditor(); }
   if (document.querySelector('[aria-hidden="false"]')) return;
   if (e.key === "?") { e.preventDefault(); toggleHelp(); }
   if ((e.key === "p" || e.key === "P") && e.shiftKey) { e.preventDefault(); savePNG(); }
