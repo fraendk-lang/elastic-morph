@@ -690,6 +690,7 @@
   .scene-bank-toggle { display: flex; gap: 6px; margin: 4px 0 10px; }
   .scene-bank-toggle .btn { flex: 1; font-size: 11px; padding: 6px 8px; }
   .scene-bank-toggle .btn.active { border-color: var(--accent); color: var(--text); background: var(--panel2); }
+  .dna-bank-tab.active { border-color: var(--cyan); color: var(--text); background: var(--panel2); }
 
   /* help overlay */
   #helpOverlay {
@@ -1392,6 +1393,10 @@
         </div>
       </div>
 
+      <div id="dnaBankTabs" style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn dna-bank-tab active" data-bank="ambient" type="button">Ambient</button>
+        <button class="btn dna-bank-tab" data-bank="rhythm" type="button">Rhythm</button>
+      </div>
       <div id="presetGrid"></div>
 
       <h3>Palette</h3>
@@ -2399,6 +2404,96 @@ const PRESETS = [
     motion: "orbit", flowBias: 0, constellation: false, bloom: 0.4, waveRing: false,
     engine: "tuner",
     gradient: ["#070a1c", "#1a2a52", "#7c9cff"]
+  },
+  /* v117: DNA Bank 2 ("Rhythm") — House/TripHop/HipHop, less ambient, grittier (grain-heavy)
+     look inspired by Elastic Paint's HUD/tactical/kaleidoscope reference set. One new engine
+     (Tactical HUD) + 7 presets that reuse existing engines with new hue/grain tuning. */
+  {
+    id: "tacticalHud", name: "Tactical HUD", bank: "rhythm",
+    desc: "Fadenkreuze, Radar-Ringe und rotierende Speichen — kaltes Sci-Fi-Interface. Techno, House, Industrial.",
+    hue: 195, hueEnd: 215, sat: 30, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.35, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.35, waveRing: false,
+    engine: "hud",
+    gradient: ["#060a10", "#16303c", "#8fd6ff"]
+  },
+  {
+    id: "kaleidoHouse", name: "Kaleido House", bank: "rhythm",
+    desc: "Symmetrisches Mandala-Kaleidoskop, schnell und hell. House, Deep House, Club.",
+    hue: 300, hueEnd: 340, sat: 90, bgFade: 0.1,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "soft", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.2, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.6, waveRing: false,
+    engine: "sacred", geoStyle: "mandala",
+    gradient: ["#1a0418", "#5a1050", "#ff6adf"]
+  },
+  {
+    id: "tripHopScope", name: "TripHop Scope", bank: "rhythm",
+    desc: "Lissajous-Ringe, warm und körnig — verwittertes Vinyl-Gefühl. TripHop, Downbeat, Lo-Fi.",
+    hue: 15, hueEnd: 45, sat: 70, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.5,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.4, lineMode: true, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.5, waveRing: false,
+    engine: "oscilloscope",
+    gradient: ["#1c0e04", "#5a3210", "#ffa84b"]
+  },
+  {
+    id: "eqHouse", name: "House EQ", bank: "rhythm",
+    desc: "6-Band-Equalizer in Hot-Pink — reagiert direkt auf die Frequenzbänder. House, Club, Bass.",
+    hue: 320, hueEnd: 350, sat: 85, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.2, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.4, waveRing: false,
+    engine: "eq",
+    gradient: ["#1c041a", "#520d4a", "#ff6ad6"]
+  },
+  {
+    id: "boomBapSeq", name: "Boom Bap Sequencer", bank: "rhythm",
+    desc: "16-Step-Raster in warmem Amber — Kick, Snare, Hats und Bass im Takt. Boom-Bap, HipHop.",
+    hue: 25, hueEnd: 45, sat: 80, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.4, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.4, waveRing: false,
+    engine: "sequencer",
+    gradient: ["#1c1204", "#5a3d10", "#ffc370"]
+  },
+  {
+    id: "lofiTuner", name: "Lo-Fi Tuner", bank: "rhythm",
+    desc: "Analoges Sender-Zifferblatt in verwaschenem Sepia — Vinyl-Knistern inklusive. Lo-Fi HipHop, Chillhop.",
+    hue: 35, hueEnd: 20, sat: 55, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.5, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.35, waveRing: false,
+    engine: "tuner",
+    gradient: ["#140e08", "#4a3420", "#d9b483"]
+  },
+  {
+    id: "boomBapVinyl", name: "Boom Bap Vinyl", bank: "rhythm",
+    desc: "Drehende Schallplatte, körnig und dunkel — die Beat-Digger-Ästhetik. Boom-Bap, HipHop, Soul-Samples.",
+    hue: 0, hueEnd: 30, sat: 75, bgFade: 0.5,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.4,
+    particles: 0, particleStyle: "spark", symmetry: 1,
+    verticalStretch: 1.0, grain: 0.3, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.45, waveRing: false,
+    engine: "vinyl",
+    gradient: ["#100404", "#4a1810", "#ff8a5a"]
+  },
+  {
+    id: "deepHouseBlob", name: "Deep House Pulse", bank: "rhythm",
+    desc: "Schnelle, hoch-symmetrische Linienform — treibend statt ambient. Deep House, Tech House.",
+    hue: 270, hueEnd: 200, sat: 85, bgFade: 0.1,
+    layers: 3, points: 120, noiseAmp: 0.3, speed: 1.1,
+    particles: 220, particleStyle: "spark", symmetry: 4,
+    verticalStretch: 1.0, grain: 0.15, lineMode: true, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0.5, waveRing: true,
+    gradient: ["#0a0420", "#3a1a6e", "#8b7aff"]
   },
   /* v54: Sacred Geometry — precise symmetric patterns that breathe & rotate */
   {
@@ -4266,6 +4361,57 @@ function drawRadioTuner(base, hue, growthF, energySize, seed) {
   ctx.restore();
 }
 
+/* --- v117: TACTICAL HUD — concentric radar rings, rotating spokes (one flashes on transient),
+   4 corner crosshairs (flash on kick), and a small center reticle square that pulses with bass.
+   Cold sci-fi-interface look for the "Rhythm" DNA bank. --- */
+function drawTacticalHud(base, hue, growthF, energySize, seed) {
+  const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
+  const R = mn * 0.36 * growthF * energySize;
+  const spokes = 16;
+  const rot = S.time * (0.15 + S.bass * 0.5) + S.beat * 0.15;
+  const flash = Math.max(S.kickOnset || 0, S.transient || 0);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  ctx.strokeStyle = `hsla(${hue % 360}, ${P.sat}%, 78%, ${0.28 + S.highs * 0.15})`;
+  ctx.lineWidth = Math.max(1, mn * 0.0018);
+  for (let i = 1; i <= 4; i++) {
+    ctx.beginPath(); ctx.arc(0, 0, R * i / 4, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  ctx.save();
+  ctx.rotate(rot);
+  for (let i = 0; i < spokes; i++) {
+    const a = (i / spokes) * Math.PI * 2;
+    ctx.globalAlpha = 0.12 + (i === 0 ? flash * 0.5 : 0);
+    ctx.lineWidth = i === 0 ? Math.max(2, mn * 0.004) : Math.max(1, mn * 0.0015);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  const chR = R * 0.62, chS = mn * 0.014;
+  [45, 135, 225, 315].forEach(deg => {
+    const a = deg * Math.PI / 180, x = Math.cos(a) * chR, y = Math.sin(a) * chR;
+    ctx.strokeStyle = `hsla(${hue % 360}, ${P.sat}%, 82%, ${0.35 + flash * 0.5})`;
+    ctx.lineWidth = Math.max(1, mn * 0.002);
+    ctx.beginPath();
+    ctx.moveTo(x - chS, y); ctx.lineTo(x + chS, y); ctx.moveTo(x, y - chS); ctx.lineTo(x, y + chS);
+    ctx.stroke();
+  });
+
+  const rs = R * 0.16 * (1 + S.bass * 0.3);
+  ctx.strokeStyle = `hsla(${hue % 360}, ${P.sat}%, 85%, 0.55)`;
+  ctx.lineWidth = Math.max(1, mn * 0.0025);
+  ctx.save();
+  ctx.rotate(-rot * 0.6);
+  ctx.strokeRect(-rs / 2, -rs / 2, rs, rs);
+  ctx.restore();
+
+  ctx.restore();
+}
+
 /* --- v54: SACRED GEOMETRY — precise, symmetric patterns that breathe & rotate with the music.
    preset.geoStyle: "flower" (Flower of Life), "metatron" (Metatron's Cube), "mandala" (Sri Yantra),
    "recursive" (nested polygons), "spiral" (golden/phyllotaxis). Line-based additive glow; deterministic. */
@@ -4865,6 +5011,8 @@ function drawScene(dt) {
     drawSequencer(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "tuner") {
     drawRadioTuner(base, hue, growthF, energySize, seed);
+  } else if (dnaEngine === "hud") {
+    drawTacticalHud(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "sacred") {
     drawSacred(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "oscilloscope") {
@@ -6355,6 +6503,18 @@ function renderPreviews() {
       const nx = -W / 2 + padX + pos * scaleW;
       c.strokeStyle = `hsla(${hue % 360},${p.sat}%,72%,0.9)`; c.lineWidth = 2;
       c.beginPath(); c.moveTo(nx, -H * 0.3); c.lineTo(nx, H * 0.32); c.stroke();
+    } else if (p.engine === "hud") {
+      const Rp = R * 1.1, rotp = t * 0.4;
+      c.strokeStyle = `hsla(${hue % 360},${p.sat}%,78%,0.4)`; c.lineWidth = 1;
+      for (let i = 1; i <= 3; i++) { c.beginPath(); c.arc(0, 0, Rp * i / 3, 0, 6.2832); c.stroke(); }
+      c.save(); c.rotate(rotp);
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * 6.2832; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a) * Rp, Math.sin(a) * Rp); c.stroke(); }
+      c.restore();
+      [45, 135, 225, 315].forEach(deg => {
+        const a = deg * Math.PI / 180, x = Math.cos(a) * Rp * 0.62, y = Math.sin(a) * Rp * 0.62, s = 4;
+        c.strokeStyle = `hsla(${hue % 360},${p.sat}%,82%,0.6)`;
+        c.beginPath(); c.moveTo(x - s, y); c.lineTo(x + s, y); c.moveTo(x, y - s); c.lineTo(x, y + s); c.stroke();
+      });
     } else if (p.engine === "dance") {
       const st = p.danceStyle;
       if (st === "retro") {
@@ -7499,6 +7659,7 @@ function buildPresets() {
   PRESETS.forEach((p, i) => {
     const card = document.createElement("div");
     card.className = "preset-card" + (p === S.preset ? " active" : "");
+    card.dataset.bank = p.bank || "ambient";
     const accent = p.gradient[p.gradient.length - 1] || "#b14bff";
     card.style.setProperty("--card-accent", accent);
     const eng = (p.engine || "blob").toUpperCase();
@@ -7517,6 +7678,15 @@ function buildPresets() {
     });
     grid.appendChild(card);
   });
+  // v117: DNA Bank tabs (Ambient / Rhythm) — filters the grid by preset.bank, default "ambient"
+  const applyDnaBankFilter = bank => {
+    document.querySelectorAll("#presetGrid .preset-card").forEach(c => {
+      c.style.display = c.dataset.bank === bank ? "" : "none";
+    });
+    document.querySelectorAll(".dna-bank-tab").forEach(b => b.classList.toggle("active", b.dataset.bank === bank));
+  };
+  document.querySelectorAll(".dna-bank-tab").forEach(b => b.addEventListener("click", () => applyDnaBankFilter(b.dataset.bank)));
+  applyDnaBankFilter("ambient");
   // blend select options
   const sel = $("blendSelect");
   PRESETS.forEach(p => {
