@@ -1232,6 +1232,22 @@ ok("slide-d branch pushes both axes together for a diagonal push", (() => {
     && fn.includes("drawClip(to.el, 1, W * (1 - p), H * (1 - p))");
 })());
 
+ok("glitch branch draws each clip cover-fit into fxctx, then channel-isolates via chC with an envelope peaking at p=0.5", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes('type === "glitch"')
+    && fn.includes("const envelope = Math.sin(p * Math.PI)")
+    && fn.includes("drawGlitchClip(from.el, 1 - p, envelope)")
+    && fn.includes("drawGlitchClip(to.el, p, envelope)")
+    && fn.includes('chctx.globalCompositeOperation = "multiply"')
+    && fn.includes('chctx.globalCompositeOperation = "destination-in"');
+})());
+
+ok("drawGlitchClip falls back to a plain drawClip call when the envelope is negligible", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn && fn.includes("if (!el || el.readyState < 2 || envelope <= 0.02) { drawClip(el, alpha, 0); return; }");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

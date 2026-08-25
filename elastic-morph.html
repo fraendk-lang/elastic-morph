@@ -4973,6 +4973,39 @@ function drawBgVideoTimeline(W, H) {
     try { ctx.drawImage(el, dx, dy, dw, dh); } catch (e) { }
     ctx.restore();
   };
+  const drawGlitchClip = (el, alpha, envelope) => {
+    if (!el || el.readyState < 2 || envelope <= 0.02) { drawClip(el, alpha, 0); return; }
+    const vw = el.videoWidth, vh = el.videoHeight;
+    if (!vw || !vh) return;
+    const s = v.cover ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
+    const dw = vw * s, dh = vh * s, dx = (W - dw) / 2, dy = (H - dh) / 2;
+    fxctx.clearRect(0, 0, W, H);
+    fxctx.globalAlpha = 1; fxctx.globalCompositeOperation = "source-over";
+    try { fxctx.drawImage(el, dx, dy, dw, dh); } catch (e) { return; }
+    ctx.save();
+    ctx.globalAlpha = v.opacity * alpha;
+    const d = Math.max(2, W * 0.01 * envelope);
+    const chans = [["#ff0000", -d, 0], ["#00ff00", 0, 0], ["#0000ff", d, 0]];
+    ctx.globalCompositeOperation = "lighter";
+    for (const [col, ox, oy] of chans) {
+      chctx.globalCompositeOperation = "copy"; chctx.globalAlpha = 1;
+      chctx.drawImage(fxC, 0, 0);
+      chctx.globalCompositeOperation = "multiply";
+      chctx.fillStyle = col; chctx.fillRect(0, 0, W, H);
+      chctx.globalCompositeOperation = "destination-in";
+      chctx.drawImage(fxC, 0, 0);
+      ctx.drawImage(chC, ox, oy);
+    }
+    ctx.globalCompositeOperation = v.blend;
+    const slices = 4;
+    for (let i = 0; i < slices; i++) {
+      const sy = (i / slices) * H + (Math.random() - 0.5) * (H / slices) * 0.4;
+      const sh = H / slices * 0.5;
+      const sx = (Math.random() - 0.5) * W * 0.06 * envelope;
+      ctx.drawImage(fxC, 0, sy, W, sh, sx, sy, W, sh);
+    }
+    ctx.restore();
+  };
   const { from, to, p, type } = S.bgVidTrans;
   if (type === "dissolve") {
     drawClip(from.el, 1 - p, 0);
@@ -5001,6 +5034,10 @@ function drawBgVideoTimeline(W, H) {
   } else if (type === "slide-d") {
     drawClip(from.el, 1, -W * p, -H * p);
     drawClip(to.el, 1, W * (1 - p), H * (1 - p));
+  } else if (type === "glitch") {
+    const envelope = Math.sin(p * Math.PI);
+    drawGlitchClip(from.el, 1 - p, envelope);
+    drawGlitchClip(to.el, p, envelope);
   }
 }
 /* v41: intro cover card — 1 during the hold, easing to 0 across the fade */
