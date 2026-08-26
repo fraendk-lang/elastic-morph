@@ -12,6 +12,7 @@ const html = fs.readFileSync(FILE, "utf8");
 const script = html.split("<script>").slice(-1)[0].replace(/<\/script>[\s\S]*$/, "");
 
 let pass = 0, fail = 0;
+const pendingAsyncChecks = [];
 const ok = (name, cond, extra) => { if (cond) { pass++; console.log("  ✓ " + name); } else { fail++; console.log("  ✗ " + name + (extra ? "  → " + extra : "")); } };
 const section = s => console.log("\n" + s);
 
@@ -1764,7 +1765,62 @@ ok("drawBgVideoTimeline's no-transition branch composites a black overlay scaled
     && fn.includes("ctx.fillRect(0, 0, W, H);");
 })());
 
+/* ---------------- HQ Export: frame-accurate Video Timeline seeks ---------------- */
+section("HQ Export frame accuracy — syncClipTime returns a pending-seek promise");
+
+function makeSeekableMockEl(initialCurrentTime, paused) {
+  let ct = initialCurrentTime;
+  const listeners = { seeked: [] };
+  const el = {
+    get currentTime() { return ct; },
+    set currentTime(v) { ct = v; },
+    paused,
+    duration: NaN,
+    loop: false,
+    addEventListener(evt, fn) { if (listeners[evt]) listeners[evt].push(fn); },
+    removeEventListener(evt, fn) { if (listeners[evt]) listeners[evt] = listeners[evt].filter(f => f !== fn); },
+    play() { paused = false; return Promise.resolve(); }
+  };
+  el._fireSeeked = () => { listeners.seeked.slice().forEach(fn => fn()); };
+  el._seekedListenerCount = () => listeners.seeked.length;
+  return el;
+}
+
+global.S = { playing: true };
+try {
+  const { syncClipTime } = loadFns(["syncClipTime"]);
+
+  const elNoSeek = makeSeekableMockEl(0, true);
+  const rNoSeek = syncClipTime(elNoSeek, 0.1, "video");
+  ok("syncClipTime returns null when drift is <=0.35s (no real seek triggered) — the common steady-playback case", rNoSeek === null);
+
+  const elSeek = makeSeekableMockEl(0, true);
+  const rSeek = syncClipTime(elSeek, 5, "video");
+  ok("syncClipTime returns a genuine Promise when a real seek is triggered", rSeek instanceof Promise);
+  ok("syncClipTime registered exactly one 'seeked' listener for the triggered seek", elSeek._seekedListenerCount() === 1);
+
+  pendingAsyncChecks.push((async () => {
+    let resolved = false;
+    rSeek.then(() => { resolved = true; });
+    elSeek._fireSeeked();
+    await rSeek;
+    ok("the returned promise actually resolves once the mock 'seeked' event fires", resolved);
+    ok("the 'seeked' listener is removed after firing (no leak)", elSeek._seekedListenerCount() === 0);
+  })());
+} catch (e) {
+  ok("syncClipTime returns null when drift is <=0.35s (no real seek triggered) — the common steady-playback case", false, e.message);
+  ok("syncClipTime returns a genuine Promise when a real seek is triggered", false);
+  ok("syncClipTime registered exactly one 'seeked' listener for the triggered seek", false);
+  ok("the returned promise actually resolves once the mock 'seeked' event fires", false);
+  ok("the 'seeked' listener is removed after firing (no leak)", false);
+} finally {
+  delete global.S;
+}
+
 /* ---------------- summary ---------------- */
-console.log("\n" + "─".repeat(40));
-console.log(`${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+(async () => {
+  if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
+  console.log("\n" + "─".repeat(40));
+  console.log(`${pass} passed, ${fail} failed`);
+  process.exit(fail ? 1 : 0);
+})();

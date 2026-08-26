@@ -4933,7 +4933,7 @@ function drawBgVideo(W, H) {
 function sortBgVidCues() { S.bgVidCues.sort((a, b) => a.t - b.t); }
 
 function syncClipTime(el, targetT, kind) {
-  if (!el || kind === "image") return;
+  if (!el || kind === "image") return null;
   // A clip dragged longer than its own footage relies on native looping (el.loop = true) to
   // fill the extra time — but targetT keeps growing with the timeline while el.currentTime
   // wraps back to 0 every loop. Without wrapping targetT the same way, drift stays huge
@@ -4946,10 +4946,21 @@ function syncClipTime(el, targetT, kind) {
   // couple frames while it "re-settles", which paints as a brief pop/hitch right as every
   // clip starts. Clips normally start already sitting at (or very near) their correct
   // position, so this redundant self-seek was firing on essentially every clip activation.
+  let seekPromise = null;
   if (Math.abs(el.currentTime - targetT) > 0.35) {
+    // Returned so HQ export (renderExportFrame) can await the seek actually landing before
+    // capturing the frame — the live 60fps loop ignores this return value entirely and keeps
+    // behaving exactly as before, since an ignored Promise/null is as inert as an ignored
+    // undefined was.
+    seekPromise = new Promise(resolve => {
+      const onSeeked = () => { el.removeEventListener("seeked", onSeeked); resolve(); };
+      el.addEventListener("seeked", onSeeked);
+      setTimeout(() => { el.removeEventListener("seeked", onSeeked); resolve(); }, 2000);
+    });
     try { el.currentTime = Math.max(0, targetT); } catch (e) { }
   }
   if (el.paused && S.playing) el.play().catch(() => { });
+  return seekPromise;
 }
 
 function updateBgVideoTimeline(t) {
