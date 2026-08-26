@@ -1255,6 +1255,49 @@ ok("drawGlitchClip falls back to a plain drawClip call when the envelope is negl
   return !!fn && fn.includes("if (!el || el.readyState < 2 || envelope <= 0.02) { drawClip(el, alpha, 0); return; }");
 })());
 
+/* ---------------- Video Timeline: transition-window follow-up fixes ---------------- */
+section("Video Timeline — filter/blend/perf fixes for transitions");
+
+ok("drawClip applies the background-video filter via the scratch-canvas technique (not raw drawImage on the video)", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes('const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS(v) : "none";')
+    && fn.includes("const scratch = bgVidScratchCanvas(sw, sh);")
+    && fn.includes("ctx.filter = filt;")
+    && fn.includes('ctx.filter = "none";');
+})());
+
+ok("drawGlitchClip also applies the filter (via fxctx) before any channel-isolation work", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes("fxctx.filter = filt;")
+    && fn.includes('fxctx.filter = "none";');
+})());
+
+ok("drawGlitchClip works at half resolution (hw/hh = W/2, H/2), not full canvas size", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes("const hw = Math.max(1, Math.round(W / 2)), hh = Math.max(1, Math.round(H / 2));")
+    && fn.includes("ctx.drawImage(glC, 0, 0, hw, hh, 0, 0, W, H);");
+})());
+
+ok("drawGlitchClip's user-facing composite (glC onto ctx) uses v.blend, not a hardcoded mode — the internal 3-channel recombine still uses lighter", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  const idx = fn ? fn.indexOf("glctx.clearRect(0, 0, hw, hh);") : -1;
+  if (idx < 0) return false;
+  const recombineBlock = fn.slice(idx, fn.indexOf("ctx.save();", idx));
+  const finalCompositeBlock = fn.slice(fn.indexOf("ctx.save();", idx));
+  return recombineBlock.includes('glctx.globalCompositeOperation = "lighter"')
+    && finalCompositeBlock.includes("ctx.globalCompositeOperation = v.blend;")
+    && finalCompositeBlock.indexOf("ctx.globalCompositeOperation = v.blend;") < finalCompositeBlock.indexOf("ctx.drawImage(glC");
+})());
+
+ok("glC accumulator canvas is declared and sized alongside fxC/chC/fbC", (() => {
+  return script.includes('const glC = document.createElement("canvas"), glctx = glC.getContext("2d");')
+    && /fxC\.width = chC\.width = fbC\.width = glC\.width = canvas\.width;/.test(script)
+    && /fxC\.height = chC\.height = fbC\.height = glC\.height = canvas\.height;/.test(script);
+})());
+
 /* ---------------- Video Timeline UI selects: wire 5 new transition types ----------- */
 section("Video Timeline UI — transition type selects");
 

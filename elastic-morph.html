@@ -2896,6 +2896,7 @@ const bloomC = document.createElement("canvas"), bctx = bloomC.getContext("2d");
 const fxC = document.createElement("canvas"), fxctx = fxC.getContext("2d");   // full-res snapshot
 const chC = document.createElement("canvas"), chctx = chC.getContext("2d");   // channel scratch (RGB split)
 const fbC = document.createElement("canvas"), fbctx = fbC.getContext("2d");   // feedback accumulation
+const glC = document.createElement("canvas"), glctx = glC.getContext("2d");   // Video Timeline glitch-transition RGB-recombine accumulator (half-res)
 let vigGrad = null;
 const audioEl = $("audioEl");
 let audioCtx = null, analyser = null, freqData = null, timeData = null, srcNode = null;
@@ -4975,39 +4976,79 @@ function drawBgVideoTimeline(W, H) {
     ctx.save();
     ctx.globalAlpha = v.opacity * alpha;
     ctx.globalCompositeOperation = v.blend;
-    try { ctx.drawImage(el, dx, dy, dw, dh); } catch (e) { }
+    const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS(v) : "none";
+    if (filt === "none") {
+      try { ctx.drawImage(el, dx, dy, dw, dh); } catch (e) { }
+    } else {
+      // ctx.filter is ignored for drawImage(HTMLVideoElement) in Chrome/Safari — blit through
+      // an unfiltered scratch canvas first, then filtered-draw *that* (matches drawBgVideo's v112 fix).
+      const sw = Math.max(1, Math.round(dw)), sh = Math.max(1, Math.round(dh));
+      const scratch = bgVidScratchCanvas(sw, sh);
+      const sctx = scratch.getContext("2d");
+      sctx.setTransform(1, 0, 0, 1, 0, 0); sctx.clearRect(0, 0, sw, sh);
+      try {
+        sctx.drawImage(el, 0, 0, sw, sh);
+        ctx.filter = filt;
+        ctx.drawImage(scratch, dx, dy, dw, dh);
+        ctx.filter = "none";
+      } catch (e) { }
+    }
     ctx.restore();
   };
   const drawGlitchClip = (el, alpha, envelope) => {
     if (!el || el.readyState < 2 || envelope <= 0.02) { drawClip(el, alpha, 0); return; }
     const vw = el.videoWidth, vh = el.videoHeight;
     if (!vw || !vh) return;
-    const s = v.cover ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
-    const dw = vw * s, dh = vh * s, dx = (W - dw) / 2, dy = (H - dh) / 2;
-    fxctx.clearRect(0, 0, W, H);
+    // Half-res working area: the RGB-split/slice passes below are ~16 full-canvas raster ops
+    // per clip, and the glitch look is deliberately low-fi, so a small scratch canvas (like the
+    // FX Rack's Pixelate effect) costs far less without any visible quality loss.
+    const hw = Math.max(1, Math.round(W / 2)), hh = Math.max(1, Math.round(H / 2));
+    const s = v.cover ? Math.max(hw / vw, hh / vh) : Math.min(hw / vw, hh / vh);
+    const dw = vw * s, dh = vh * s, dx = (hw - dw) / 2, dy = (hh - dh) / 2;
+    const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS(v) : "none";
+    fxctx.clearRect(0, 0, hw, hh);
     fxctx.globalAlpha = 1; fxctx.globalCompositeOperation = "source-over";
-    try { fxctx.drawImage(el, dx, dy, dw, dh); } catch (e) { return; }
-    ctx.save();
-    ctx.globalAlpha = v.opacity * alpha;
-    const d = Math.max(2, W * 0.01 * envelope);
+    try {
+      if (filt === "none") {
+        fxctx.drawImage(el, dx, dy, dw, dh);
+      } else {
+        const sw = Math.max(1, Math.round(dw)), sh = Math.max(1, Math.round(dh));
+        const scratch = bgVidScratchCanvas(sw, sh);
+        const sctx = scratch.getContext("2d");
+        sctx.setTransform(1, 0, 0, 1, 0, 0); sctx.clearRect(0, 0, sw, sh);
+        sctx.drawImage(el, 0, 0, sw, sh);
+        fxctx.filter = filt;
+        fxctx.drawImage(scratch, dx, dy, dw, dh);
+        fxctx.filter = "none";
+      }
+    } catch (e) { return; }
+    const d = Math.max(2, hw * 0.01 * envelope);
     const chans = [["#ff0000", -d, 0], ["#00ff00", 0, 0], ["#0000ff", d, 0]];
-    ctx.globalCompositeOperation = "lighter";
+    // Recombine the 3 isolated channels into glC first ("lighter" is required *here* to
+    // reconstruct the shifted-channel image — it's an internal step, not the user's blend mode).
+    glctx.clearRect(0, 0, hw, hh);
+    glctx.globalCompositeOperation = "lighter"; glctx.globalAlpha = 1;
     for (const [col, ox, oy] of chans) {
       chctx.globalCompositeOperation = "copy"; chctx.globalAlpha = 1;
-      chctx.drawImage(fxC, 0, 0);
+      chctx.drawImage(fxC, 0, 0, hw, hh, 0, 0, hw, hh);
       chctx.globalCompositeOperation = "multiply";
-      chctx.fillStyle = col; chctx.fillRect(0, 0, W, H);
+      chctx.fillStyle = col; chctx.fillRect(0, 0, hw, hh);
       chctx.globalCompositeOperation = "destination-in";
-      chctx.drawImage(fxC, 0, 0);
-      ctx.drawImage(chC, ox, oy);
+      chctx.drawImage(fxC, 0, 0, hw, hh, 0, 0, hw, hh);
+      glctx.drawImage(chC, 0, 0, hw, hh, ox, oy, hw, hh);
     }
+    // One composite of the finished recombined image onto the real canvas — this is where the
+    // user's opacity/blend mode actually apply, same as every other transition type.
+    ctx.save();
+    ctx.globalAlpha = v.opacity * alpha;
     ctx.globalCompositeOperation = v.blend;
+    ctx.drawImage(glC, 0, 0, hw, hh, 0, 0, W, H);
     const slices = 4;
     for (let i = 0; i < slices; i++) {
       const sy = (i / slices) * H + (Math.random() - 0.5) * (H / slices) * 0.4;
       const sh = H / slices * 0.5;
       const sx = (Math.random() - 0.5) * W * 0.06 * envelope;
-      ctx.drawImage(fxC, 0, sy, W, sh, sx, sy, W, sh);
+      ctx.drawImage(fxC, 0, sy / 2, hw, sh / 2, sx, sy, W, sh);
     }
     ctx.restore();
   };
@@ -8908,8 +8949,8 @@ function resize() {
   bloomC.width = Math.max(2, Math.round(canvas.width / 4));
   bloomC.height = Math.max(2, Math.round(canvas.height / 4));
   // post-FX buffers at full resolution
-  fxC.width = chC.width = fbC.width = canvas.width;
-  fxC.height = chC.height = fbC.height = canvas.height;
+  fxC.width = chC.width = fbC.width = glC.width = canvas.width;
+  fxC.height = chC.height = fbC.height = glC.height = canvas.height;
   fbctx.clearRect(0, 0, fbC.width, fbC.height);
   // cached vignette gradient (v58: driven by master finish)
   const W = canvas.width, H = canvas.height;
