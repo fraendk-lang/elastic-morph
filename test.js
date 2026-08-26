@@ -1305,6 +1305,60 @@ ok("glC accumulator canvas is declared and sized alongside fxC/chC/fbC", (() => 
     && /fxC\.height = chC\.height = fbC\.height = glC\.height = canvas\.height;/.test(script);
 })());
 
+/* ---------------- Video Timeline: clip-start hitch fix ---------------- */
+section("Video Timeline — clip-start hitch fix (syncClipTime)");
+
+(() => {
+  function makeMockEl(initialCurrentTime, paused) {
+    let ct = initialCurrentTime, seekCount = 0, playCalled = false;
+    const el = {
+      get currentTime() { return ct; },
+      set currentTime(v) { seekCount++; ct = v; },
+      get paused() { return paused; },
+      set paused(v) { paused = v; },
+      play() { playCalled = true; paused = false; return Promise.resolve(); }
+    };
+    el._seekCount = () => seekCount;
+    el._playCalled = () => playCalled;
+    return el;
+  }
+
+  global.S = { playing: true };
+  try {
+    const { syncClipTime } = loadFns(["syncClipTime"]);
+
+    const elSmallDrift = makeMockEl(0, true);
+    syncClipTime(elSmallDrift, 0.1);
+    ok("syncClipTime does not force a redundant seek when drift is <=0.35s, even while paused (the actual fix — this used to always reseek on `|| el.paused` alone)",
+      elSmallDrift._seekCount() === 0);
+    ok("syncClipTime still calls play() on that paused-but-in-sync clip", elSmallDrift._playCalled());
+
+    const elLargeDrift = makeMockEl(0, true);
+    syncClipTime(elLargeDrift, 5);
+    ok("syncClipTime still seeks when drift genuinely exceeds 0.35s (e.g. after a scrub)",
+      elLargeDrift._seekCount() === 1 && elLargeDrift.currentTime === 5);
+
+    const elAlreadyPlaying = makeMockEl(10, false);
+    syncClipTime(elAlreadyPlaying, 10.05);
+    ok("syncClipTime does not seek a clip that's already playing in sync (small drift, not paused)",
+      elAlreadyPlaying._seekCount() === 0);
+
+    global.S.playing = false;
+    const elSongPaused = makeMockEl(0, true);
+    syncClipTime(elSongPaused, 0.1);
+    ok("syncClipTime does not call play() when the song itself isn't playing (S.playing = false)",
+      !elSongPaused._playCalled());
+  } catch (e) {
+    ok("syncClipTime does not force a redundant seek when drift is <=0.35s, even while paused (the actual fix — this used to always reseek on `|| el.paused` alone)", false, e.message);
+    ok("syncClipTime still calls play() on that paused-but-in-sync clip", false);
+    ok("syncClipTime still seeks when drift genuinely exceeds 0.35s (e.g. after a scrub)", false);
+    ok("syncClipTime does not seek a clip that's already playing in sync (small drift, not paused)", false);
+    ok("syncClipTime does not call play() when the song itself isn't playing (S.playing = false)", false);
+  } finally {
+    delete global.S;
+  }
+})();
+
 /* ---------------- Video Timeline UI selects: wire 5 new transition types ----------- */
 section("Video Timeline UI — transition type selects");
 

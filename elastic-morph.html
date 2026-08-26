@@ -4934,7 +4934,13 @@ function sortBgVidCues() { S.bgVidCues.sort((a, b) => a.t - b.t); }
 
 function syncClipTime(el, targetT) {
   if (!el) return;
-  if (Math.abs(el.currentTime - targetT) > 0.35 || el.paused) {
+  // Only seek when actually out of sync (>0.35s drift) — NOT just because the clip is
+  // paused. A currentTime write is a real browser-level seek even when the target equals
+  // the video's current position: readyState drops (HAVE_NOTHING/HAVE_METADATA) for a
+  // couple frames while it "re-settles", which paints as a brief pop/hitch right as every
+  // clip starts. Clips normally start already sitting at (or very near) their correct
+  // position, so this redundant self-seek was firing on essentially every clip activation.
+  if (Math.abs(el.currentTime - targetT) > 0.35) {
     try { el.currentTime = Math.max(0, targetT); } catch (e) { }
   }
   if (el.paused && S.playing) el.play().catch(() => { });
