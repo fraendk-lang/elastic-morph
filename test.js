@@ -1867,6 +1867,93 @@ try {
   delete global.S;
 }
 
+/* ---------------- Video Timeline: clip thumbnails ---------------- */
+section("Video Timeline thumbnails — captureVideoClipThumb");
+
+function makeThumbMockVideoEl(duration, videoWidth, videoHeight) {
+  let ct = 0;
+  const listeners = { seeked: [] };
+  const el = {
+    get currentTime() { return ct; },
+    set currentTime(v) { ct = v; },
+    duration, videoWidth, videoHeight,
+    addEventListener(evt, fn) { if (listeners[evt]) listeners[evt].push(fn); },
+    removeEventListener(evt, fn) { if (listeners[evt]) listeners[evt] = listeners[evt].filter(f => f !== fn); }
+  };
+  el._fireSeeked = () => { listeners.seeked.slice().forEach(fn => fn()); };
+  el._seekedListenerCount = () => listeners.seeked.length;
+  return el;
+}
+
+global.bgVidTLOpen = false;
+try {
+  const { captureVideoClipThumb } = loadFns(["captureVideoClipThumb"]);
+
+  const canvases = [];
+  global.document = {
+    createElement(tag) {
+      const c = { _tag: tag, width: 0, height: 0, _drawImageCalls: 0 };
+      c.getContext = () => ({ drawImage: () => { c._drawImageCalls++; } });
+      canvases.push(c);
+      return c;
+    }
+  };
+
+  const el1 = makeThumbMockVideoEl(10, 1920, 1080);
+  const cue1 = { el: el1 };
+  captureVideoClipThumb(cue1);
+  ok("captureVideoClipThumb attaches the 'seeked' listener before the seek lands (synchronously registered)",
+    el1._seekedListenerCount() === 1);
+  ok("captureVideoClipThumb seeks to the 0.5s cap when duration/2 (5s) would be further out",
+    el1.currentTime === 0.5);
+
+  el1._fireSeeked();
+  ok("on 'seeked', the listener is removed (no leak)", el1._seekedListenerCount() === 0);
+  ok("on 'seeked', a cached thumbnail canvas is created and drawn into exactly once",
+    !!cue1.thumb && cue1.thumb._drawImageCalls === 1);
+  ok("the cached thumbnail is scaled so its long edge is 120px (1920x1080 -> 120x68 rounded)",
+    cue1.thumb.width === 120 && cue1.thumb.height === 68);
+
+  const el2 = makeThumbMockVideoEl(0.4, 640, 480);
+  const cue2 = { el: el2 };
+  captureVideoClipThumb(cue2);
+  ok("captureVideoClipThumb seeks to duration/2 (0.2s) when that's less than the 0.5s cap",
+    el2.currentTime === 0.2);
+
+  const el3 = makeThumbMockVideoEl(10, 0, 0);
+  const cue3 = { el: el3 };
+  captureVideoClipThumb(cue3);
+  el3._fireSeeked();
+  ok("when videoWidth/videoHeight are still 0 at 'seeked' time (metadata not really ready), no thumbnail is created",
+    cue3.thumb === undefined);
+} catch (e) {
+  ok("captureVideoClipThumb attaches the 'seeked' listener before the seek lands (synchronously registered)", false, e.message);
+  ok("captureVideoClipThumb seeks to the 0.5s cap when duration/2 (5s) would be further out", false);
+  ok("on 'seeked', the listener is removed (no leak)", false);
+  ok("on 'seeked', a cached thumbnail canvas is created and drawn into exactly once", false);
+  ok("the cached thumbnail is scaled so its long edge is 120px (1920x1080 -> 120x68 rounded)", false);
+  ok("captureVideoClipThumb seeks to duration/2 (0.2s) when that's less than the 0.5s cap", false);
+  ok("when videoWidth/videoHeight are still 0 at 'seeked' time (metadata not really ready), no thumbnail is created", false);
+} finally {
+  delete global.bgVidTLOpen;
+  delete global.document;
+}
+
+ok("captureVideoClipThumb has a 2000ms safety timeout that clears via clearTimeout when 'seeked' fires first", (() => {
+  const fn = extractFn("captureVideoClipThumb");
+  return !!fn
+    && fn.includes("setTimeout(() => el.removeEventListener(\"seeked\", onSeeked), 2000)")
+    && fn.includes("clearTimeout(tid)");
+})());
+
+ok("addBgVidClipAt's loadedmetadata listener calls captureVideoClipThumb(cue) after correcting the duration placeholder", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  if (!fn) return false;
+  const durIdx = fn.indexOf("if (isFinite(el.duration) && cue.dur === 8) cue.dur = el.duration;");
+  const thumbIdx = fn.indexOf("captureVideoClipThumb(cue);");
+  return durIdx >= 0 && thumbIdx >= 0 && durIdx < thumbIdx;
+})());
+
 (() => {
   const cueEl = makeSeekableMockEl(5, true);   // starts away from t=0's target (0), so the
                                                  // first activation below triggers a real seek

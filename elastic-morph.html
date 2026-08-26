@@ -9977,6 +9977,24 @@ function renderBgVidTLPanel() {
   $("bgVidClipFadeOut").addEventListener("change", e => cue.fadeOut = +e.target.value);
   $("bgVidClipDelBtn").addEventListener("click", () => deleteBgVidClip(S.bgVidTLSel));
 }
+function captureVideoClipThumb(cue) {
+  const el = cue.el;
+  const onSeeked = () => {
+    clearTimeout(tid);
+    el.removeEventListener("seeked", onSeeked);
+    const vw = el.videoWidth, vh = el.videoHeight;
+    if (!vw || !vh) return;
+    const tc = document.createElement("canvas"), s = 120 / Math.max(vw, vh);
+    tc.width = Math.max(1, Math.round(vw * s)); tc.height = Math.max(1, Math.round(vh * s));
+    tc.getContext("2d").drawImage(el, 0, 0, tc.width, tc.height);
+    cue.thumb = tc;
+    if (bgVidTLOpen) drawBgVidTL();
+  };
+  el.addEventListener("seeked", onSeeked);
+  const tid = setTimeout(() => el.removeEventListener("seeked", onSeeked), 2000);
+  try { el.currentTime = Math.min(0.5, (el.duration || 1) / 2); }
+  catch (e) { clearTimeout(tid); el.removeEventListener("seeked", onSeeked); }
+}
 function addBgVidClipAt(t, file) {
   const isImage = file.type.startsWith("image");
   const url = URL.createObjectURL(file);
@@ -9992,6 +10010,7 @@ function addBgVidClipAt(t, file) {
       // Only correct the provisional 8s placeholder — if the user already trimmed cue.dur
       // (dragging the block's edge) before metadata finished loading, don't clobber their edit.
       if (isFinite(el.duration) && cue.dur === 8) cue.dur = el.duration;
+      captureVideoClipThumb(cue);
       if (bgVidTLOpen) drawBgVidTL();
     });
     dur = 8;
