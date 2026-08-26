@@ -1768,7 +1768,7 @@ ok("drawBgVideoTimeline's no-transition branch composites a black overlay scaled
 /* ---------------- HQ Export: frame-accurate Video Timeline seeks ---------------- */
 section("HQ Export frame accuracy — syncClipTime returns a pending-seek promise");
 
-function makeSeekableMockEl(initialCurrentTime, paused) {
+function makeSeekableMockEl(initialCurrentTime, paused, readyState) {
   let ct = initialCurrentTime;
   const listeners = { seeked: [] };
   const el = {
@@ -1777,6 +1777,10 @@ function makeSeekableMockEl(initialCurrentTime, paused) {
     paused,
     duration: NaN,
     loop: false,
+    // readyState defaults to HAVE_ENOUGH_DATA (4) — a real seek only fires 'seeked' when
+    // readyState > 0 (HAVE_NOTHING), so these mocks must look "loaded" by default for the
+    // seek-triggering tests below to get a genuine pending Promise back.
+    readyState: readyState === undefined ? 4 : readyState,
     addEventListener(evt, fn) { if (listeners[evt]) listeners[evt].push(fn); },
     removeEventListener(evt, fn) { if (listeners[evt]) listeners[evt] = listeners[evt].filter(f => f !== fn); },
     play() { paused = false; return Promise.resolve(); }
@@ -1813,6 +1817,52 @@ try {
   ok("syncClipTime registered exactly one 'seeked' listener for the triggered seek", false);
   ok("the returned promise actually resolves once the mock 'seeked' event fires", false);
   ok("the 'seeked' listener is removed after firing (no leak)", false);
+} finally {
+  delete global.S;
+}
+
+/* --- new: export-time tolerance is tight (0.02s), live tolerance stays 0.35s --- */
+global.S = { playing: true, exporting: true };
+try {
+  const { syncClipTime } = loadFns(["syncClipTime"]);
+
+  // 0.05s drift would NOT trigger a seek under the old/live 0.35s threshold.
+  const elSmallDriftExporting = makeSeekableMockEl(0, true);
+  const rSmallDriftExporting = syncClipTime(elSmallDriftExporting, 0.05, "video");
+  ok("during export (S.exporting = true), a 0.05s drift that would NOT seek under the live 0.35s threshold DOES trigger a seek (returns a Promise, not null)",
+    rSmallDriftExporting instanceof Promise);
+} catch (e) {
+  ok("during export (S.exporting = true), a 0.05s drift that would NOT seek under the live 0.35s threshold DOES trigger a seek (returns a Promise, not null)", false, e.message);
+} finally {
+  delete global.S;
+}
+
+/* --- new: a seek that can't possibly fire 'seeked' must not hand back a hanging Promise --- */
+global.S = { playing: true };
+try {
+  const { syncClipTime } = loadFns(["syncClipTime"]);
+
+  // readyState === 0 (HAVE_NOTHING) after the currentTime write: per spec, no seek algorithm
+  // runs and 'seeked' never fires — syncClipTime must recognize this and return null instead
+  // of a Promise that would hang until the 2000ms timeout, every single affected frame.
+  const elNotLoaded = makeSeekableMockEl(0, true, 0);
+  const rNotLoaded = syncClipTime(elNotLoaded, 5, "video");
+  ok("syncClipTime returns null (not a hanging Promise) when readyState is 0 (HAVE_NOTHING) after the seek attempt",
+    rNotLoaded === null);
+
+  // the currentTime setter throwing (existing try/catch case): same reasoning — no seek ever
+  // happened, so don't hand back a Promise that can only resolve via the 2000ms timeout.
+  const elThrows = makeSeekableMockEl(0, true);
+  Object.defineProperty(elThrows, "currentTime", {
+    get() { return 0; },
+    set() { throw new Error("simulated currentTime setter failure"); }
+  });
+  const rThrows = syncClipTime(elThrows, 5, "video");
+  ok("syncClipTime returns null (not a hanging Promise) when the currentTime setter throws",
+    rThrows === null);
+} catch (e) {
+  ok("syncClipTime returns null (not a hanging Promise) when readyState is 0 (HAVE_NOTHING) after the seek attempt", false, e.message);
+  ok("syncClipTime returns null (not a hanging Promise) when the currentTime setter throws", false);
 } finally {
   delete global.S;
 }

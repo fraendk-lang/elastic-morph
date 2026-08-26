@@ -4718,7 +4718,7 @@ async function renderExportFrame(i, fps, feat, dur, t0) {
     if (idx !== S.lastCueApplied) { S.lastCueApplied = idx; if (idx >= 0) applyCue(S.cues[idx]); }
   }
   // v121: pick the active Video Timeline clip deterministically too, awaiting any pending
-  // seek below so frame-accurate video capture is guaranteed (was deferred, now fixed)
+  // seek below so HQ export never captures a frame before its seek has landed
   const pending = updateBgVideoTimeline(t);
   if (pending.length) await Promise.all(pending);
   tickCueTransition(dt);
@@ -4941,24 +4941,39 @@ function syncClipTime(el, targetT, kind) {
   // forever and this seeks to a new (clamped, wrong) position on literally every frame.
   const d = el.duration;
   if (el.loop && isFinite(d) && d > 0.1) targetT = targetT % d;
-  // Only seek when actually out of sync (>0.35s drift) — NOT just because the clip is
-  // paused. A currentTime write is a real browser-level seek even when the target equals
-  // the video's current position: readyState drops (HAVE_NOTHING/HAVE_METADATA) for a
-  // couple frames while it "re-settles", which paints as a brief pop/hitch right as every
-  // clip starts. Clips normally start already sitting at (or very near) their correct
-  // position, so this redundant self-seek was firing on essentially every clip activation.
+  // Only seek when actually out of sync — NOT just because the clip is paused. A
+  // currentTime write is a real browser-level seek even when the target equals the video's
+  // current position: readyState drops (HAVE_NOTHING/HAVE_METADATA) for a couple frames
+  // while it "re-settles", which paints as a brief pop/hitch right as every clip starts.
+  // Clips normally start already sitting at (or very near) their correct position, so this
+  // redundant self-seek was firing on essentially every clip activation.
+  //
+  // live: 0.35s tolerance avoids the redundant self-seek hitch explained above.
+  // export: the clip is decoupled from frame()'s live playback loop entirely — nothing
+  // else advances it — and every frame here is now awaited, so seek on any real drift.
+  const tol = S.exporting ? 0.02 : 0.35;
   let seekPromise = null;
-  if (Math.abs(el.currentTime - targetT) > 0.35) {
+  if (Math.abs(el.currentTime - targetT) > tol) {
     // Returned so HQ export (renderExportFrame) can await the seek actually landing before
     // capturing the frame — the live 60fps loop ignores this return value entirely and keeps
     // behaving exactly as before, since an ignored Promise/null is as inert as an ignored
     // undefined was.
-    seekPromise = new Promise(resolve => {
-      const onSeeked = () => { el.removeEventListener("seeked", onSeeked); resolve(); };
-      el.addEventListener("seeked", onSeeked);
-      setTimeout(() => { el.removeEventListener("seeked", onSeeked); resolve(); }, 2000);
-    });
-    try { el.currentTime = Math.max(0, targetT); } catch (e) { }
+    //
+    // Only build the promise (listener + timer) if the write actually has a chance of firing
+    // 'seeked': it didn't throw, and readyState > 0 (per spec, writing currentTime while
+    // HAVE_NOTHING just sets the default start position — no seek algorithm runs, no
+    // 'seeked' event ever fires). Otherwise every affected frame would burn the full 2000ms
+    // timeout for a seek that was never going to land, repeatedly.
+    let seeked = false;
+    try { el.currentTime = Math.max(0, targetT); seeked = el.readyState > 0; } catch (e) { }
+    if (seeked) {
+      seekPromise = new Promise(resolve => {
+        let tid;
+        const onSeeked = () => { clearTimeout(tid); el.removeEventListener("seeked", onSeeked); resolve(); };
+        el.addEventListener("seeked", onSeeked);
+        tid = setTimeout(() => { el.removeEventListener("seeked", onSeeked); resolve(); }, 2000);
+      });
+    }
   }
   if (el.paused && S.playing) el.play().catch(() => { });
   return seekPromise;
