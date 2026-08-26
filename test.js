@@ -1954,6 +1954,43 @@ ok("addBgVidClipAt's loadedmetadata listener calls captureVideoClipThumb(cue) af
   return durIdx >= 0 && thumbIdx >= 0 && durIdx < thumbIdx;
 })());
 
+section("Video Timeline thumbnails — drawBgVidTL renders cached/live thumbnails");
+
+ok("drawBgVidTL clips to each block's region before drawing a thumbnail into it", (() => {
+  const fn = extractFn("drawBgVidTL");
+  return !!fn && fn.includes('c.beginPath(); c.rect(x0, by, w, bh); c.clip();');
+})());
+
+ok("drawBgVidTL picks cue.el for image-kind clips and cue.thumb for video-kind clips", (() => {
+  const fn = extractFn("drawBgVidTL");
+  return !!fn && fn.includes('const src = cue.kind === "image" ? cue.el : cue.thumb;');
+})());
+
+ok("drawBgVidTL uses clipElReady for image dimensions and the cached canvas's own width/height for video thumbnails", (() => {
+  const fn = extractFn("drawBgVidTL");
+  return !!fn
+    && fn.includes('cue.kind === "image" ? clipElReady(cue.el)')
+    && fn.includes('{ w: cue.thumb.width, h: cue.thumb.height }');
+})());
+
+ok("drawBgVidTL uses cover-fit (Math.max) scaling for the thumbnail, matching drawClip's cover behavior elsewhere", (() => {
+  const fn = extractFn("drawBgVidTL");
+  return !!fn && fn.includes("const s = Math.max(w / dim.w, bh / dim.h)");
+})());
+
+ok("the thumbnail draw happens before the existing selection-tint fill (thumbnail sits underneath the tint, not on top)", (() => {
+  const fn = extractFn("drawBgVidTL");
+  if (!fn) return false;
+  const thumbIdx = fn.indexOf("c.drawImage(src,");
+  const fillIdx = fn.indexOf('c.fillStyle = sel ? "rgba(139,92,246,0.45)"');
+  return thumbIdx >= 0 && fillIdx >= 0 && thumbIdx < fillIdx;
+})());
+
+ok("drawBgVidTL still skips the thumbnail draw gracefully when no source/dimensions are available yet (no thumbnail, still loading)", (() => {
+  const fn = extractFn("drawBgVidTL");
+  return !!fn && fn.includes("if (src && dim) {");
+})());
+
 (() => {
   const cueEl = makeSeekableMockEl(5, true);   // starts away from t=0's target (0), so the
                                                  // first activation below triggers a real seek

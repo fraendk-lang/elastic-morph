@@ -9935,21 +9935,31 @@ function drawBgVidTL() {
   }
   S.bgVidCues.forEach((cue, i) => {
     const x0 = cue.t / dur * W, w = Math.max(4, bgVidClipVisualDur(i) / dur * W), sel = i === S.bgVidTLSel;
+    const by = H * 0.12, bh = H * 0.76;
+    const src = cue.kind === "image" ? cue.el : cue.thumb;
+    const dim = cue.kind === "image" ? clipElReady(cue.el) : (cue.thumb ? { w: cue.thumb.width, h: cue.thumb.height } : null);
+    if (src && dim) {
+      c.save();
+      c.beginPath(); c.rect(x0, by, w, bh); c.clip();
+      const s = Math.max(w / dim.w, bh / dim.h), dw = dim.w * s, dh = dim.h * s;
+      c.drawImage(src, x0 + (w - dw) / 2, by + (bh - dh) / 2, dw, dh);
+      c.restore();
+    }
     c.fillStyle = sel ? "rgba(139,92,246,0.45)" : "rgba(139,92,246,0.22)";
     c.strokeStyle = sel ? "#ffffff" : "#8b5cf6"; c.lineWidth = sel ? 2 : 1;
-    c.fillRect(x0, H * 0.12, w, H * 0.76);
-    c.strokeRect(x0, H * 0.12, w, H * 0.76);
+    c.fillRect(x0, by, w, bh);
+    c.strokeRect(x0, by, w, bh);
     c.fillStyle = sel ? "#ffffff" : "#d8ccfa";
     c.font = "11px -apple-system, sans-serif"; c.textAlign = "left";
-    c.fillText(cue.name || "Clip", x0 + 5, H * 0.12 + 14);
+    c.fillText(cue.name || "Clip", x0 + 5, by + 14);
     if (cue.transType && cue.transType !== "cut" && cue.transDur > 0) {
       c.fillStyle = "#4be1e8";
-      c.beginPath(); c.moveTo(x0, H * 0.12); c.lineTo(x0 + 10, H * 0.12); c.lineTo(x0, H * 0.12 + 10); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(x0, by); c.lineTo(x0 + 10, by); c.lineTo(x0, by + 10); c.closePath(); c.fill();
     }
     if (cue.kind === "image") {
       c.fillStyle = "rgba(216,204,250,0.55)";
       c.font = "9px -apple-system, sans-serif"; c.textAlign = "right";
-      c.fillText("IMG", x0 + w - 4, H * 0.12 + H * 0.76 - 4);
+      c.fillText("IMG", x0 + w - 4, by + bh - 4);
       c.textAlign = "left";
     }
   });
