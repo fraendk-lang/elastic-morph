@@ -1525,6 +1525,36 @@ ok("drawBgVidTL draws an IMG label for image-kind cues only", (() => {
     && fn.includes('c.fillText("IMG",');
 })());
 
+/* ---------------- Video Timeline clip editing — drag-edge resize/trim ----------- */
+section("Video Timeline clip editing — drag-edge resize/trim");
+
+ok("bgVidTLResize state variable is declared alongside bgVidTLDrag/bgVidTLScrub", (() => {
+  return script.includes("let bgVidTLOpen = false, bgVidTLDrag = null, bgVidTLScrub = false, bgVidTLResize = null;");
+})());
+
+ok("EDGE_GRAB_PX constant is 6", script.includes("const EDGE_GRAB_PX = 6;"));
+
+ok("bgVidTLPointerDown checks for an edge hit before falling through to body-drag/scrub", (() => {
+  const fn = extractFn("bgVidTLPointerDown");
+  return !!fn
+    && fn.includes('bgVidTLResize = { cue, edge: "start" };')
+    && fn.includes('bgVidTLResize = { cue, edge: "end" };');
+})());
+
+ok("bgVidTLPointerMove handles the resize branch, clamping end-drag to the next cue's start and start-drag to the previous cue's start", (() => {
+  const fn = extractFn("bgVidTLPointerMove");
+  return !!fn
+    && fn.includes("if (bgVidTLResize) {")
+    && fn.includes("cue.dur = Math.max(0.3, Math.min(gapEnd - cue.t, mouseT - cue.t));")
+    && fn.includes("const newStart = Math.max(gapStart, Math.min(end - 0.3, mouseT));")
+    && fn.includes("cue.t = newStart; cue.dur = end - newStart;");
+})());
+
+ok("bgVidTLPointerUp clears bgVidTLResize", (() => {
+  const fn = extractFn("bgVidTLPointerUp");
+  return !!fn && fn.includes("bgVidTLResize = null;");
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);

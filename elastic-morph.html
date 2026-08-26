@@ -9817,7 +9817,8 @@ window.addEventListener("mouseup", setPointerUp);
 window.addEventListener("touchend", setPointerUp);
 
 /* ---- v121: Video Timeline window (same interaction pattern as the Set Editor above) ---- */
-let bgVidTLOpen = false, bgVidTLDrag = null, bgVidTLScrub = false;
+let bgVidTLOpen = false, bgVidTLDrag = null, bgVidTLScrub = false, bgVidTLResize = null;
+const EDGE_GRAB_PX = 6;
 const bgVidTLTrack = $("bgVidTLTrack");
 function bgVidTLDuration() { return setDuration(); }
 function openBgVidTLEditor() {
@@ -9931,21 +9932,41 @@ function bgVidTLPointerDown(e) {
   const x = (bgVidClientXOf(e) - r.left) / r.width * W;
   let hit = -1;
   for (let i = 0; i < S.bgVidCues.length; i++) {
-    const x0 = S.bgVidCues[i].t / dur * W, w = Math.max(4, bgVidClipVisualDur(i) / dur * W);
+    const cue = S.bgVidCues[i];
+    const x0 = cue.t / dur * W, w = Math.max(4, bgVidClipVisualDur(i) / dur * W);
+    if (x >= x0 - EDGE_GRAB_PX && x <= x0 + EDGE_GRAB_PX) { bgVidTLResize = { cue, edge: "start" }; S.bgVidTLSel = i; renderBgVidTLPanel(); return; }
+    if (x >= x0 + w - EDGE_GRAB_PX && x <= x0 + w + EDGE_GRAB_PX) { bgVidTLResize = { cue, edge: "end" }; S.bgVidTLSel = i; renderBgVidTLPanel(); return; }
     if (x >= x0 && x <= x0 + w) { hit = i; break; }
   }
   if (hit >= 0) { S.bgVidTLSel = hit; bgVidTLDrag = S.bgVidCues[hit]; renderBgVidTLPanel(); }
   else { bgVidTLScrub = true; seekFraction(Math.max(0, Math.min(1, x / W))); }
 }
 function bgVidTLPointerMove(e) {
-  if (!bgVidTLOpen || (!bgVidTLDrag && !bgVidTLScrub)) return;
+  if (!bgVidTLOpen || (!bgVidTLDrag && !bgVidTLScrub && !bgVidTLResize)) return;
   const r = bgVidTLTrack.getBoundingClientRect(), W = bgVidTLTrack.width, dur = bgVidTLDuration();
   const x = (bgVidClientXOf(e) - r.left) / r.width * W;
-  if (bgVidTLDrag) { bgVidTLDrag.t = Math.max(0, Math.min(dur, x / W * dur)); sortBgVidCues(); S.bgVidTLSel = S.bgVidCues.indexOf(bgVidTLDrag); renderBgVidTLPanel(); }
-  else if (bgVidTLScrub) seekFraction(Math.max(0, Math.min(1, x / W)));
+  if (bgVidTLResize) {
+    const { cue, edge } = bgVidTLResize;
+    const i = S.bgVidCues.indexOf(cue);
+    const gapEnd = i + 1 < S.bgVidCues.length ? S.bgVidCues[i + 1].t : dur;
+    const gapStart = i > 0 ? S.bgVidCues[i - 1].t : 0;
+    const mouseT = Math.max(0, Math.min(dur, x / W * dur));
+    if (edge === "end") {
+      cue.dur = Math.max(0.3, Math.min(gapEnd - cue.t, mouseT - cue.t));
+    } else {
+      const end = cue.t + cue.dur;
+      const newStart = Math.max(gapStart, Math.min(end - 0.3, mouseT));
+      cue.t = newStart; cue.dur = end - newStart;
+    }
+    renderBgVidTLPanel();
+  } else if (bgVidTLDrag) {
+    bgVidTLDrag.t = Math.max(0, Math.min(dur, x / W * dur)); sortBgVidCues(); S.bgVidTLSel = S.bgVidCues.indexOf(bgVidTLDrag); renderBgVidTLPanel();
+  } else if (bgVidTLScrub) {
+    seekFraction(Math.max(0, Math.min(1, x / W)));
+  }
   if (e.cancelable) e.preventDefault();
 }
-function bgVidTLPointerUp() { bgVidTLDrag = null; bgVidTLScrub = false; }
+function bgVidTLPointerUp() { bgVidTLDrag = null; bgVidTLScrub = false; bgVidTLResize = null; }
 $("bgVidTLOpenBtn").addEventListener("click", openBgVidTLEditor);
 $("bgVidTLCloseBtn").addEventListener("click", closeBgVidTLEditor);
 $("bgVidTLAddBtn").addEventListener("click", () => $("bgVidTLInput").click());
