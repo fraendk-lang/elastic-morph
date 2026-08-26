@@ -4965,7 +4965,7 @@ function syncClipTime(el, targetT, kind) {
 
 function updateBgVideoTimeline(t) {
   S.bgVidTrans = null;
-  if (!S.bgVidCues.length) return;   // legacy single-video mode: drawBgVideo() drives S.bgVid.el untouched
+  if (!S.bgVidCues.length) return [];   // legacy single-video mode: drawBgVideo() drives S.bgVid.el untouched
   let idx = -1;
   for (let i = 0; i < S.bgVidCues.length; i++) { if (S.bgVidCues[i].t <= t + 0.03) idx = i; else break; }
   let cue = idx >= 0 ? S.bgVidCues[idx] : null;
@@ -4974,8 +4974,10 @@ function updateBgVideoTimeline(t) {
   if (cue && t >= cue.t + cue.dur + 0.03) cue = null;
   const next = idx + 1 < S.bgVidCues.length ? S.bgVidCues[idx + 1] : null;
 
+  const pending = [];
   if (cue && cue.el) {
-    syncClipTime(cue.el, t - cue.t, cue.kind);
+    const p = syncClipTime(cue.el, t - cue.t, cue.kind);
+    if (p) pending.push(p);
     S.bgVid.el = cue.el; S.bgVid.src = cue.src; S.bgVid.on = true; S.bgVid._active = true;
   } else {
     // Only the transient render flag goes false here — S.bgVid.on is the persisted #bgVidOn
@@ -5009,11 +5011,13 @@ function updateBgVideoTimeline(t) {
   if (cue && next && next.el && next.transType && next.transType !== "cut" && next.transDur > 0) {
     const winStart = next.t - next.transDur;
     if (t >= winStart && t < next.t) {
-      syncClipTime(next.el, t - winStart, next.kind);
+      const p2 = syncClipTime(next.el, t - winStart, next.kind);
+      if (p2) pending.push(p2);
       const p = Math.min(1, Math.max(0, (t - winStart) / next.transDur));
       S.bgVidTrans = { from: cue, to: next, p, type: next.transType };
     }
   }
+  return pending;
 }
 
 function clipElReady(el) {

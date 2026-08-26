@@ -1817,6 +1817,52 @@ try {
   delete global.S;
 }
 
+(() => {
+  const cueEl = makeSeekableMockEl(5, true);   // starts away from t=0's target (0), so the
+                                                 // first activation below triggers a real seek
+  global.S = {
+    bgVidCues: [
+      { t: 0, dur: 10, fadeIn: 0, fadeOut: 0, transType: "cut", transDur: 0, kind: "video", el: cueEl }
+    ],
+    bgVid: { on: false, el: null, src: null },
+    bgVidTrans: null,
+    playing: true
+  };
+  try {
+    const { updateBgVideoTimeline } = loadFns(["updateBgVideoTimeline", "syncClipTime"]);
+
+    const pendingLegacy = (() => {
+      const savedCues = global.S.bgVidCues;
+      global.S.bgVidCues = [];
+      const r = updateBgVideoTimeline(5);
+      global.S.bgVidCues = savedCues;
+      return r;
+    })();
+    ok("updateBgVideoTimeline returns an empty array on the legacy zero-cues path", Array.isArray(pendingLegacy) && pendingLegacy.length === 0);
+
+    // t=0: cue activates, targetT = 0 - cue.t = 0, but cueEl.currentTime is still 5 (its
+    // initial mock value) — drift |5 - 0| = 5 > 0.35, so this is a real, seek-triggering call.
+    const pendingFirstActivation = updateBgVideoTimeline(0);
+    ok("updateBgVideoTimeline returns an array containing the pending seek when a cue's video element genuinely seeks on activation",
+      Array.isArray(pendingFirstActivation) && pendingFirstActivation.length === 1 && pendingFirstActivation[0] instanceof Promise);
+
+    // t=0.02: syncClipTime's mock setter updates ct synchronously to whatever currentTime was
+    // last assigned, so by now cueEl.currentTime reads 0 (the Task 1 seek path always sets
+    // el.currentTime = Math.max(0, targetT) synchronously, independent of the real browser's
+    // async decode) — targetT is now 0.02, drift |0 - 0.02| = 0.02, well under 0.35, so no
+    // further seek is needed even without the mock's 'seeked' event ever having fired.
+    const pendingSteady = updateBgVideoTimeline(0.02);
+    ok("updateBgVideoTimeline returns an empty array once the clip is already tracking closely (no further seek needed)",
+      Array.isArray(pendingSteady) && pendingSteady.length === 0);
+  } catch (e) {
+    ok("updateBgVideoTimeline returns an empty array on the legacy zero-cues path", false, e.message);
+    ok("updateBgVideoTimeline returns an array containing the pending seek when a cue's video element genuinely seeks on activation", false);
+    ok("updateBgVideoTimeline returns an empty array once the clip is already tracking closely (no further seek needed)", false);
+  } finally {
+    delete global.S;
+  }
+})();
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
