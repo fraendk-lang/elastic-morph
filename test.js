@@ -1348,12 +1348,30 @@ section("Video Timeline — clip-start hitch fix (syncClipTime)");
     syncClipTime(elSongPaused, 0.1);
     ok("syncClipTime does not call play() when the song itself isn't playing (S.playing = false)",
       !elSongPaused._playCalled());
+
+    // --- new for Task 3 of the clip-editing plan, inserted before the closing `} catch (e) {` ---
+    global.S.playing = true;
+    const imgEl = makeMockEl(0, true);
+    syncClipTime(imgEl, 3, "image");
+    ok("syncClipTime is a no-op for kind='image' (no seek, no play)",
+      imgEl._seekCount() === 0 && !imgEl._playCalled());
+
+    const vidEl = makeMockEl(0, true);
+    syncClipTime(vidEl, 0.1, "video");
+    ok("syncClipTime still behaves normally for kind='video'", vidEl._playCalled() && vidEl._seekCount() === 0);
+
+    const vidElNoKind = makeMockEl(0, true);
+    syncClipTime(vidElNoKind, 0.1);
+    ok("syncClipTime treats a missing kind argument as video (backward compatible)", vidElNoKind._playCalled());
   } catch (e) {
     ok("syncClipTime does not force a redundant seek when drift is <=0.35s, even while paused (the actual fix — this used to always reseek on `|| el.paused` alone)", false, e.message);
     ok("syncClipTime still calls play() on that paused-but-in-sync clip", false);
     ok("syncClipTime still seeks when drift genuinely exceeds 0.35s (e.g. after a scrub)", false);
     ok("syncClipTime does not seek a clip that's already playing in sync (small drift, not paused)", false);
     ok("syncClipTime does not call play() when the song itself isn't playing (S.playing = false)", false);
+    ok("syncClipTime is a no-op for kind='image' (no seek, no play)", false);
+    ok("syncClipTime still behaves normally for kind='video'", false);
+    ok("syncClipTime treats a missing kind argument as video (backward compatible)", false);
   } finally {
     delete global.S;
   }
@@ -1445,6 +1463,16 @@ ok("drawClip uses clipElReady instead of a raw readyState/videoWidth check", (()
 ok("drawGlitchClip uses clipElReady instead of a raw readyState/videoWidth check", (() => {
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn && fn.includes("const dim = clipElReady(el); if (!dim) return; const vw = dim.w, vh = dim.h;\n    const hw = Math.max(1, Math.round(W / 2))");
+})());
+
+ok("updateBgVideoTimeline passes cue.kind to syncClipTime for the active cue", (() => {
+  const fn = extractFn("updateBgVideoTimeline");
+  return !!fn && fn.includes("syncClipTime(cue.el, t - cue.t, cue.kind);");
+})());
+
+ok("updateBgVideoTimeline passes next.kind to syncClipTime for the incoming transition clip", (() => {
+  const fn = extractFn("updateBgVideoTimeline");
+  return !!fn && fn.includes("syncClipTime(next.el, t - winStart, next.kind);");
 })());
 
 /* ---------------- Video Timeline UI selects: wire 5 new transition types ----------- */

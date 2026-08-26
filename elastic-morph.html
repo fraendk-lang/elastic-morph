@@ -4932,8 +4932,8 @@ function drawBgVideo(W, H) {
    source of truth for "which clip is active at time t". */
 function sortBgVidCues() { S.bgVidCues.sort((a, b) => a.t - b.t); }
 
-function syncClipTime(el, targetT) {
-  if (!el) return;
+function syncClipTime(el, targetT, kind) {
+  if (!el || kind === "image") return;
   // Only seek when actually out of sync (>0.35s drift) — NOT just because the clip is
   // paused. A currentTime write is a real browser-level seek even when the target equals
   // the video's current position: readyState drops (HAVE_NOTHING/HAVE_METADATA) for a
@@ -4955,14 +4955,14 @@ function updateBgVideoTimeline(t) {
   const next = idx + 1 < S.bgVidCues.length ? S.bgVidCues[idx + 1] : null;
 
   if (cue && cue.el) {
-    syncClipTime(cue.el, t - cue.t);
+    syncClipTime(cue.el, t - cue.t, cue.kind);
     S.bgVid.el = cue.el; S.bgVid.src = cue.src; S.bgVid.on = true;
   }
 
   if (cue && next && next.el && next.transType && next.transType !== "cut" && next.transDur > 0) {
     const winStart = next.t - next.transDur;
     if (t >= winStart && t < next.t) {
-      syncClipTime(next.el, t - winStart);
+      syncClipTime(next.el, t - winStart, next.kind);
       const p = Math.min(1, Math.max(0, (t - winStart) / next.transDur));
       S.bgVidTrans = { from: cue, to: next, p, type: next.transType };
     }
