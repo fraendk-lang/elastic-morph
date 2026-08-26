@@ -1538,6 +1538,57 @@ ok("addBgVidClipAt gives every new cue fadeIn: 0 and fadeOut: 0 by default", (()
   return !!fn && fn.includes("fadeIn: 0, fadeOut: 0,");
 })());
 
+(() => {
+  global.S = {
+    bgVidCues: [
+      { t: 0,  dur: 10, fadeIn: 2,   fadeOut: 2,   transType: "dissolve", transDur: 1, kind: "video", el: { id: "A" } },
+      { t: 10, dur: 10, fadeIn: 4,   fadeOut: 0,   transType: "cut",      transDur: 0, kind: "video", el: { id: "B" } },
+      { t: 20, dur: 10, fadeIn: 1,   fadeOut: 0,   transType: "dissolve", transDur: 1, kind: "video", el: { id: "C" } },
+      { t: 40, dur: 3,  fadeIn: 2.5, fadeOut: 2.5, transType: "cut",      transDur: 0, kind: "video", el: { id: "D" } }
+    ],
+    bgVid: { on: false, el: null, src: null },
+    bgVidTrans: null,
+    playing: true
+  };
+  global.syncClipTime = () => { };
+  try {
+    const { updateBgVideoTimeline } = loadFns(["updateBgVideoTimeline"]);
+
+    updateBgVideoTimeline(1);
+    ok("fadeIn applies to the very first clip on the timeline even though its default transType is not 'cut' (no previous cue exists to transition from, so the transition is inert)",
+      Math.abs(global.S.bgVid._fadeAlpha - 0.5) < 1e-9);
+
+    updateBgVideoTimeline(9);
+    ok("fadeOut applies when the next cue's incoming transition is a real 'cut' (no cross-fade to suppress it)",
+      Math.abs(global.S.bgVid._fadeAlpha - 0.5) < 1e-9);
+
+    updateBgVideoTimeline(11);
+    ok("fadeIn applies right after a real 'cut' boundary (own transType is cut, so no transition is suppressing it)",
+      Math.abs(global.S.bgVid._fadeAlpha - 0.25) < 1e-9);
+
+    updateBgVideoTimeline(20.5);
+    ok("fadeIn is suppressed when a real (non-cut, non-zero-duration) incoming transition exists at that edge",
+      global.S.bgVid._fadeAlpha === 1);
+
+    updateBgVideoTimeline(41);
+    ok("overlapping fadeIn and fadeOut on a short clip take the smaller (more-faded) of the two ramps — here fadeIn is the binding constraint",
+      Math.abs(global.S.bgVid._fadeAlpha - 0.4) < 1e-9);
+
+    updateBgVideoTimeline(42);
+    ok("the same overlapping-fade clip, later in its own window, where fadeOut becomes the binding constraint instead — proves both ramps are actually compared, not just one",
+      Math.abs(global.S.bgVid._fadeAlpha - 0.4) < 1e-9);
+  } catch (e) {
+    ok("fadeIn applies to the very first clip on the timeline even though its default transType is not 'cut' (no previous cue exists to transition from, so the transition is inert)", false, e.message);
+    ok("fadeOut applies when the next cue's incoming transition is a real 'cut' (no cross-fade to suppress it)", false);
+    ok("fadeIn applies right after a real 'cut' boundary (own transType is cut, so no transition is suppressing it)", false);
+    ok("fadeIn is suppressed when a real (non-cut, non-zero-duration) incoming transition exists at that edge", false);
+    ok("overlapping fadeIn and fadeOut on a short clip take the smaller (more-faded) of the two ramps — here fadeIn is the binding constraint", false);
+    ok("the same overlapping-fade clip, later in its own window, where fadeOut becomes the binding constraint instead — proves both ramps are actually compared, not just one", false);
+  } finally {
+    delete global.S; delete global.syncClipTime;
+  }
+})();
+
 /* ---------------- Video Timeline clip editing — UI: image file acceptance + IMG glyph ----------- */
 section("Video Timeline clip editing — UI: image file acceptance + IMG glyph");
 

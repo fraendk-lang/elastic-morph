@@ -4973,6 +4973,21 @@ function updateBgVideoTimeline(t) {
     S.bgVid._active = false;
   }
 
+  let fadeAlpha = 1;
+  if (cue) {
+    const elapsed = t - cue.t;
+    const remaining = (cue.t + cue.dur) - t;
+    const hasIncomingTransition = idx > 0 && cue.transType !== "cut" && cue.transDur > 0;
+    const hasOutgoingTransition = next && next.transType !== "cut" && next.transDur > 0;
+    if (!hasIncomingTransition && cue.fadeIn > 0 && elapsed < cue.fadeIn) {
+      fadeAlpha = Math.min(fadeAlpha, Math.max(0, elapsed / cue.fadeIn));
+    }
+    if (!hasOutgoingTransition && cue.fadeOut > 0 && remaining < cue.fadeOut) {
+      fadeAlpha = Math.min(fadeAlpha, Math.max(0, remaining / cue.fadeOut));
+    }
+  }
+  S.bgVid._fadeAlpha = fadeAlpha;
+
   if (cue && next && next.el && next.transType && next.transType !== "cut" && next.transDur > 0) {
     const winStart = next.t - next.transDur;
     if (t >= winStart && t < next.t) {
