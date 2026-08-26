@@ -9832,9 +9832,8 @@ function sizeBgVidTLTrack() {
 /* the visual width of a clip block: capped by both its own footage length (once known) and the gap to the next clip */
 function bgVidClipVisualDur(i) {
   const cue = S.bgVidCues[i];
-  const footage = (cue.el && cue.el.duration && isFinite(cue.el.duration)) ? cue.el.duration : 8;
   const nextT = i + 1 < S.bgVidCues.length ? S.bgVidCues[i + 1].t : bgVidTLDuration();
-  return Math.max(0.3, Math.min(footage, nextT - cue.t));
+  return Math.max(0.3, Math.min(cue.dur, nextT - cue.t));
 }
 function drawBgVidTL() {
   if (!bgVidTLOpen) return;
@@ -9883,12 +9882,24 @@ function renderBgVidTLPanel() {
   $("bgVidClipDelBtn").addEventListener("click", () => deleteBgVidClip(S.bgVidTLSel));
 }
 function addBgVidClipAt(t, file) {
+  const isImage = file.type.startsWith("image");
   const url = URL.createObjectURL(file);
-  const vid = document.createElement("video");
-  vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true; vid.crossOrigin = "anonymous"; vid.preload = "auto";
-  vid.addEventListener("loadedmetadata", () => { if (bgVidTLOpen) drawBgVidTL(); });
+  let el, dur;
+  if (isImage) {
+    el = document.createElement("img");
+    el.src = url;
+    dur = 5;
+  } else {
+    el = document.createElement("video");
+    el.src = url; el.loop = true; el.muted = true; el.playsInline = true; el.crossOrigin = "anonymous"; el.preload = "auto";
+    el.addEventListener("loadedmetadata", () => {
+      if (isFinite(el.duration)) cue.dur = el.duration;
+      if (bgVidTLOpen) drawBgVidTL();
+    });
+    dur = 8;
+  }
   t = Math.max(0, Math.min(bgVidTLDuration(), t));
-  const cue = { t, name: file.name.replace(/\.[^.]+$/, ""), src: url, el: vid, transType: S.bgVidTransDefault.type, transDur: S.bgVidTransDefault.dur };
+  const cue = { t, dur, name: file.name.replace(/\.[^.]+$/, ""), src: url, el, kind: isImage ? "image" : "video", transType: S.bgVidTransDefault.type, transDur: S.bgVidTransDefault.dur };
   S.bgVidCues.push(cue); sortBgVidCues();
   S.bgVidTLSel = S.bgVidCues.indexOf(cue);
   S.bgVid.on = true; $("bgVidOn").checked = true;

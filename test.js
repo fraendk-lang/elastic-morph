@@ -1359,6 +1359,58 @@ section("Video Timeline — clip-start hitch fix (syncClipTime)");
   }
 })();
 
+/* ---------------- Video Timeline: clip editing (images, resize/trim) ---------------- */
+section("Video Timeline clip editing — data model (addBgVidClipAt, bgVidClipVisualDur)");
+
+ok("addBgVidClipAt branches on file.type to detect images", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  return !!fn && fn.includes('const isImage = file.type.startsWith("image");');
+})());
+
+ok("addBgVidClipAt creates an <img> for images and a <video> for everything else", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  return !!fn
+    && fn.includes('el = document.createElement("img");')
+    && fn.includes('el = document.createElement("video");');
+})());
+
+ok("addBgVidClipAt defaults image duration to 5s and video's provisional duration to 8s", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  return !!fn && fn.includes("dur = 5;") && fn.includes("dur = 8;");
+})());
+
+ok("addBgVidClipAt's video loadedmetadata listener corrects cue.dur once real footage length is known", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  return !!fn && fn.includes("if (isFinite(el.duration)) cue.dur = el.duration;");
+})());
+
+ok("addBgVidClipAt stores kind on the cue", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  return !!fn && fn.includes('kind: isImage ? "image" : "video"') && fn.includes("dur,") ;
+})());
+
+(() => {
+  global.S = { bgVidCues: [{ t: 2, dur: 10 }, { t: 5, dur: 3 }] };
+  global.bgVidTLDuration = () => 20;
+  try {
+    const { bgVidClipVisualDur } = loadFns(["bgVidClipVisualDur"]);
+    ok("bgVidClipVisualDur caps a clip's stored dur by the gap to the next clip",
+      bgVidClipVisualDur(0) === 3);   // dur=10, but next clip starts at t=5, gap=3
+    ok("bgVidClipVisualDur uses the clip's own dur when it's smaller than the remaining gap",
+      bgVidClipVisualDur(1) === 3);   // dur=3, gap to timeline end=20-5=15, dur wins
+  } catch (e) {
+    ok("bgVidClipVisualDur caps a clip's stored dur by the gap to the next clip", false, e.message);
+    ok("bgVidClipVisualDur uses the clip's own dur when it's smaller than the remaining gap", false);
+  } finally {
+    delete global.S; delete global.bgVidTLDuration;
+  }
+})();
+
+ok("bgVidClipVisualDur no longer reads cue.el.duration (fully replaced by stored cue.dur)", (() => {
+  const fn = extractFn("bgVidClipVisualDur");
+  return !!fn && !fn.includes("cue.el.duration") && !fn.includes("cue.el &&");
+})());
+
 /* ---------------- Video Timeline UI selects: wire 5 new transition types ----------- */
 section("Video Timeline UI — transition type selects");
 
