@@ -1863,6 +1863,23 @@ try {
   }
 })();
 
+ok("renderExportFrame is declared async", (() => {
+  return script.includes("async function renderExportFrame(i, fps, feat, dur, t0) {");
+})());
+
+ok("renderExportFrame awaits Promise.all of updateBgVideoTimeline's pending seeks before drawScene paints the frame", (() => {
+  const fn = extractFn("renderExportFrame");
+  return !!fn
+    && fn.includes("const pending = updateBgVideoTimeline(t);")
+    && fn.includes("if (pending.length) await Promise.all(pending);")
+    && fn.indexOf("const pending = updateBgVideoTimeline(t);") < fn.indexOf("drawScene(dt);");
+})());
+
+ok("the HQ export loop awaits renderExportFrame before capturing the canvas into a VideoFrame", (() => {
+  return script.includes("await renderExportFrame(i, fps, feat, dur, startT);")
+    && !script.includes("      renderExportFrame(i, fps, feat, dur, startT);\n      const vf = new VideoFrame");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

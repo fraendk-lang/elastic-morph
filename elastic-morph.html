@@ -4694,7 +4694,7 @@ function buildFeatureTimeline(buf, fps) {
 /* deterministic per-frame state for the offline export (mirrors the live updateAudioFeatures math,
    but fed from the precomputed timeline + a synthetic clock instead of the realtime analyser) */
 const EXP = { time: 0, prevLoud: 0 };
-function renderExportFrame(i, fps, feat, dur, t0) {
+async function renderExportFrame(i, fps, feat, dur, t0) {
   const dt = 1 / fps, t = (t0 || 0) + i / fps;
   const fi = Math.max(0, Math.min(feat.frames - 1, Math.round(t * fps)));   // v51: feature index by absolute time (range export)
   const Mx = S.mix;   // v48: apply the audio-mixer band gains to the export too
@@ -4719,7 +4719,8 @@ function renderExportFrame(i, fps, feat, dur, t0) {
   }
   // v121: pick the active Video Timeline clip deterministically too (frame-accurate video seek
   // during HQ export is a separate, deferred problem — see project memory)
-  updateBgVideoTimeline(t);
+  const pending = updateBgVideoTimeline(t);
+  if (pending.length) await Promise.all(pending);
   tickCueTransition(dt);
   drawScene(dt);
 }
@@ -4806,7 +4807,7 @@ async function exportHQ() {
     for (let i = 0; i < total; i++) {
       if (encErr) throw encErr;
       if (S.exportCancel) throw new Error("__cancel__");
-      renderExportFrame(i, fps, feat, dur, startT);
+      await renderExportFrame(i, fps, feat, dur, startT);
       const vf = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
       vEnc.encode(vf, { keyFrame: i % (fps * 2) === 0 });
       vf.close();
