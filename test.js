@@ -1870,18 +1870,27 @@ try {
 /* ---------------- Video Timeline: clip thumbnails ---------------- */
 section("Video Timeline thumbnails — captureVideoClipThumb");
 
-function makeThumbMockVideoEl(duration, videoWidth, videoHeight) {
-  let ct = 0;
-  const listeners = { seeked: [] };
+/* captureVideoClipThumb now creates its OWN throwaway <video> element internally
+   (decoupled from cue.el, which is the live-playback element syncClipTime drives) —
+   so the mock must simulate the two-stage loadedmetadata -> seeked flow on an element
+   the test only gets a handle to via the document.createElement("video") mock, not via cue.el. */
+function makeThumbMockVideoEl() {
+  let ct = 0, src = "";
+  const listeners = { seeked: [], loadedmetadata: [] };
   const el = {
     get currentTime() { return ct; },
     set currentTime(v) { ct = v; },
-    duration, videoWidth, videoHeight,
+    get src() { return src; },
+    set src(v) { src = v; },
+    duration: undefined, videoWidth: undefined, videoHeight: undefined,
+    muted: false, preload: "", crossOrigin: null,
     addEventListener(evt, fn) { if (listeners[evt]) listeners[evt].push(fn); },
     removeEventListener(evt, fn) { if (listeners[evt]) listeners[evt] = listeners[evt].filter(f => f !== fn); }
   };
+  el._fireLoadedMeta = () => { listeners.loadedmetadata.slice().forEach(fn => fn()); };
   el._fireSeeked = () => { listeners.seeked.slice().forEach(fn => fn()); };
   el._seekedListenerCount = () => listeners.seeked.length;
+  el._loadedMetaListenerCount = () => listeners.loadedmetadata.length;
   return el;
 }
 
@@ -1890,8 +1899,14 @@ try {
   const { captureVideoClipThumb } = loadFns(["captureVideoClipThumb"]);
 
   const canvases = [];
+  const videoEls = [];
   global.document = {
     createElement(tag) {
+      if (tag === "video") {
+        const v = makeThumbMockVideoEl();
+        videoEls.push(v);
+        return v;
+      }
       const c = { _tag: tag, width: 0, height: 0, _drawImageCalls: 0 };
       c.getContext = () => ({ drawImage: () => { c._drawImageCalls++; } });
       canvases.push(c);
@@ -1899,11 +1914,26 @@ try {
     }
   };
 
-  const el1 = makeThumbMockVideoEl(10, 1920, 1080);
-  const cue1 = { el: el1 };
+  // proxy stands in for cue.el (the live-playback element) — any get/set on it is a bug,
+  // since the whole point of this round's fix is that captureVideoClipThumb never touches it
+  let elAccessed = false;
+  const sentinelEl = new Proxy({}, {
+    get(target, prop) { elAccessed = true; return target[prop]; },
+    set(target, prop, val) { elAccessed = true; target[prop] = val; return true; }
+  });
+
+  const cue1 = { src: "blob:clip-1", el: sentinelEl };
   captureVideoClipThumb(cue1);
-  ok("captureVideoClipThumb attaches the 'seeked' listener before the seek lands (synchronously registered)",
-    el1._seekedListenerCount() === 1);
+  const el1 = videoEls[videoEls.length - 1];
+  ok("captureVideoClipThumb creates its own throwaway <video> element and loads cue.src into it (not cue.el)",
+    !!el1 && el1.src === "blob:clip-1");
+  ok("the throwaway element attaches the 'loadedmetadata' listener before that event lands (synchronously registered), and has not seeked yet",
+    el1._loadedMetaListenerCount() === 1 && el1._seekedListenerCount() === 0);
+
+  el1.duration = 10; el1.videoWidth = 1920; el1.videoHeight = 1080;
+  el1._fireLoadedMeta();
+  ok("on 'loadedmetadata', the seeked listener is attached before the seek lands (synchronously registered) and the loadedmetadata listener is removed",
+    el1._seekedListenerCount() === 1 && el1._loadedMetaListenerCount() === 0);
   ok("captureVideoClipThumb seeks to the 0.5s cap when duration/2 (5s) would be further out",
     el1.currentTime === 0.5);
 
@@ -1913,25 +1943,35 @@ try {
     !!cue1.thumb && cue1.thumb._drawImageCalls === 1);
   ok("the cached thumbnail is scaled so its long edge is 120px (1920x1080 -> 120x68 rounded)",
     cue1.thumb.width === 120 && cue1.thumb.height === 68);
+  ok("the throwaway element's src is cleared after capture (no dangling load left behind)", el1.src === "");
+  ok("cue.el (the live-playback element) is never read or mutated by captureVideoClipThumb", !elAccessed);
 
-  const el2 = makeThumbMockVideoEl(0.4, 640, 480);
-  const cue2 = { el: el2 };
+  const cue2 = { src: "blob:clip-2" };
   captureVideoClipThumb(cue2);
+  const el2 = videoEls[videoEls.length - 1];
+  el2.duration = 0.4; el2.videoWidth = 640; el2.videoHeight = 480;
+  el2._fireLoadedMeta();
   ok("captureVideoClipThumb seeks to duration/2 (0.2s) when that's less than the 0.5s cap",
     el2.currentTime === 0.2);
 
-  const el3 = makeThumbMockVideoEl(10, 0, 0);
-  const cue3 = { el: el3 };
+  const cue3 = { src: "blob:clip-3" };
   captureVideoClipThumb(cue3);
+  const el3 = videoEls[videoEls.length - 1];
+  el3.duration = 10; el3.videoWidth = 0; el3.videoHeight = 0;
+  el3._fireLoadedMeta();
   el3._fireSeeked();
   ok("when videoWidth/videoHeight are still 0 at 'seeked' time (metadata not really ready), no thumbnail is created",
     cue3.thumb === undefined);
 } catch (e) {
-  ok("captureVideoClipThumb attaches the 'seeked' listener before the seek lands (synchronously registered)", false, e.message);
+  ok("captureVideoClipThumb creates its own throwaway <video> element and loads cue.src into it (not cue.el)", false, e.message);
+  ok("the throwaway element attaches the 'loadedmetadata' listener before that event lands (synchronously registered), and has not seeked yet", false);
+  ok("on 'loadedmetadata', the seeked listener is attached before the seek lands (synchronously registered) and the loadedmetadata listener is removed", false);
   ok("captureVideoClipThumb seeks to the 0.5s cap when duration/2 (5s) would be further out", false);
   ok("on 'seeked', the listener is removed (no leak)", false);
   ok("on 'seeked', a cached thumbnail canvas is created and drawn into exactly once", false);
   ok("the cached thumbnail is scaled so its long edge is 120px (1920x1080 -> 120x68 rounded)", false);
+  ok("the throwaway element's src is cleared after capture (no dangling load left behind)", false);
+  ok("cue.el (the live-playback element) is never read or mutated by captureVideoClipThumb", false);
   ok("captureVideoClipThumb seeks to duration/2 (0.2s) when that's less than the 0.5s cap", false);
   ok("when videoWidth/videoHeight are still 0 at 'seeked' time (metadata not really ready), no thumbnail is created", false);
 } finally {
@@ -1989,6 +2029,20 @@ ok("the thumbnail draw happens before the existing selection-tint fill (thumbnai
 ok("drawBgVidTL still skips the thumbnail draw gracefully when no source/dimensions are available yet (no thumbnail, still loading)", (() => {
   const fn = extractFn("drawBgVidTL");
   return !!fn && fn.includes("if (src && dim) {");
+})());
+
+ok("drawBgVidTL wraps the clip-name label and IMG badge text draws in a shadow so they stay legible over any thumbnail brightness", (() => {
+  const fn = extractFn("drawBgVidTL");
+  if (!fn) return false;
+  const shadowIdx = fn.indexOf('c.shadowColor = "rgba(0,0,0,0.85)"');
+  if (shadowIdx < 0) return false;
+  const saveIdx = fn.lastIndexOf("c.save();", shadowIdx);
+  const labelIdx = fn.indexOf('c.fillText(cue.name || "Clip", x0 + 5, by + 14);');
+  const imgIdx = fn.indexOf('c.fillText("IMG", x0 + w - 4, by + bh - 4);');
+  const restoreIdx = imgIdx >= 0 ? fn.indexOf("c.restore();", imgIdx) : -1;
+  return saveIdx >= 0 && labelIdx >= 0 && imgIdx >= 0 && restoreIdx >= 0
+    && saveIdx < shadowIdx && shadowIdx < labelIdx && labelIdx < imgIdx && imgIdx < restoreIdx
+    && fn.includes("c.shadowBlur = 3") && fn.includes("c.shadowBlur = 0");
 })());
 
 (() => {

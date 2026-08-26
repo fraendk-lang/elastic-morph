@@ -9949,12 +9949,16 @@ function drawBgVidTL() {
     c.strokeStyle = sel ? "#ffffff" : "#8b5cf6"; c.lineWidth = sel ? 2 : 1;
     c.fillRect(x0, by, w, bh);
     c.strokeRect(x0, by, w, bh);
+    c.save();
+    c.shadowColor = "rgba(0,0,0,0.85)"; c.shadowBlur = 3;
     c.fillStyle = sel ? "#ffffff" : "#d8ccfa";
     c.font = "11px -apple-system, sans-serif"; c.textAlign = "left";
     c.fillText(cue.name || "Clip", x0 + 5, by + 14);
     if (cue.transType && cue.transType !== "cut" && cue.transDur > 0) {
+      c.shadowBlur = 0;
       c.fillStyle = "#4be1e8";
       c.beginPath(); c.moveTo(x0, by); c.lineTo(x0 + 10, by); c.lineTo(x0, by + 10); c.closePath(); c.fill();
+      c.shadowBlur = 3;
     }
     if (cue.kind === "image") {
       c.fillStyle = "rgba(216,204,250,0.55)";
@@ -9962,6 +9966,7 @@ function drawBgVidTL() {
       c.fillText("IMG", x0 + w - 4, by + bh - 4);
       c.textAlign = "left";
     }
+    c.restore();
   });
   const px = curTimeSec() / dur * W;
   c.strokeStyle = "#f5a623"; c.lineWidth = 2;
@@ -9988,22 +9993,31 @@ function renderBgVidTLPanel() {
   $("bgVidClipDelBtn").addEventListener("click", () => deleteBgVidClip(S.bgVidTLSel));
 }
 function captureVideoClipThumb(cue) {
-  const el = cue.el;
+  const el = document.createElement("video");
+  el.muted = true; el.preload = "auto"; el.crossOrigin = "anonymous";
+  let tid;
   const onSeeked = () => {
     clearTimeout(tid);
     el.removeEventListener("seeked", onSeeked);
     const vw = el.videoWidth, vh = el.videoHeight;
-    if (!vw || !vh) return;
-    const tc = document.createElement("canvas"), s = 120 / Math.max(vw, vh);
-    tc.width = Math.max(1, Math.round(vw * s)); tc.height = Math.max(1, Math.round(vh * s));
-    tc.getContext("2d").drawImage(el, 0, 0, tc.width, tc.height);
-    cue.thumb = tc;
-    if (bgVidTLOpen) drawBgVidTL();
+    if (vw && vh) {
+      const tc = document.createElement("canvas"), s = 120 / Math.max(vw, vh);
+      tc.width = Math.max(1, Math.round(vw * s)); tc.height = Math.max(1, Math.round(vh * s));
+      tc.getContext("2d").drawImage(el, 0, 0, tc.width, tc.height);
+      cue.thumb = tc;
+      if (bgVidTLOpen) drawBgVidTL();
+    }
+    el.src = "";
   };
-  el.addEventListener("seeked", onSeeked);
-  const tid = setTimeout(() => el.removeEventListener("seeked", onSeeked), 2000);
-  try { el.currentTime = Math.min(0.5, (el.duration || 1) / 2); }
-  catch (e) { clearTimeout(tid); el.removeEventListener("seeked", onSeeked); }
+  const onLoadedMeta = () => {
+    el.removeEventListener("loadedmetadata", onLoadedMeta);
+    el.addEventListener("seeked", onSeeked);
+    tid = setTimeout(() => el.removeEventListener("seeked", onSeeked), 2000);
+    try { el.currentTime = Math.min(0.5, (el.duration || 1) / 2); }
+    catch (e) { clearTimeout(tid); el.removeEventListener("seeked", onSeeked); }
+  };
+  el.addEventListener("loadedmetadata", onLoadedMeta);
+  el.src = cue.src;
 }
 function addBgVidClipAt(t, file) {
   const isImage = file.type.startsWith("image");
