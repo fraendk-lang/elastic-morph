@@ -1598,6 +1598,41 @@ ok("addBgVidClipAt gives every new cue fadeIn: 0 and fadeOut: 0 by default", (()
   }
 })();
 
+(() => {
+  // Both cues carry the DEFAULT non-"cut" transType/transDur (S.bgVidTransDefault), but A's
+  // own dur ends well before B's transition window would even open — so no transition can
+  // ever actually fire across this gap, and the fade-suppression check must not be fooled by
+  // the neighbor's transType alone into thinking one will. Found by the final whole-branch
+  // review after Task 5: the original suppression check only looked at idx>0/next existing,
+  // not at whether that neighbor is still alive when the transition window opens.
+  global.S = {
+    bgVidCues: [
+      { t: 0,  dur: 5,  fadeIn: 0, fadeOut: 1, transType: "dissolve", transDur: 1, kind: "video", el: { id: "A" } },
+      { t: 10, dur: 10, fadeIn: 1, fadeOut: 0, transType: "dissolve", transDur: 1, kind: "video", el: { id: "B" } }
+    ],
+    bgVid: { on: false, el: null, src: null },
+    bgVidTrans: null,
+    playing: true
+  };
+  global.syncClipTime = () => { };
+  try {
+    const { updateBgVideoTimeline } = loadFns(["updateBgVideoTimeline"]);
+
+    updateBgVideoTimeline(4.5);
+    ok("fadeOut applies across a gap even when the next cue's transType is non-'cut', because that neighbor's own dur has already ended before its transition window would open (no transition can actually fire)",
+      Math.abs(global.S.bgVid._fadeAlpha - 0.5) < 1e-9 && global.S.bgVidTrans === null);
+
+    updateBgVideoTimeline(10.5);
+    ok("fadeIn applies right after that same gap for the same reason, on the incoming side",
+      Math.abs(global.S.bgVid._fadeAlpha - 0.5) < 1e-9 && global.S.bgVidTrans === null);
+  } catch (e) {
+    ok("fadeOut applies across a gap even when the next cue's transType is non-'cut', because that neighbor's own dur has already ended before its transition window would open (no transition can actually fire)", false, e.message);
+    ok("fadeIn applies right after that same gap for the same reason, on the incoming side", false);
+  } finally {
+    delete global.S; delete global.syncClipTime;
+  }
+})();
+
 /* ---------------- Video Timeline clip editing — UI: image file acceptance + IMG glyph ----------- */
 section("Video Timeline clip editing — UI: image file acceptance + IMG glyph");
 

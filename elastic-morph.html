@@ -4977,8 +4977,15 @@ function updateBgVideoTimeline(t) {
   if (cue) {
     const elapsed = t - cue.t;
     const remaining = (cue.t + cue.dur) - t;
-    const hasIncomingTransition = idx > 0 && cue.transType !== "cut" && cue.transDur > 0;
-    const hasOutgoingTransition = next && next.transType !== "cut" && next.transDur > 0;
+    const prev = idx > 0 ? S.bgVidCues[idx - 1] : null;
+    // A neighbor's non-cut transType only actually produces a transition if that neighbor
+    // is still alive (hasn't hit its own dur cutoff) by the time the transition window would
+    // open — otherwise the dispatch below never fires and this edge is a plain, fade-eligible
+    // gap, not a real cross-fade.
+    const hasIncomingTransition = !!prev && cue.transType !== "cut" && cue.transDur > 0
+      && prev.t + prev.dur + 0.03 > cue.t - cue.transDur;
+    const hasOutgoingTransition = !!next && next.transType !== "cut" && next.transDur > 0
+      && cue.t + cue.dur + 0.03 > next.t - next.transDur;
     if (!hasIncomingTransition && cue.fadeIn > 0 && elapsed < cue.fadeIn) {
       fadeAlpha = Math.min(fadeAlpha, Math.max(0, elapsed / cue.fadeIn));
     }
