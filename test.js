@@ -1550,6 +1550,11 @@ ok("bgVidTLPointerMove handles the resize branch, clamping end-drag to the next 
     && fn.includes("cue.t = newStart; cue.dur = end - newStart;");
 })());
 
+ok("bgVidTLPointerMove's left-edge clamp uses the previous cue's END (t + dur), not its start — symmetric with the right-edge clamp using the next cue's start", (() => {
+  const fn = extractFn("bgVidTLPointerMove");
+  return !!fn && fn.includes("const gapStart = i > 0 ? S.bgVidCues[i - 1].t + S.bgVidCues[i - 1].dur : 0;");
+})());
+
 ok("bgVidTLPointerUp clears bgVidTLResize", (() => {
   const fn = extractFn("bgVidTLPointerUp");
   return !!fn && fn.includes("bgVidTLResize = null;");

@@ -9949,7 +9949,7 @@ function bgVidTLPointerMove(e) {
     const { cue, edge } = bgVidTLResize;
     const i = S.bgVidCues.indexOf(cue);
     const gapEnd = i + 1 < S.bgVidCues.length ? S.bgVidCues[i + 1].t : dur;
-    const gapStart = i > 0 ? S.bgVidCues[i - 1].t : 0;
+    const gapStart = i > 0 ? S.bgVidCues[i - 1].t + S.bgVidCues[i - 1].dur : 0;
     const mouseT = Math.max(0, Math.min(dur, x / W * dur));
     if (edge === "end") {
       cue.dur = Math.max(0.3, Math.min(gapEnd - cue.t, mouseT - cue.t));
