@@ -1252,7 +1252,7 @@ ok("glitch branch draws each clip cover-fit into fxctx, then channel-isolates vi
 
 ok("drawGlitchClip falls back to a plain drawClip call when the envelope is negligible", (() => {
   const fn = extractFn("drawBgVideoTimeline");
-  return !!fn && fn.includes("if (!el || el.readyState < 2 || envelope <= 0.02) { drawClip(el, alpha, 0); return; }");
+  return !!fn && fn.includes("if (!el || envelope <= 0.02) { drawClip(el, alpha, 0); return; }");
 })());
 
 /* ---------------- Video Timeline: transition-window follow-up fixes ---------------- */
@@ -1409,6 +1409,42 @@ ok("addBgVidClipAt stores kind on the cue", (() => {
 ok("bgVidClipVisualDur no longer reads cue.el.duration (fully replaced by stored cue.dur)", (() => {
   const fn = extractFn("bgVidClipVisualDur");
   return !!fn && !fn.includes("cue.el.duration") && !fn.includes("cue.el &&");
+})());
+
+/* ---------------- Video Timeline clip editing — clipElReady + drawClip/drawGlitchClip readiness */
+section("Video Timeline clip editing — clipElReady + drawClip/drawGlitchClip readiness");
+
+(() => {
+  try {
+    const { clipElReady } = loadFns(["clipElReady"]);
+    const readyVideo = { tagName: "VIDEO", readyState: 4, videoWidth: 1920, videoHeight: 1080 };
+    const unreadyVideo = { tagName: "VIDEO", readyState: 1, videoWidth: 0, videoHeight: 0 };
+    const readyImage = { tagName: "IMG", complete: true, naturalWidth: 800, naturalHeight: 600 };
+    const unreadyImage = { tagName: "IMG", complete: false, naturalWidth: 0, naturalHeight: 0 };
+    ok("clipElReady returns dimensions for a ready video", JSON.stringify(clipElReady(readyVideo)) === JSON.stringify({ w: 1920, h: 1080 }));
+    ok("clipElReady returns null for an unready video (readyState < 2)", clipElReady(unreadyVideo) === null);
+    ok("clipElReady returns dimensions for a ready image", JSON.stringify(clipElReady(readyImage)) === JSON.stringify({ w: 800, h: 600 }));
+    ok("clipElReady returns null for an unready image (not complete)", clipElReady(unreadyImage) === null);
+    ok("clipElReady returns null for a null/undefined element", clipElReady(null) === null);
+  } catch (e) {
+    ok("clipElReady returns dimensions for a ready video", false, e.message);
+    ok("clipElReady returns null for an unready video (readyState < 2)", false);
+    ok("clipElReady returns dimensions for a ready image", false);
+    ok("clipElReady returns null for an unready image (not complete)", false);
+    ok("clipElReady returns null for a null/undefined element", false);
+  }
+})();
+
+ok("drawClip uses clipElReady instead of a raw readyState/videoWidth check", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes("const dim = clipElReady(el); if (!dim) return; const vw = dim.w, vh = dim.h;")
+    && !fn.includes("if (!el || el.readyState < 2) return;\n    const vw = el.videoWidth, vh = el.videoHeight;\n    if (!vw || !vh) return;\n    const s = v.cover");
+})());
+
+ok("drawGlitchClip uses clipElReady instead of a raw readyState/videoWidth check", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn && fn.includes("const dim = clipElReady(el); if (!dim) return; const vw = dim.w, vh = dim.h;\n    const hw = Math.max(1, Math.round(W / 2))");
 })());
 
 /* ---------------- Video Timeline UI selects: wire 5 new transition types ----------- */
