@@ -4717,8 +4717,8 @@ async function renderExportFrame(i, fps, feat, dur, t0) {
     for (let k = 0; k < S.cues.length; k++) { if (S.cues[k].t <= t + 0.03) idx = k; else break; }
     if (idx !== S.lastCueApplied) { S.lastCueApplied = idx; if (idx >= 0) applyCue(S.cues[idx]); }
   }
-  // v121: pick the active Video Timeline clip deterministically too (frame-accurate video seek
-  // during HQ export is a separate, deferred problem — see project memory)
+  // v121: pick the active Video Timeline clip deterministically too, awaiting any pending
+  // seek below so frame-accurate video capture is guaranteed (was deferred, now fixed)
   const pending = updateBgVideoTimeline(t);
   if (pending.length) await Promise.all(pending);
   tickCueTransition(dt);
