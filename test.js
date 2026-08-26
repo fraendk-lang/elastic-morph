@@ -1363,6 +1363,13 @@ section("Video Timeline — clip-start hitch fix (syncClipTime)");
     const vidElNoKind = makeMockEl(0, true);
     syncClipTime(vidElNoKind, 0.1);
     ok("syncClipTime treats a missing kind argument as video (backward compatible)", vidElNoKind._playCalled());
+
+    // --- new: loop-wrap fix (a clip dragged longer than its own footage) ---
+    const elLooping = makeMockEl(2.9, false);
+    elLooping.loop = true; elLooping.duration = 3.0;
+    syncClipTime(elLooping, 10, "video");
+    ok("syncClipTime wraps targetT by el.duration when el.loop is true, so a clip stretched past its own footage seeks to the correct looped position instead of chasing an ever-growing target every frame forever",
+      elLooping.currentTime === 1 && elLooping._seekCount() === 1);
   } catch (e) {
     ok("syncClipTime does not force a redundant seek when drift is <=0.35s, even while paused (the actual fix — this used to always reseek on `|| el.paused` alone)", false, e.message);
     ok("syncClipTime still calls play() on that paused-but-in-sync clip", false);
@@ -1372,6 +1379,7 @@ section("Video Timeline — clip-start hitch fix (syncClipTime)");
     ok("syncClipTime is a no-op for kind='image' (no seek, no play)", false);
     ok("syncClipTime still behaves normally for kind='video'", false);
     ok("syncClipTime treats a missing kind argument as video (backward compatible)", false);
+    ok("syncClipTime wraps targetT by el.duration when el.loop is true, so a clip stretched past its own footage seeks to the correct looped position instead of chasing an ever-growing target every frame forever", false);
   } finally {
     delete global.S;
   }
@@ -1399,7 +1407,7 @@ ok("addBgVidClipAt defaults image duration to 5s and video's provisional duratio
 
 ok("addBgVidClipAt's video loadedmetadata listener corrects cue.dur once real footage length is known", (() => {
   const fn = extractFn("addBgVidClipAt");
-  return !!fn && fn.includes("if (isFinite(el.duration)) cue.dur = el.duration;");
+  return !!fn && fn.includes("if (isFinite(el.duration) && cue.dur === 8) cue.dur = el.duration;");
 })());
 
 ok("addBgVidClipAt stores kind on the cue", (() => {
@@ -1575,6 +1583,11 @@ ok("drawBgVideoTimeline draws the active cue via drawClip (kind-aware) when ther
   return !!fn && fn.includes("if (!S.bgVidTrans) { drawClip(v.el, 1, 0); return; }");
 })());
 
+ok("drawBgVideoTimeline's guard also checks the transient S.bgVid._active flag, not just the persisted .on setting", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn && fn.includes("if (!v.on || v._active === false) return;");
+})());
+
 (() => {
   global.S = {
     bgVidCues: [
@@ -1591,23 +1604,32 @@ ok("drawBgVideoTimeline draws the active cue via drawClip (kind-aware) when ther
 
     updateBgVideoTimeline(3);
     ok("updateBgVideoTimeline activates a cue while t is within its own [t, t+dur) window",
-      global.S.bgVid.on === true && global.S.bgVid.el.id === "A");
+      global.S.bgVid.on === true && global.S.bgVid._active === true && global.S.bgVid.el.id === "A");
 
     updateBgVideoTimeline(10);
-    ok("updateBgVideoTimeline deactivates a cue once t passes its own t+dur, even though the next cue hasn't started yet (the Bug 2 fix — a shrunk clip must actually stop)",
-      global.S.bgVid.on === false);
+    ok("updateBgVideoTimeline deactivates a cue once t passes its own t+dur (Bug 2 — a shrunk clip must actually stop) via the transient _active flag only, WITHOUT clobbering the persisted S.bgVid.on setting (the serialization-leak fix — .on stays whatever it was, still true from the previous call)",
+      global.S.bgVid._active === false && global.S.bgVid.on === true);
 
     updateBgVideoTimeline(31);
     ok("updateBgVideoTimeline picks up the next cue once its own t arrives, after a gap",
-      global.S.bgVid.on === true && global.S.bgVid.el.id === "B");
+      global.S.bgVid.on === true && global.S.bgVid._active === true && global.S.bgVid.el.id === "B");
   } catch (e) {
     ok("updateBgVideoTimeline activates a cue while t is within its own [t, t+dur) window", false, e.message);
-    ok("updateBgVideoTimeline deactivates a cue once t passes its own t+dur, even though the next cue hasn't started yet (the Bug 2 fix — a shrunk clip must actually stop)", false);
+    ok("updateBgVideoTimeline deactivates a cue once t passes its own t+dur (Bug 2 — a shrunk clip must actually stop) via the transient _active flag only, WITHOUT clobbering the persisted S.bgVid.on setting (the serialization-leak fix — .on stays whatever it was, still true from the previous call)", false);
     ok("updateBgVideoTimeline picks up the next cue once its own t arrives, after a gap", false);
   } finally {
     delete global.S; delete global.syncClipTime;
   }
 })();
+
+ok("the persisted-state serializer only lists .on/.opacity/.blend/.cover/.filter for bgVid (not the whole object, not _active) — confirms _active can never leak into a saved preset", (() => {
+  return script.includes('bgVid: { on: S.bgVid.on, opacity: S.bgVid.opacity, blend: S.bgVid.blend, cover: S.bgVid.cover, filter: S.bgVid.filter },');
+})());
+
+ok("addBgVidClipAt's loadedmetadata listener only overwrites cue.dur if it's still the untouched provisional value (8), so a user's trim made before metadata finishes loading isn't silently clobbered", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  return !!fn && fn.includes("if (isFinite(el.duration) && cue.dur === 8) cue.dur = el.duration;");
+})());
 
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));

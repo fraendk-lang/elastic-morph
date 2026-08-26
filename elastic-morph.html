@@ -4934,6 +4934,12 @@ function sortBgVidCues() { S.bgVidCues.sort((a, b) => a.t - b.t); }
 
 function syncClipTime(el, targetT, kind) {
   if (!el || kind === "image") return;
+  // A clip dragged longer than its own footage relies on native looping (el.loop = true) to
+  // fill the extra time — but targetT keeps growing with the timeline while el.currentTime
+  // wraps back to 0 every loop. Without wrapping targetT the same way, drift stays huge
+  // forever and this seeks to a new (clamped, wrong) position on literally every frame.
+  const d = el.duration;
+  if (el.loop && isFinite(d) && d > 0.1) targetT = targetT % d;
   // Only seek when actually out of sync (>0.35s drift) — NOT just because the clip is
   // paused. A currentTime write is a real browser-level seek even when the target equals
   // the video's current position: readyState drops (HAVE_NOTHING/HAVE_METADATA) for a
@@ -4959,9 +4965,12 @@ function updateBgVideoTimeline(t) {
 
   if (cue && cue.el) {
     syncClipTime(cue.el, t - cue.t, cue.kind);
-    S.bgVid.el = cue.el; S.bgVid.src = cue.src; S.bgVid.on = true;
+    S.bgVid.el = cue.el; S.bgVid.src = cue.src; S.bgVid.on = true; S.bgVid._active = true;
   } else {
-    S.bgVid.on = false;
+    // Only the transient render flag goes false here — S.bgVid.on is the persisted #bgVidOn
+    // checkbox setting (serialized into presets/share links); writing false to it directly
+    // during a mid-playback gap would silently bake "video off" into whatever gets saved next.
+    S.bgVid._active = false;
   }
 
   if (cue && next && next.el && next.transType && next.transType !== "cut" && next.transDur > 0) {
@@ -4985,7 +4994,7 @@ function clipElReady(el) {
 function drawBgVideoTimeline(W, H) {
   if (!S.bgVidCues.length) { drawBgVideo(W, H); return; }
   const v = S.bgVid;
-  if (!v.on) return;
+  if (!v.on || v._active === false) return;
   const drawClip = (el, alpha, xOff, yOff = 0, scale = 1) => {
     const dim = clipElReady(el); if (!dim) return; const vw = dim.w, vh = dim.h;
     const s = v.cover ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
@@ -9911,7 +9920,9 @@ function addBgVidClipAt(t, file) {
     el = document.createElement("video");
     el.src = url; el.loop = true; el.muted = true; el.playsInline = true; el.crossOrigin = "anonymous"; el.preload = "auto";
     el.addEventListener("loadedmetadata", () => {
-      if (isFinite(el.duration)) cue.dur = el.duration;
+      // Only correct the provisional 8s placeholder — if the user already trimmed cue.dur
+      // (dragging the block's edge) before metadata finished loading, don't clobber their edit.
+      if (isFinite(el.duration) && cue.dur === 8) cue.dur = el.duration;
       if (bgVidTLOpen) drawBgVidTL();
     });
     dur = 8;
