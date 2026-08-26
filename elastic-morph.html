@@ -9866,7 +9866,8 @@ function drawBgVidTL() {
     c.beginPath(); c.moveTo(0, mid);
     for (let i = 0; i < n; i++) c.lineTo(i / (n - 1) * W, mid - Math.max(0.02, cur[i]) * amp);
     for (let i = n - 1; i >= 0; i--) c.lineTo(i / (n - 1) * W, mid + Math.max(0.02, cur[i]) * amp);
-    c.closePath(); c.fillStyle = "rgba(120,120,150,0.14)"; c.fill();
+    c.closePath(); c.fillStyle = "rgba(75,225,232,0.32)"; c.fill();
+    c.strokeStyle = "rgba(75,225,232,0.6)"; c.lineWidth = 1; c.stroke();
   }
   S.bgVidCues.forEach((cue, i) => {
     const x0 = cue.t / dur * W, w = Math.max(4, bgVidClipVisualDur(i) / dur * W), sel = i === S.bgVidTLSel;

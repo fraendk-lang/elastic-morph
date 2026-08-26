@@ -1515,6 +1515,21 @@ ok("renderBgVidTLPanel's per-clip select includes all 9 transition options with 
   return opts.every(o => fn.includes(o));
 })());
 
+/* ---------------- Video Timeline: bolder waveform backdrop ---------------- */
+section("Video Timeline — bolder waveform backdrop");
+
+ok("drawBgVidTL fills the energy-curve waveform with a bolder cyan accent (not the old near-invisible gray)", (() => {
+  const fn = extractFn("drawBgVidTL");
+  return !!fn
+    && fn.includes('c.fillStyle = "rgba(75,225,232,0.32)"; c.fill();')
+    && !fn.includes('c.fillStyle = "rgba(120,120,150,0.14)"; c.fill();');
+})());
+
+ok("drawBgVidTL also strokes the waveform outline for extra definition", (() => {
+  const fn = extractFn("drawBgVidTL");
+  return !!fn && fn.includes('c.strokeStyle = "rgba(75,225,232,0.6)"; c.lineWidth = 1; c.stroke();');
+})());
+
 /* ---------------- Video Timeline clip editing — UI: image file acceptance + IMG glyph ----------- */
 section("Video Timeline clip editing — UI: image file acceptance + IMG glyph");
 
