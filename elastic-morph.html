@@ -5094,7 +5094,18 @@ function drawBgVideoTimeline(W, H) {
     }
     ctx.restore();
   };
-  if (!S.bgVidTrans) { drawClip(v.el, 1, 0); return; }
+  if (!S.bgVidTrans) {
+    drawClip(v.el, 1, 0);
+    const fa = v._fadeAlpha;
+    if (fa !== undefined && fa < 1) {
+      ctx.save();
+      ctx.globalAlpha = 1 - fa;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+    return;
+  }
   const { from, to, p, type } = S.bgVidTrans;
   if (type === "dissolve") {
     drawClip(from.el, 1 - p, 0);

@@ -1654,7 +1654,7 @@ ok("drawBgVideoTimeline only falls back to the legacy drawBgVideo() when there a
 
 ok("drawBgVideoTimeline draws the active cue via drawClip (kind-aware) when there's no active transition, instead of falling through to drawBgVideo", (() => {
   const fn = extractFn("drawBgVideoTimeline");
-  return !!fn && fn.includes("if (!S.bgVidTrans) { drawClip(v.el, 1, 0); return; }");
+  return !!fn && fn.includes("if (!S.bgVidTrans) {") && fn.includes("drawClip(v.el, 1, 0);") && fn.includes("return;");
 })());
 
 ok("drawBgVideoTimeline's guard also checks the transient S.bgVid._active flag, not just the persisted .on setting", (() => {
@@ -1703,6 +1703,21 @@ ok("the persisted-state serializer only lists .on/.opacity/.blend/.cover/.filter
 ok("addBgVidClipAt's loadedmetadata listener only overwrites cue.dur if it's still the untouched provisional value (8), so a user's trim made before metadata finishes loading isn't silently clobbered", (() => {
   const fn = extractFn("addBgVidClipAt");
   return !!fn && fn.includes("if (isFinite(el.duration) && cue.dur === 8) cue.dur = el.duration;");
+})());
+
+/* ---------------- Video Timeline Clip Fades — drawing (drawBgVideoTimeline) ----------- */
+section("Video Timeline Clip Fades — fade-to-black overlay rendering");
+
+ok("drawBgVideoTimeline's no-transition branch composites a black overlay scaled by 1 - S.bgVid._fadeAlpha, occluding the DNA trail residue underneath rather than just lowering the clip's own alpha", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes("if (!S.bgVidTrans) {")
+    && fn.includes("drawClip(v.el, 1, 0);")
+    && fn.includes("const fa = v._fadeAlpha;")
+    && fn.includes("if (fa !== undefined && fa < 1) {")
+    && fn.includes("ctx.globalAlpha = 1 - fa;")
+    && fn.includes('ctx.fillStyle = "#000";')
+    && fn.includes("ctx.fillRect(0, 0, W, H);");
 })());
 
 /* ---------------- summary ---------------- */
