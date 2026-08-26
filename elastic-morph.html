@@ -5042,7 +5042,9 @@ function drawBgVideoTimeline(W, H) {
     ctx.save();
     ctx.globalAlpha = v.opacity * alpha;
     ctx.globalCompositeOperation = v.blend;
+    ctx.imageSmoothingEnabled = false;   // crisp upscale, matches the FX Rack Pixelate technique
     ctx.drawImage(glC, 0, 0, hw, hh, 0, 0, W, H);
+    ctx.imageSmoothingEnabled = true;
     const slices = 4;
     for (let i = 0; i < slices; i++) {
       const sy = (i / slices) * H + (Math.random() - 0.5) * (H / slices) * 0.4;

@@ -1292,6 +1292,13 @@ ok("drawGlitchClip's user-facing composite (glC onto ctx) uses v.blend, not a ha
     && finalCompositeBlock.indexOf("ctx.globalCompositeOperation = v.blend;") < finalCompositeBlock.indexOf("ctx.drawImage(glC");
 })());
 
+ok("drawGlitchClip disables smoothing for the half-res-to-full-res upscale (crisp, matches the Pixelate technique)", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes("ctx.imageSmoothingEnabled = false;   // crisp upscale, matches the FX Rack Pixelate technique")
+    && fn.includes("ctx.drawImage(glC, 0, 0, hw, hh, 0, 0, W, H);\n    ctx.imageSmoothingEnabled = true;");
+})());
+
 ok("glC accumulator canvas is declared and sized alongside fxC/chC/fbC", (() => {
   return script.includes('const glC = document.createElement("canvas"), glctx = glC.getContext("2d");')
     && /fxC\.width = chC\.width = fbC\.width = glC\.width = canvas\.width;/.test(script)
