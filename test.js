@@ -1475,6 +1475,22 @@ ok("updateBgVideoTimeline passes next.kind to syncClipTime for the incoming tran
   return !!fn && fn.includes("syncClipTime(next.el, t - winStart, next.kind);");
 })());
 
+/* ---------------- Video Timeline clip editing — cleanup guards for image cues ----------- */
+section("Video Timeline clip editing — cleanup guards for image cues");
+
+ok("deleteBgVidClip only calls .pause() on video-kind cues", (() => {
+  const fn = extractFn("deleteBgVidClip");
+  return !!fn && fn.includes('if (cue.kind === "video") cue.el.pause();') && !fn.includes("try { cue.el.pause();");
+})());
+
+ok("the Clear-all handler only calls .pause() on video-kind cues", (() => {
+  return script.includes('S.bgVidCues.forEach(cue => { if (cue.kind === "video") cue.el.pause(); try { URL.revokeObjectURL(cue.src); } catch (e) { } });');
+})());
+
+ok("#bgVidOn's change handler does not call .play()/.pause() on an <img> element", (() => {
+  return script.includes('if (S.bgVid.el && S.bgVid.el.tagName !== "IMG") { if (S.bgVid.on) S.bgVid.el.play().catch(() => { }); else S.bgVid.el.pause(); }');
+})());
+
 /* ---------------- Video Timeline UI selects: wire 5 new transition types ----------- */
 section("Video Timeline UI — transition type selects");
 

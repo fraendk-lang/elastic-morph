@@ -8622,7 +8622,7 @@ $("bgVidInput").addEventListener("change", e => {
 });
 $("bgVidOn").addEventListener("change", e => {
   S.bgVid.on = e.target.checked;
-  if (S.bgVid.el) { if (S.bgVid.on) S.bgVid.el.play().catch(() => { }); else S.bgVid.el.pause(); }
+  if (S.bgVid.el && S.bgVid.el.tagName !== "IMG") { if (S.bgVid.on) S.bgVid.el.play().catch(() => { }); else S.bgVid.el.pause(); }
 });
 $("bgVidBlend").addEventListener("change", e => S.bgVid.blend = e.target.value);
 $("bgVidFilter").addEventListener("change", e => S.bgVid.filter = e.target.value);
@@ -9913,7 +9913,7 @@ function addBgVidClipAt(t, file) {
 function deleteBgVidClip(i) {
   if (i < 0 || i >= S.bgVidCues.length) return;
   const cue = S.bgVidCues[i];
-  try { cue.el.pause(); } catch (e) { }
+  if (cue.kind === "video") cue.el.pause();
   try { URL.revokeObjectURL(cue.src); } catch (e) { }
   S.bgVidCues.splice(i, 1);
   S.bgVidTLSel = -1;
@@ -9950,7 +9950,7 @@ $("bgVidTLInput").addEventListener("change", e => {
 });
 $("bgVidTLClearBtn").addEventListener("click", () => {
   if (S.bgVidCues.length && confirm("Alle Video-Clips entfernen?")) {
-    S.bgVidCues.forEach(cue => { try { cue.el.pause(); } catch (e) { } try { URL.revokeObjectURL(cue.src); } catch (e) { } });
+    S.bgVidCues.forEach(cue => { if (cue.kind === "video") cue.el.pause(); try { URL.revokeObjectURL(cue.src); } catch (e) { } });
     S.bgVidCues = []; S.bgVidTLSel = -1; renderBgVidTLPanel();
   }
 });
