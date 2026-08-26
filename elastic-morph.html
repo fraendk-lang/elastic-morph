@@ -9929,10 +9929,14 @@ function renderBgVidTLPanel() {
     `<span class="set-pill">@ ${fmtTime(cue.t)} — ${cue.name}</span>` +
     `<label>Übergang <select id="bgVidClipTrans"><option value="cut">Cut</option><option value="dissolve">Dissolve</option><option value="wipe">Wipe</option><option value="slide">Slide Horizontal</option><option value="slide-v">Slide Vertikal</option><option value="slide-d">Slide Diagonal</option><option value="iris">Iris</option><option value="zoom">Zoom-Cross</option><option value="glitch">Glitch</option></select></label>` +
     `<label>Dauer <input type="number" id="bgVidClipTransDur" min="0.2" max="8" step="0.1" value="${cue.transDur}" style="width:48px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:11px"></label>` +
+    `<label>Fade In <input type="number" id="bgVidClipFadeIn" min="0" max="8" step="0.1" value="${cue.fadeIn || 0}" style="width:48px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:11px"></label>` +
+    `<label>Fade Out <input type="number" id="bgVidClipFadeOut" min="0" max="8" step="0.1" value="${cue.fadeOut || 0}" style="width:48px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:11px"></label>` +
     `<button class="btn" id="bgVidClipDelBtn">Delete</button>`;
   $("bgVidClipTrans").value = cue.transType;
   $("bgVidClipTrans").addEventListener("change", e => cue.transType = e.target.value);
   $("bgVidClipTransDur").addEventListener("change", e => cue.transDur = +e.target.value);
+  $("bgVidClipFadeIn").addEventListener("change", e => cue.fadeIn = +e.target.value);
+  $("bgVidClipFadeOut").addEventListener("change", e => cue.fadeOut = +e.target.value);
   $("bgVidClipDelBtn").addEventListener("click", () => deleteBgVidClip(S.bgVidTLSel));
 }
 function addBgVidClipAt(t, file) {

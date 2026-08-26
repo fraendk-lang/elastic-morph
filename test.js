@@ -1515,6 +1515,15 @@ ok("renderBgVidTLPanel's per-clip select includes all 9 transition options with 
   return opts.every(o => fn.includes(o));
 })());
 
+ok("renderBgVidTLPanel renders Fade In and Fade Out numeric inputs matching the existing transDur input's style, and wires their change listeners straight to the cue", (() => {
+  const fn = extractFn("renderBgVidTLPanel");
+  return !!fn
+    && fn.includes('<label>Fade In <input type="number" id="bgVidClipFadeIn" min="0" max="8" step="0.1" value="${cue.fadeIn || 0}" style="width:48px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:11px"></label>')
+    && fn.includes('<label>Fade Out <input type="number" id="bgVidClipFadeOut" min="0" max="8" step="0.1" value="${cue.fadeOut || 0}" style="width:48px;background:#0a0a12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:11px"></label>')
+    && fn.includes('$("bgVidClipFadeIn").addEventListener("change", e => cue.fadeIn = +e.target.value);')
+    && fn.includes('$("bgVidClipFadeOut").addEventListener("change", e => cue.fadeOut = +e.target.value);');
+})());
+
 /* ---------------- Video Timeline: bolder waveform backdrop ---------------- */
 section("Video Timeline — bolder waveform backdrop");
 
