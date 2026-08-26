@@ -4951,12 +4951,17 @@ function updateBgVideoTimeline(t) {
   if (!S.bgVidCues.length) return;   // legacy single-video mode: drawBgVideo() drives S.bgVid.el untouched
   let idx = -1;
   for (let i = 0; i < S.bgVidCues.length; i++) { if (S.bgVidCues[i].t <= t + 0.03) idx = i; else break; }
-  const cue = idx >= 0 ? S.bgVidCues[idx] : null;
+  let cue = idx >= 0 ? S.bgVidCues[idx] : null;
+  // A resized-shorter clip's own window can end before the next clip's t arrives — once
+  // t passes cue.t + cue.dur, this cue is no longer active (a gap, not a hand-off).
+  if (cue && t >= cue.t + cue.dur + 0.03) cue = null;
   const next = idx + 1 < S.bgVidCues.length ? S.bgVidCues[idx + 1] : null;
 
   if (cue && cue.el) {
     syncClipTime(cue.el, t - cue.t, cue.kind);
     S.bgVid.el = cue.el; S.bgVid.src = cue.src; S.bgVid.on = true;
+  } else {
+    S.bgVid.on = false;
   }
 
   if (cue && next && next.el && next.transType && next.transType !== "cut" && next.transDur > 0) {
@@ -4978,7 +4983,7 @@ function clipElReady(el) {
 }
 
 function drawBgVideoTimeline(W, H) {
-  if (!S.bgVidCues.length || !S.bgVidTrans) { drawBgVideo(W, H); return; }
+  if (!S.bgVidCues.length) { drawBgVideo(W, H); return; }
   const v = S.bgVid;
   if (!v.on) return;
   const drawClip = (el, alpha, xOff, yOff = 0, scale = 1) => {
@@ -5065,6 +5070,7 @@ function drawBgVideoTimeline(W, H) {
     }
     ctx.restore();
   };
+  if (!S.bgVidTrans) { drawClip(v.el, 1, 0); return; }
   const { from, to, p, type } = S.bgVidTrans;
   if (type === "dissolve") {
     drawClip(from.el, 1 - p, 0);

@@ -1560,6 +1560,55 @@ ok("bgVidTLPointerUp clears bgVidTLResize", (() => {
   return !!fn && fn.includes("bgVidTLResize = null;");
 })());
 
+/* ---------------- Video Timeline clip editing — live-verification fixes ---------------- */
+section("Video Timeline clip editing — steady-state rendering + dur-based cutoff (found via live verification)");
+
+ok("drawBgVideoTimeline only falls back to the legacy drawBgVideo() when there are no Timeline cues at all", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes("if (!S.bgVidCues.length) { drawBgVideo(W, H); return; }")
+    && !fn.includes("if (!S.bgVidCues.length || !S.bgVidTrans) { drawBgVideo(W, H); return; }");
+})());
+
+ok("drawBgVideoTimeline draws the active cue via drawClip (kind-aware) when there's no active transition, instead of falling through to drawBgVideo", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn && fn.includes("if (!S.bgVidTrans) { drawClip(v.el, 1, 0); return; }");
+})());
+
+(() => {
+  global.S = {
+    bgVidCues: [
+      { t: 0, dur: 5, el: { id: "A" }, kind: "video", transType: "cut", transDur: 0 },
+      { t: 30, dur: 8, el: { id: "B" }, kind: "video", transType: "cut", transDur: 0 }
+    ],
+    bgVid: { on: false, el: null, src: null },
+    bgVidTrans: null,
+    playing: true
+  };
+  global.syncClipTime = () => { };
+  try {
+    const { updateBgVideoTimeline } = loadFns(["updateBgVideoTimeline"]);
+
+    updateBgVideoTimeline(3);
+    ok("updateBgVideoTimeline activates a cue while t is within its own [t, t+dur) window",
+      global.S.bgVid.on === true && global.S.bgVid.el.id === "A");
+
+    updateBgVideoTimeline(10);
+    ok("updateBgVideoTimeline deactivates a cue once t passes its own t+dur, even though the next cue hasn't started yet (the Bug 2 fix — a shrunk clip must actually stop)",
+      global.S.bgVid.on === false);
+
+    updateBgVideoTimeline(31);
+    ok("updateBgVideoTimeline picks up the next cue once its own t arrives, after a gap",
+      global.S.bgVid.on === true && global.S.bgVid.el.id === "B");
+  } catch (e) {
+    ok("updateBgVideoTimeline activates a cue while t is within its own [t, t+dur) window", false, e.message);
+    ok("updateBgVideoTimeline deactivates a cue once t passes its own t+dur, even though the next cue hasn't started yet (the Bug 2 fix — a shrunk clip must actually stop)", false);
+    ok("updateBgVideoTimeline picks up the next cue once its own t arrives, after a gap", false);
+  } finally {
+    delete global.S; delete global.syncClipTime;
+  }
+})();
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
