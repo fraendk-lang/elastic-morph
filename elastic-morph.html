@@ -2115,7 +2115,7 @@
     <canvas id="bgVidTLTrack"></canvas>
     <div class="set-panel" id="bgVidTLPanel"></div>
     <p class="note">Video-Datei direkt auf die Leiste ziehen, um sie an dieser Stelle einzufügen — oder <b>+ Clip @ Playhead</b> für einen Datei-Dialog. Klicke oder ziehe die Leiste (außerhalb eines Clips) zum Scrubben. Ziehe einen Clip-Block, um seinen Startzeitpunkt zu verschieben. Wähle einen Clip aus, um seinen Übergang <b>relativ zum vorherigen Clip</b> einzustellen (Cut/Dissolve/Wipe/Slide). Läuft deterministisch mit, inkl. Export — echtes Frame-genaues Video-Seeking im HQ-Export ist noch nicht garantiert.</p>
-    <input type="file" id="bgVidTLInput" accept="video/*" hidden>
+    <input type="file" id="bgVidTLInput" accept="video/*,image/*" hidden>
   </div>
 </div>
 
@@ -9865,6 +9865,12 @@ function drawBgVidTL() {
       c.fillStyle = "#4be1e8";
       c.beginPath(); c.moveTo(x0, H * 0.12); c.lineTo(x0 + 10, H * 0.12); c.lineTo(x0, H * 0.12 + 10); c.closePath(); c.fill();
     }
+    if (cue.kind === "image") {
+      c.fillStyle = "rgba(216,204,250,0.55)";
+      c.font = "9px -apple-system, sans-serif"; c.textAlign = "right";
+      c.fillText("IMG", x0 + w - 4, H * 0.12 + H * 0.76 - 4);
+      c.textAlign = "left";
+    }
   });
   const px = curTimeSec() / dur * W;
   c.strokeStyle = "#f5a623"; c.lineWidth = 2;
@@ -9973,7 +9979,7 @@ bgVidTLTrack.addEventListener("drop", e => {
   e.preventDefault();
   bgVidTLTrack.classList.remove("dragover");
   const f = e.dataTransfer.files[0];
-  if (!f || !f.type.startsWith("video")) return;
+  if (!f || !(f.type.startsWith("video") || f.type.startsWith("image"))) return;
   const r = bgVidTLTrack.getBoundingClientRect(), W = bgVidTLTrack.width, dur = bgVidTLDuration();
   const x = (e.clientX - r.left) / r.width * W;
   addBgVidClipAt(Math.max(0, Math.min(dur, x / W * dur)), f);

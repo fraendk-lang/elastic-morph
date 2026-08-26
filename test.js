@@ -1507,6 +1507,24 @@ ok("renderBgVidTLPanel's per-clip select includes all 9 transition options with 
   return opts.every(o => fn.includes(o));
 })());
 
+/* ---------------- Video Timeline clip editing — UI: image file acceptance + IMG glyph ----------- */
+section("Video Timeline clip editing — UI: image file acceptance + IMG glyph");
+
+ok("#bgVidTLInput accepts both video and image files", html.includes('<input type="file" id="bgVidTLInput" accept="video/*,image/*" hidden>'));
+
+ok("the legacy single-video #bgVidInput is untouched (still video-only, out of scope)", html.includes('<input type="file" id="bgVidInput" accept="video/*" hidden>'));
+
+ok("the timeline drop handler accepts both video and image files", (() => {
+  return script.includes('if (!f || !(f.type.startsWith("video") || f.type.startsWith("image"))) return;');
+})());
+
+ok("drawBgVidTL draws an IMG label for image-kind cues only", (() => {
+  const fn = extractFn("drawBgVidTL");
+  return !!fn
+    && fn.includes('if (cue.kind === "image") {')
+    && fn.includes('c.fillText("IMG",');
+})());
+
 /* ---------------- summary ---------------- */
 console.log("\n" + "─".repeat(40));
 console.log(`${pass} passed, ${fail} failed`);
