@@ -9929,7 +9929,7 @@ function addBgVidClipAt(t, file) {
     dur = 8;
   }
   t = Math.max(0, Math.min(bgVidTLDuration(), t));
-  const cue = { t, dur, name: file.name.replace(/\.[^.]+$/, ""), src: url, el, kind: isImage ? "image" : "video", transType: S.bgVidTransDefault.type, transDur: S.bgVidTransDefault.dur };
+  const cue = { t, dur, fadeIn: 0, fadeOut: 0, name: file.name.replace(/\.[^.]+$/, ""), src: url, el, kind: isImage ? "image" : "video", transType: S.bgVidTransDefault.type, transDur: S.bgVidTransDefault.dur };
   S.bgVidCues.push(cue); sortBgVidCues();
   S.bgVidTLSel = S.bgVidCues.indexOf(cue);
   S.bgVid.on = true; $("bgVidOn").checked = true;

@@ -1530,6 +1530,14 @@ ok("drawBgVidTL also strokes the waveform outline for extra definition", (() => 
   return !!fn && fn.includes('c.strokeStyle = "rgba(75,225,232,0.6)"; c.lineWidth = 1; c.stroke();');
 })());
 
+/* ---------------- Video Timeline: Clip Fades ---------------- */
+section("Video Timeline Clip Fades — data model (addBgVidClipAt)");
+
+ok("addBgVidClipAt gives every new cue fadeIn: 0 and fadeOut: 0 by default", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  return !!fn && fn.includes("fadeIn: 0, fadeOut: 0,");
+})());
+
 /* ---------------- Video Timeline clip editing — UI: image file acceptance + IMG glyph ----------- */
 section("Video Timeline clip editing — UI: image file acceptance + IMG glyph");
 
