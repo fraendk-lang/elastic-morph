@@ -19,7 +19,15 @@ const section = s => console.log("\n" + s);
 /* pull a named top-level function's full source via brace matching */
 function extractFn(name) {
   const start = script.indexOf("function " + name + "(");
-  if (start < 0) return null;
+  if (start < 0) {
+    /* fallback: a top-level `const NAME = <single-line-expr>;` declaration (e.g. an arrow
+       function like fract1) — only used when no `function NAME(` declaration exists, so it
+       can't affect any existing call site above. */
+    const constStart = script.indexOf("const " + name + " = ");
+    if (constStart < 0) return null;
+    const semi = script.indexOf(";", constStart);
+    return semi < 0 ? null : script.slice(constStart, semi + 1);
+  }
   let i = script.indexOf("{", start), depth = 0;
   for (let j = i; j < script.length; j++) {
     if (script[j] === "{") depth++;
@@ -2279,6 +2287,65 @@ ok("renderExportFrame awaits Promise.all of updateBgVideoTimeline's pending seek
 ok("the HQ export loop awaits renderExportFrame before capturing the canvas into a VideoFrame", (() => {
   return script.includes("await renderExportFrame(i, fps, feat, dur, startT);")
     && !script.includes("      renderExportFrame(i, fps, feat, dur, startT);\n      const vf = new VideoFrame");
+})());
+
+/* ---------------- DNA Engines: Corridor Tunnel, Spiral Vortex, Maze Grid ---------------- */
+section("DNA Engines — Corridor Tunnel, Spiral Vortex, Maze Grid");
+
+ok("drawTunnelCorridor is defined and uses the z*z accelerating-approach math", (() => {
+  const fn = extractFn("drawTunnelCorridor");
+  return !!fn && fn.includes("const f = z * z;") && fn.includes("ctx.strokeRect(-rw / 2, -rh / 2, rw, rh);");
+})());
+
+ok("drawSpiralVortex is defined, uses the z*z accelerating-approach math, and rotates rings by an f-dependent spin", (() => {
+  const fn = extractFn("drawSpiralVortex");
+  return !!fn && fn.includes("const f = z * z;") && fn.includes("const spin = S.time * 0.5 + f * 6.0;");
+})());
+
+ok("drawMazeGrid is defined and invalidates its cached grid when the seed changes", (() => {
+  const fn = extractFn("drawMazeGrid");
+  return !!fn && fn.includes("if (mazeGrid === null || mazeSeed !== seed) { mazeGrid = buildMazeGrid(seed); mazeSeed = seed; }");
+})());
+
+ok("buildMazeGrid is defined and uses the fract1/Math.sin seeded-hash pattern (deterministic, no Math.random)", (() => {
+  const fn = extractFn("buildMazeGrid");
+  return !!fn && fn.includes("fract1(Math.sin(") && !fn.includes("Math.random()");
+})());
+
+/* buildMazeGrid is pure math — genuinely testable without any canvas/DOM mocking. */
+ok("buildMazeGrid is deterministic: the same seed produces an identical wall grid on repeated calls", (() => {
+  const { buildMazeGrid } = loadFns(["buildMazeGrid", "fract1"]);
+  const a = buildMazeGrid(42), b = buildMazeGrid(42);
+  return JSON.stringify(a) === JSON.stringify(b) && a.cols === 12 && a.rows === 8;
+})());
+
+ok("the dispatch chain has the 3 new branches in order between the existing 'fluid' branch and the final bare else", (() => {
+  const fn = extractFn("drawScene");
+  if (!fn) return false;
+  const fluidIdx = fn.indexOf('dnaEngine === "fluid"');
+  const tunnelIdx = fn.indexOf('dnaEngine === "tunnelCorridor"');
+  const vortexIdx = fn.indexOf('dnaEngine === "spiralVortex"');
+  const mazeIdx = fn.indexOf('dnaEngine === "mazeGrid"');
+  return fluidIdx >= 0 && tunnelIdx > fluidIdx && vortexIdx > tunnelIdx && mazeIdx > vortexIdx;
+})());
+
+ok("PRESETS gained the 3 new entries with correct id/engine pairs", (() => {
+  const m = script.match(/const PRESETS = \[([\s\S]*)\];/);
+  if (!m) return false;
+  const body = m[1];
+  return body.includes('id: "tunnelDrift"') && body.includes('engine: "tunnelCorridor"')
+    && body.includes('id: "vortexSpin"') && body.includes('engine: "spiralVortex"')
+    && body.includes('id: "mazeWalker"') && body.includes('engine: "mazeGrid"');
+})());
+
+ok("renderPreviews() has the 3 new mini-preview branches in order before the existing 'dance' branch", (() => {
+  const fn = extractFn("renderPreviews");
+  if (!fn) return false;
+  const tunnelIdx = fn.indexOf('p.engine === "tunnelCorridor"');
+  const vortexIdx = fn.indexOf('p.engine === "spiralVortex"');
+  const mazeIdx = fn.indexOf('p.engine === "mazeGrid"');
+  const danceIdx = fn.indexOf('p.engine === "dance"');
+  return tunnelIdx >= 0 && vortexIdx > tunnelIdx && mazeIdx > vortexIdx && danceIdx > mazeIdx;
 })());
 
 /* ---------------- summary ---------------- */
