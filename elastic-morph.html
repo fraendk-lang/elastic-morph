@@ -1986,6 +1986,10 @@
       <option value="triangle">Scale LFO: Triangle</option>
       <option value="square">Scale LFO: Square</option>
     </select>
+    <div class="slider-row">
+      <label>Progress Zoom <span class="val" id="lbProgZoomVal">0</span></label>
+      <input type="range" id="lbProgZoom" min="0" max="100" value="0">
+    </div>
     <select id="lbMirror" class="pm-select" style="margin-top:8px">
       <option value="off" selected>Mirror: Off</option>
       <option value="h">Mirror: Horizontal</option>
@@ -2869,7 +2873,7 @@ const S = {
   layerB: { on: false, type: "spectrumRing", opacity: 0.8, blend: "lighter", color: "dna", scale: 1,
             pulse: 1, spin: 0, sway: 1, hueDrift: 0, mirror: "off", _spin: 0, _hue: 0,   // v43: modulation
             opLfo: { rate: 0.3, depth: 0, shape: "sine" }, scaleLfo: { rate: 0.3, depth: 0, shape: "sine" },
-            _opPhase: 0, _scPhase: 0 },
+            _opPhase: 0, _scPhase: 0, progressZoomAmt: 0, _progZoom: 1 },
   feedbackFX: { zoom: 1.045, rotation: 0.69, decay: 0.28, alpha: 0.38, hueShift: 0, dirX: 0, dirY: 0, blend: "lighter" },
   // v15: reactivity gain, auto-quality, auto-VJ
   gain: 1,
@@ -6092,6 +6096,7 @@ function specAt(i, n) {
   }
   return Math.max(0, (0.32 + 0.3 * Math.sin(S.time * 2 + i * 0.5)) * (0.3 + S.loudness * 1.6) + S.bass * 0.25 * Math.sin(i * 0.7));
 }
+const LAYERB_PHASE_ZOOM = { Birth: 0.75, Grow: 0.9, Tension: 1.15, Break: 1.35, Return: 0.95, Fade: 0.7 };
 function drawLayerB(W, H, hue, dt) {
   const LB = S.layerB;
   if (!LB.on) return;
@@ -6102,8 +6107,11 @@ function drawLayerB(W, H, hue, dt) {
     LB._hue = (LB._hue || 0) + dt * LB.hueDrift * 60;
     LB._opPhase = (LB._opPhase || 0) + dt * LB.opLfo.rate;
     LB._scPhase = (LB._scPhase || 0) + dt * LB.scaleLfo.rate;
+    const zTarget = LAYERB_PHASE_ZOOM[S.phase] || 1;
+    LB._progZoom = (LB._progZoom || 1) + (zTarget - (LB._progZoom || 1)) * Math.min(1, dt / 2.5);
   }
-  const sc = LB.scale * (1 + LB.scaleLfo.depth * lfoWave(LB.scaleLfo.shape, LB._scPhase || 0));
+  const sc = LB.scale * (1 + LB.scaleLfo.depth * lfoWave(LB.scaleLfo.shape, LB._scPhase || 0))
+             * (1 + ((LB._progZoom || 1) - 1) * LB.progressZoomAmt);
   const colr = (t, a) => {
     if (LB.color === "white") return `rgba(255,255,255,${a})`;
     if (LB.color === "dna" && S.palette.on && S.palette.mode === "named") {
@@ -7741,7 +7749,7 @@ function projectData() {
             shadow: S.textShadow, plateColor: S.textPlateColor, plateOpacity: S.textPlateOpacity,
             custom2: S.textCustom2, gradDir: S.textGradDir, pattern: S.textPattern, blend: S.textBlend },
     lyrics: { on: S.lyrics.on, cues: S.lyrics.cues, offset: S.lyrics.offset },
-    layerB: (() => { const { _spin, _hue, _opPhase, _scPhase, ...rest } = S.layerB; return rest; })(),
+    layerB: (() => { const { _spin, _hue, _opPhase, _scPhase, _progZoom, _vSeeds, ...rest } = S.layerB; return rest; })(),
     feedbackFX: { ...S.feedbackFX },
     shader: { ...S.shader },
     dnaBlend: S.dnaBlend,
@@ -7960,6 +7968,7 @@ function applyProject(o, fromScene) {
   Object.assign(S.layerB, lb);
   S.layerB.opacity = clamp01(S.layerB.opacity);
   S.layerB.scale = Math.max(0.4, Math.min(1.8, +S.layerB.scale || 1));
+  S.layerB.progressZoomAmt = lb.progressZoomAmt != null ? clamp01(+lb.progressZoomAmt) : 0;
   // v43: modulation params (default to neutral when absent)
   S.layerB.pulse = lb.pulse != null ? +lb.pulse : 1;
   S.layerB.spin = lb.spin != null ? +lb.spin : 0;
@@ -8006,6 +8015,8 @@ function applyProject(o, fromScene) {
   $("lbScLfoDepth").value = Math.round(S.layerB.scaleLfo.depth * 100);
   $("lbScLfoDepthVal").textContent = Math.round(S.layerB.scaleLfo.depth * 100);
   $("lbScLfoShape").value = S.layerB.scaleLfo.shape;
+  $("lbProgZoom").value = Math.round(S.layerB.progressZoomAmt * 100);
+  $("lbProgZoomVal").textContent = Math.round(S.layerB.progressZoomAmt * 100);
   $("lbMirror").value = S.layerB.mirror;
   if (S.layerB.type === "starfield") initStars();
 
@@ -8141,6 +8152,7 @@ function buildLayerB() {
   });
   $("lbScLfoDepth").addEventListener("input", e => { S.layerB.scaleLfo.depth = e.target.value / 100; $("lbScLfoDepthVal").textContent = e.target.value; });
   $("lbScLfoShape").addEventListener("change", e => S.layerB.scaleLfo.shape = e.target.value);
+  $("lbProgZoom").addEventListener("input", e => { S.layerB.progressZoomAmt = e.target.value / 100; $("lbProgZoomVal").textContent = e.target.value; });
   $("lbMirror").addEventListener("change", e => S.layerB.mirror = e.target.value);
 }
 

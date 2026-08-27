@@ -407,7 +407,7 @@ try {
 }
 ok("S.layerB has opLfo default with depth 0", /opLfo:\s*\{\s*rate:\s*0\.3,\s*depth:\s*0,\s*shape:\s*"sine"\s*\}/.test(script));
 ok("S.layerB has scaleLfo default with depth 0", /scaleLfo:\s*\{\s*rate:\s*0\.3,\s*depth:\s*0,\s*shape:\s*"sine"\s*\}/.test(script));
-ok("projectData excludes all 4 layerB phase accumulators", /const\s*\{\s*_spin,\s*_hue,\s*_opPhase,\s*_scPhase,\s*\.\.\.rest\s*\}\s*=\s*S\.layerB/.test(script));
+ok("projectData excludes all 6 layerB transient accumulators (incl. progress-zoom + voronoi seeds)", /const\s*\{\s*_spin,\s*_hue,\s*_opPhase,\s*_scPhase,\s*_progZoom,\s*_vSeeds,\s*\.\.\.rest\s*\}\s*=\s*S\.layerB/.test(script));
 ok("drawLayerB does not use clamp01 (out of scope)", (() => {
   const fn = extractFn("drawLayerB");
   return fn && !fn.includes("clamp01(");
@@ -467,6 +467,47 @@ ok("Voronoi seed generation (golden-ratio sequence) is deterministic and stays w
   const inBand = a.every(s => s.x >= 0.1 && s.x <= 0.9 && s.y >= 0.1 && s.y <= 0.9);
   return sameEveryTime && inBand && a.length === 14;
 })());
+
+/* ---------------- Layer B: Progress Zoom ---------------- */
+section("Layer B — Progress Zoom");
+
+ok("LAYERB_PHASE_ZOOM has the 6 confirmed phase targets", (() => {
+  const m = script.match(/const LAYERB_PHASE_ZOOM = \{([^}]*)\};/);
+  if (!m) return false;
+  const body = m[1];
+  return /Birth:\s*0\.75/.test(body) && /Grow:\s*0\.9/.test(body) && /Tension:\s*1\.15/.test(body)
+    && /Break:\s*1\.35/.test(body) && /Return:\s*0\.95/.test(body) && /Fade:\s*0\.7/.test(body);
+})());
+
+ok("S.layerB default object has progressZoomAmt: 0 and _progZoom: 1", (() => {
+  return /progressZoomAmt:\s*0,\s*_progZoom:\s*1/.test(script);
+})());
+
+ok("drawLayerB's accumulator block updates LB._progZoom from LAYERB_PHASE_ZOOM[S.phase] with a ~2.5s smoothing constant", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn
+    && fn.includes("const zTarget = LAYERB_PHASE_ZOOM[S.phase] || 1;")
+    && fn.includes("Math.min(1, dt / 2.5)");
+})());
+
+ok("drawLayerB's sc computation multiplies in the Progress Zoom term, and it's a no-op at progressZoomAmt=0", (() => {
+  const fn = extractFn("drawLayerB");
+  if (!fn) return false;
+  const hasTerm = fn.includes("* (1 + ((LB._progZoom || 1) - 1) * LB.progressZoomAmt)");
+  // Structural no-op check: at progressZoomAmt=0, (1 + (anything - 1)*0) algebraically reduces
+  // to exactly 1 regardless of _progZoom's value — verified here by evaluating the literal
+  // expression pattern rather than running the real (canvas-dependent) function.
+  const noOpAtZero = (() => { const LB__progZoom = 999; const progressZoomAmt = 0; return (1 + ((LB__progZoom || 1) - 1) * progressZoomAmt) === 1; })();
+  return hasTerm && noOpAtZero;
+})());
+
+ok("#lbProgZoom slider exists in the Layer B Modulation panel", html.includes('id="lbProgZoom"'));
+
+ok("#lbProgZoom is wired to S.layerB.progressZoomAmt on input", script.includes('$("lbProgZoom").addEventListener("input", e => { S.layerB.progressZoomAmt = e.target.value / 100;'));
+
+ok("#lbProgZoom syncs from S.layerB.progressZoomAmt on load", script.includes('$("lbProgZoom").value = Math.round(S.layerB.progressZoomAmt * 100);'));
+
+ok("applyProject() clamps progressZoomAmt to [0,1] with a 0 default when absent", script.includes('S.layerB.progressZoomAmt = lb.progressZoomAmt != null ? clamp01(+lb.progressZoomAmt) : 0;'));
 
 /* ---------------- DNA flow motion (curl noise) ---------------- */
 section("DNA flow motion (curl noise)");
