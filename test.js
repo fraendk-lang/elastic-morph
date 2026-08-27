@@ -76,7 +76,11 @@ ok("fx2 state keys match FX2_DEFS", fx2StateKeys.length === 10 && fx2StateKeys.e
 
 /* shader styles: SHADER_STYLE_ID, the <option>s and the GLSL share the same set */
 const styleIds = (() => { const m = script.match(/SHADER_STYLE_ID = \{([^}]+)\}/); return m ? [...m[1].matchAll(/(\w+):/g)].map(x => x[1]) : []; })();
-const styleOpts = [...html.matchAll(/<option value="(fluid|metaballs|tunnel|aurora|electric|chrome|gyroid|raymarch|feedback|strobe|warehouse|laser|portal|crystal|hypercube)"/g)].map(m => m[1]);
+// final-review fix: was a hardcoded style-name alternation that silently stopped matching new
+// styles (already had to be patched once, for portal/crystal/hypercube) — generic now, matches
+// every #shStyle option by its "Style: " label convention, so it can't go stale again.
+const shStyleBlock = (html.match(/<select id="shStyle"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || "";
+const styleOpts = [...shStyleBlock.matchAll(/<option value="(\w+)"[^>]*>Style: /g)].map(m => m[1]);
 ok("shader styles ≥ 9 defined", styleIds.length >= 9, styleIds.join(","));
 ok("every shader style has an <option>", styleIds.every(s => styleOpts.includes(s)), styleIds.filter(s => !styleOpts.includes(s)).join(","));
 const frag = (script.match(/SHADER_FRAG = `([\s\S]*?)`;/) || [])[1] || "";
@@ -94,6 +98,22 @@ ok("SHADER_STYLE_ID gained the 3 new entries with the correct uStyle values (12/
 
 ["portalStyle", "crystalStyle", "hypercubeStyle", "segGlow", "projCube"].forEach(fn =>
   ok("GLSL " + fn + " defined & called", (frag.split(fn).length - 1) >= 2));
+
+/* Final-review fix: crystalDist's two diagonal facet planes were originally symmetric weights
+   (1,1,1) and (1,-1,1) — since crystalDist only ever receives abs(p) (all-nonnegative), the second
+   plane's dot product could never exceed the first's, making it dead code and the intended second
+   facet family invisible. Asymmetric weights make it a real, distinct cut. */
+ok("crystalDist's two diagonal facet planes use distinct (non-symmetric) weight vectors, so neither is analytically dead against an all-nonnegative input", (() => {
+  const idx = frag.indexOf("float crystalDist");
+  if (idx < 0) return false;
+  const body = frag.slice(idx, idx + 300);
+  const weights = [...body.matchAll(/normalize\(vec3\(([^)]+)\)\)/g)].map(m => m[1].split(",").map(s => Math.abs(parseFloat(s))));
+  if (weights.length < 2) return false;
+  const [a, b] = weights;
+  // if every |weight| pair matched, dot(abs(p), planeB) could never exceed dot(abs(p), planeA)
+  // for an all-nonnegative p — the exact dead-code condition being guarded against here.
+  return !(a[0] === b[0] && a[1] === b[1] && a[2] === b[2]);
+})());
 
 ok("main()'s dispatch chain: laser's bare else became an explicit uStyle<11.5 branch, followed by portal/crystal/hypercube in order, ending in a bare else for hypercube", (() => {
   const mainIdx = frag.lastIndexOf("void main(){");

@@ -3683,7 +3683,7 @@ vec3 portalStyle(vec2 uv){
 float crystalDist(vec3 p){
   float d = max(abs(p.x), max(abs(p.y), abs(p.z)));
   d = max(d, dot(abs(p), normalize(vec3(1.0,1.0,1.0))));
-  d = max(d, dot(abs(p), normalize(vec3(1.0,-1.0,1.0))));
+  d = max(d, dot(abs(p), normalize(vec3(1.0,0.4,1.0))));   // final-review fix: (1,-1,1) was symmetric with the (1,1,1) plane above (abs(p) is all-nonnegative, so it could never exceed it) — dead facet, asymmetric weights make it a real second cut
   return d;
 }
 vec3 crystalStyle(vec2 uv){
@@ -3854,7 +3854,7 @@ function renderShader(W, H, hue){
     : Math.max(0.5, S.perfScale || 1);
   const cap = S.exporting
     ? Math.max(W, H) * (S.exportShaderCap != null ? S.exportShaderCap : 1)
-    : (SH.style === "gyroid" ? 820 : 1000) * pf;
+    : ((SH.style === "gyroid" || SH.style === "crystal") ? 820 : 1000) * pf;   // crystal is gyroid's structural twin (same 40-step march), same lower cap
   const scl = Math.min(1, cap / Math.max(W, H));
   const gw = Math.max(2, Math.round(W * scl));
   const gh = Math.max(2, Math.round(H * scl));
@@ -11502,7 +11502,7 @@ function initPhaseA() {
    ============================================================ */
 
 const HEAVY_ENGINES = new Set(["flame", "hyperspace", "reaction", "attractor"]);
-const HEAVY_SHADER = new Set(["gyroid", "raymarch", "feedback"]);
+const HEAVY_SHADER = new Set(["gyroid", "raymarch", "feedback", "crystal", "hypercube"]);   // crystal: gyroid's structural twin (40-step march); hypercube: 32 unrolled segGlow + 16 projCube per pixel, comparable to feedback
 
 function analysisReady() {
   return S.analyzeState === "done" && !!S.audioBuffer;
