@@ -16,27 +16,41 @@ const pendingAsyncChecks = [];
 const ok = (name, cond, extra) => { if (cond) { pass++; console.log("  ✓ " + name); } else { fail++; console.log("  ✗ " + name + (extra ? "  → " + extra : "")); } };
 const section = s => console.log("\n" + s);
 
-/* pull a named top-level function's full source via brace matching */
-function extractFn(name) {
-  const start = script.indexOf("function " + name + "(");
+/* pull a named top-level function's full source via brace matching.
+   src defaults to the app's own script; overridable for testing the fallback logic below
+   against synthetic input without needing a matching declaration in the real app. */
+function extractFn(name, src) {
+  if (src === undefined) src = script;
+  const start = src.indexOf("function " + name + "(");
   if (start < 0) {
-    /* fallback: a top-level `const NAME = <single-line-expr>;` declaration (e.g. an arrow
-       function like fract1) — only used when no `function NAME(` declaration exists, so it
-       can't affect any existing call site above. */
-    const constStart = script.indexOf("const " + name + " = ");
+    /* fallback: a top-level `const NAME = ...;` declaration (e.g. an arrow function like
+       fract1) — only used when no `function NAME(` declaration exists, so it can't affect
+       any existing call site above. Final-review hardening: a block-bodied arrow
+       (`const NAME = () => { a(); b(); };`) has an inner `;` before its real end, so slicing
+       to the first `;` would silently truncate it — a negative `.includes()` assertion against
+       that truncated text could then pass vacuously. If a `{` appears before the first `;`,
+       brace-match from there instead of slicing at the semicolon. */
+    const constStart = src.indexOf("const " + name + " = ");
     if (constStart < 0) return null;
-    const semi = script.indexOf(";", constStart);
-    return semi < 0 ? null : script.slice(constStart, semi + 1);
+    const semi = src.indexOf(";", constStart);
+    const brace = src.indexOf("{", constStart);
+    if (brace < 0 || semi < brace) return semi < 0 ? null : src.slice(constStart, semi + 1);
+    let bi = brace, depth = 0;
+    for (let j = bi; j < src.length; j++) {
+      if (src[j] === "{") depth++;
+      else if (src[j] === "}") { depth--; if (depth === 0) return src.slice(constStart, j + 1); }
+    }
+    return null;
   }
-  let i = script.indexOf("{", start), depth = 0;
-  for (let j = i; j < script.length; j++) {
-    if (script[j] === "{") depth++;
-    else if (script[j] === "}") { depth--; if (depth === 0) return script.slice(start, j + 1); }
+  let i = src.indexOf("{", start), depth = 0;
+  for (let j = i; j < src.length; j++) {
+    if (src[j] === "{") depth++;
+    else if (src[j] === "}") { depth--; if (depth === 0) return src.slice(start, j + 1); }
   }
   return null;
 }
 function loadFns(names) {
-  const src = names.map(extractFn);
+  const src = names.map(n => extractFn(n));   // NOT names.map(extractFn) — Array.map passes (el, index, array), and extractFn's new optional 2nd param would receive the index as src
   const missing = names.filter((n, k) => !src[k]);
   if (missing.length) throw new Error("could not extract: " + missing.join(", "));
   return eval("(function(){ " + src.join("\n") + "\n return {" + names.join(",") + "}; })()");
@@ -2287,6 +2301,31 @@ ok("renderExportFrame awaits Promise.all of updateBgVideoTimeline's pending seek
 ok("the HQ export loop awaits renderExportFrame before capturing the canvas into a VideoFrame", (() => {
   return script.includes("await renderExportFrame(i, fps, feat, dur, startT);")
     && !script.includes("      renderExportFrame(i, fps, feat, dur, startT);\n      const vf = new VideoFrame");
+})());
+
+/* Final-review hardening: extractFn's const-fallback used to slice to the first ';', which
+   would silently truncate a block-bodied arrow function (one containing its own inner ';'
+   statements) — a negative .includes() assertion against that truncated text could then pass
+   vacuously. Confirm the brace-matching fallback now captures the FULL body, inner semicolons
+   included, using synthetic input so this doesn't depend on any real declaration in the app. */
+ok("extractFn's const-fallback brace-matches a block-bodied arrow function instead of truncating at its first inner semicolon", (() => {
+  const synthetic = 'const buildX = (seed) => { const a = 1; const b = 2; return a + b; };\nconst unrelated = 1;';
+  const fn = extractFn("buildX", synthetic);
+  return !!fn && fn.includes("return a + b;") && fn.endsWith("}") && !fn.includes("unrelated");
+})());
+ok("extractFn's const-fallback still handles a single-expression arrow (no braces) via the semicolon slice, unchanged", (() => {
+  const synthetic = "const fract1 = x => x - Math.floor(x);\nconst unrelated = 1;";
+  const fn = extractFn("fract1", synthetic);
+  return fn === "const fract1 = x => x - Math.floor(x);";
+})());
+/* Regression guard for the exact bug this same fix wave introduced and caught before pushing:
+   loadFns did `names.map(extractFn)` — Array.map calls its callback as (element, index, array),
+   so extractFn's new optional 2nd param silently received the array INDEX as `src` for every
+   name after the first, breaking every multi-name loadFns call in the suite (~30 call sites).
+   Confirm loadFns still resolves multiple real functions correctly. */
+ok("loadFns resolves multiple functions correctly (guards against Array.map passing the index as extractFn's new 2nd param)", (() => {
+  const fns = loadFns(["syncClipTime", "clamp01", "fract1"]);
+  return typeof fns.syncClipTime === "function" && typeof fns.clamp01 === "function" && typeof fns.fract1 === "function";
 })());
 
 /* ---------------- DNA Engines: Corridor Tunnel, Spiral Vortex, Maze Grid ---------------- */

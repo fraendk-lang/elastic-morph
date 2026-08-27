@@ -58,10 +58,13 @@ named `tunnelCorridor` (not bare `tunnel`) to avoid three unrelated UI entries a
 
 ## Corridor Tunnel (`tunnelCorridor`)
 
-Nested rectangular frames flying toward the viewer and receding past the edges — the same
-accelerating-approach technique already shipped in Layer B's Portal Depth (`z*z` easing), but
-angular instead of circular so it reads as a distinct effect from every other tunnel-flavored
-thing already in the app.
+Nested rectangular frames flying toward the viewer, fading out as they approach their maximum
+size — the same accelerating-approach technique already shipped in Layer B's Portal Depth (`z*z`
+easing), but angular instead of circular so it reads as a distinct effect from every other
+tunnel-flavored thing already in the app. **Correction, added post-implementation:** frames fade
+to zero alpha as `f` approaches 1 (their max size, `0.68 * mn`), so they dissolve well inside the
+viewport rather than literally flying past its edges — a wording inaccuracy the final review
+caught; live verification already confirmed the effect reads correctly as a corridor regardless.
 
 ```js
 function drawTunnelCorridor(base, hue, growthF, energySize, seed) {
@@ -285,9 +288,13 @@ geometric engines grouped in the chain):
     } else if (p.engine === "dance") {
 ```
 (`fract1` is a top-level `const`, already in scope everywhere in this file, including inside
-`renderPreviews()` — no import/threading needed. Maze Grid's preview intentionally reuses the
-exact same hash formula as `buildMazeGrid` so the static preview thumbnail matches what the live
-engine will actually draw for that preset's seed, rather than an unrelated approximation.)
+`renderPreviews()` — no import/threading needed. Maze Grid's preview reuses the exact same hash
+formula as `buildMazeGrid`, so its 8×6 thumbnail is a genuine maze-like sub-region, consistent
+with every other engine's mini-preview technique. **Correction, added post-implementation:** it
+does NOT use the live track's actual seed — like every other preview branch, it's keyed on `pv.seed`
+(`buildPresets()` assigns each preview card `seed: Math.random() * 10`, re-rolled on page load),
+so the thumbnail is a plausible maze, not a preview of *this* track's specific layout. This matches
+existing convention exactly and needed no code change — only this spec's original claim was wrong.)
 
 ## What's explicitly deferred
 
