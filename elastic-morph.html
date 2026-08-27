@@ -1648,6 +1648,9 @@
       <option value="strobe">Style: Club Strobe Grid</option>
       <option value="warehouse">Style: Warehouse Fog</option>
       <option value="laser">Style: Laser Fans</option>
+      <option value="portal">Style: Portal Depth</option>
+      <option value="crystal">Style: Crystal Prism</option>
+      <option value="hypercube">Style: Hypercube Drift</option>
     </select>
     <select id="shBlend" class="pm-select" style="margin-top:8px">
       <option value="lighter" selected>Blend: Add</option>
@@ -3657,6 +3660,97 @@ vec3 laserStyle(vec2 uv){
   col += uPalOn > 0.5 ? mix(uPalA, uPalB, fract(uHue+0.48)) * (uBeat*0.28) : hsv2rgb(vec3(fract(uHue+0.48), 0.55, uBeat*0.28));
   return col;
 }
+vec3 portalStyle(vec2 uv){
+  vec3 col = vec3(0.0);
+  float rad = length(uv), ang = atan(uv.y, uv.x);
+  for(int i=0;i<7;i++){
+    float fi = float(i);
+    float speed = 0.15 + fi*0.03 + uBass*0.1;
+    float z = fract(uTime*speed + fi*0.143);
+    float ringR = z*z*1.6 + 0.02;
+    float ringW = 0.01 + z*0.03;
+    float ring = smoothstep(ringW, 0.0, abs(rad - ringR));
+    float fade = smoothstep(0.0, 0.15, z) * smoothstep(1.0, 0.7, z);
+    float spokes = 0.6 + 0.4*sin(ang*6.0 + fi*2.1 + uTime*0.4 + uBeat*2.0);
+    float glow = ring * fade * spokes * (0.6 + uBeat*0.8 + uLoud*0.5);
+    float hue = uHue + fi*0.12 + z*0.25 + uHighs*0.08;
+    vec3 layerCol = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) : hsv2rgb(vec3(fract(hue), 0.75, 1.0));
+    col += layerCol * glow;
+  }
+  col = applyEyeCatcherFX(col, uv);
+  return col;
+}
+float crystalDist(vec3 p){
+  float d = max(abs(p.x), max(abs(p.y), abs(p.z)));
+  d = max(d, dot(abs(p), normalize(vec3(1.0,1.0,1.0))));
+  d = max(d, dot(abs(p), normalize(vec3(1.0,-1.0,1.0))));
+  return d;
+}
+vec3 crystalStyle(vec2 uv){
+  vec3 crystA = vec3(0.9, 0.15, 0.95);
+  vec3 crystB = vec3(0.1, 0.85, 0.9);
+  vec3 ro = vec3(0.0, 0.0, -3.0);
+  vec3 rd = normalize(vec3(uv, 1.6));
+  float a = uTime*0.18 + uBass*0.25;
+  mat2 R = mat2(cos(a),-sin(a),sin(a),cos(a));
+  float scale = 1.1 + uMids*0.5;
+  float glow = 0.0, t = 0.0, band = 0.0;
+  for(int i=0;i<40;i++){
+    vec3 p = ro + rd*t;
+    p.xz = R*p.xz;
+    float d = crystalDist(p*scale)/scale - 0.85;
+    float shell = exp(-abs(d)*20.0);
+    glow += shell * exp(-t*0.18) * (0.85 + uBeat*0.8);
+    band += shell * (p.x*0.4 + p.y*0.3 + p.z*0.3);
+    t += 0.15;
+  }
+  glow *= 0.09;
+  float mixT = fract(uHue + band*0.05 + uHighs*0.1);
+  float v = glow * (0.7 + uIntensity*0.6) * (0.7 + uLoud*0.6);
+  vec3 col = mix(uPalOn > 0.5 ? uPalA : crystA, uPalOn > 0.5 ? uPalB : crystB, mixT) * v;
+  col += mix(uPalOn > 0.5 ? uPalB : crystB, uPalOn > 0.5 ? uPalA : crystA, mixT) * (pow(glow, 3.0)*0.6);
+  col = applyEyeCatcherFX(col, uv);
+  return col;
+}
+float segGlow(vec2 uv, vec2 a, vec2 b){
+  vec2 pa = uv - a, ba = b - a;
+  float h = clamp(dot(pa,ba)/dot(ba,ba), 0.0, 1.0);
+  return 0.008 / (length(pa - ba*h) + 0.006);
+}
+vec2 projCube(vec3 v, mat2 R, float persp){
+  vec3 p = v; p.xz = R*p.xz;
+  return p.xy * (persp/(persp + p.z));
+}
+vec3 hypercubeStyle(vec2 uv){
+  float aOuter = uTime*0.22 + uBass*0.3;
+  float aInner = uTime*-0.31 + uMids*0.4;
+  mat2 Ro = mat2(cos(aOuter),-sin(aOuter),sin(aOuter),cos(aOuter));
+  mat2 Ri = mat2(cos(aInner),-sin(aInner),sin(aInner),cos(aInner));
+  float innerScale = 0.4 + 0.15*sin(uTime*0.5 + uBeat*2.0);
+  float persp = 2.6;
+  vec2 o0 = projCube(vec3(-1.0,-1.0,-1.0), Ro, persp), o1 = projCube(vec3(1.0,-1.0,-1.0), Ro, persp);
+  vec2 o2 = projCube(vec3(1.0,1.0,-1.0), Ro, persp),  o3 = projCube(vec3(-1.0,1.0,-1.0), Ro, persp);
+  vec2 o4 = projCube(vec3(-1.0,-1.0,1.0), Ro, persp), o5 = projCube(vec3(1.0,-1.0,1.0), Ro, persp);
+  vec2 o6 = projCube(vec3(1.0,1.0,1.0), Ro, persp),   o7 = projCube(vec3(-1.0,1.0,1.0), Ro, persp);
+  vec2 i0 = projCube(vec3(-1.0,-1.0,-1.0)*innerScale, Ri, persp), i1 = projCube(vec3(1.0,-1.0,-1.0)*innerScale, Ri, persp);
+  vec2 i2 = projCube(vec3(1.0,1.0,-1.0)*innerScale, Ri, persp),  i3 = projCube(vec3(-1.0,1.0,-1.0)*innerScale, Ri, persp);
+  vec2 i4 = projCube(vec3(-1.0,-1.0,1.0)*innerScale, Ri, persp), i5 = projCube(vec3(1.0,-1.0,1.0)*innerScale, Ri, persp);
+  vec2 i6 = projCube(vec3(1.0,1.0,1.0)*innerScale, Ri, persp),   i7 = projCube(vec3(-1.0,1.0,1.0)*innerScale, Ri, persp);
+  float glow = 0.0;
+  glow += segGlow(uv,o0,o1)+segGlow(uv,o1,o2)+segGlow(uv,o2,o3)+segGlow(uv,o3,o0);
+  glow += segGlow(uv,o4,o5)+segGlow(uv,o5,o6)+segGlow(uv,o6,o7)+segGlow(uv,o7,o4);
+  glow += segGlow(uv,o0,o4)+segGlow(uv,o1,o5)+segGlow(uv,o2,o6)+segGlow(uv,o3,o7);
+  glow += segGlow(uv,i0,i1)+segGlow(uv,i1,i2)+segGlow(uv,i2,i3)+segGlow(uv,i3,i0);
+  glow += segGlow(uv,i4,i5)+segGlow(uv,i5,i6)+segGlow(uv,i6,i7)+segGlow(uv,i7,i4);
+  glow += segGlow(uv,i0,i4)+segGlow(uv,i1,i5)+segGlow(uv,i2,i6)+segGlow(uv,i3,i7);
+  glow += (segGlow(uv,o0,i0)+segGlow(uv,o1,i1)+segGlow(uv,o2,i2)+segGlow(uv,o3,i3)
+         + segGlow(uv,o4,i4)+segGlow(uv,o5,i5)+segGlow(uv,o6,i6)+segGlow(uv,o7,i7)) * 0.7;
+  glow *= (0.5 + uLoud*0.5 + uBeat*0.6);
+  float mixT = fract(uHue + glow*0.03 + uHighs*0.1);
+  vec3 col = (uPalOn > 0.5 ? mix(uPalA, uPalB, mixT) : hsv2rgb(vec3(mixT, 0.75, 1.0))) * glow;
+  col = applyEyeCatcherFX(col, uv);
+  return col;
+}
 
 void main(){
   vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);
@@ -3675,7 +3769,10 @@ void main(){
   else if(uStyle < 8.5) col = feedbackStyle(uv);
   else if(uStyle < 9.5) col = strobeStyle(uv*1.3);
   else if(uStyle < 10.5) col = warehouseStyle(uv*1.2);
-  else                  col = laserStyle(uv*1.2);
+  else if(uStyle < 11.5) col = laserStyle(uv*1.2);
+  else if(uStyle < 12.5) col = portalStyle(uv);
+  else if(uStyle < 13.5) col = crystalStyle(uv);
+  else                   col = hypercubeStyle(uv);
   // gentle vignette + filmic-ish tone
   float vig = 1.0 - dot(uv,uv)*0.35;
   col *= clamp(vig,0.0,1.0);
@@ -3741,7 +3838,7 @@ function initGL(){
   }catch(e){ console.warn("WebGL init failed:", e); GL.ok = false; return false; }
 }
 
-const SHADER_STYLE_ID = { fluid:0, metaballs:1, tunnel:2, aurora:3, electric:4, chrome:5, gyroid:6, raymarch:7, feedback:8, strobe:9, warehouse:10, laser:11 };
+const SHADER_STYLE_ID = { fluid:0, metaballs:1, tunnel:2, aurora:3, electric:4, chrome:5, gyroid:6, raymarch:7, feedback:8, strobe:9, warehouse:10, laser:11, portal:12, crystal:13, hypercube:14 };
 
 /* render the shader to its own canvas and composite onto the 2D context */
 function renderShader(W, H, hue){

@@ -76,7 +76,7 @@ ok("fx2 state keys match FX2_DEFS", fx2StateKeys.length === 10 && fx2StateKeys.e
 
 /* shader styles: SHADER_STYLE_ID, the <option>s and the GLSL share the same set */
 const styleIds = (() => { const m = script.match(/SHADER_STYLE_ID = \{([^}]+)\}/); return m ? [...m[1].matchAll(/(\w+):/g)].map(x => x[1]) : []; })();
-const styleOpts = [...html.matchAll(/<option value="(fluid|metaballs|tunnel|aurora|electric|chrome|gyroid|raymarch|feedback|strobe|warehouse|laser)"/g)].map(m => m[1]);
+const styleOpts = [...html.matchAll(/<option value="(fluid|metaballs|tunnel|aurora|electric|chrome|gyroid|raymarch|feedback|strobe|warehouse|laser|portal|crystal|hypercube)"/g)].map(m => m[1]);
 ok("shader styles ≥ 9 defined", styleIds.length >= 9, styleIds.join(","));
 ok("every shader style has an <option>", styleIds.every(s => styleOpts.includes(s)), styleIds.filter(s => !styleOpts.includes(s)).join(","));
 const frag = (script.match(/SHADER_FRAG = `([\s\S]*?)`;/) || [])[1] || "";
@@ -84,6 +84,45 @@ const balanced = (str, o, c) => (str.split(o).length === str.split(c).length);
 ok("GLSL braces & parens balanced", frag.length > 0 && balanced(frag, "{", "}") && balanced(frag, "(", ")"));
 ["auroraStyle", "electricStyle", "chromeStyle", "gyroidStyle", "raymarchStyle", "feedbackStyle", "strobeStyle", "warehouseStyle", "laserStyle"].forEach(fn =>
   ok("GLSL " + fn + " defined & called", (frag.split(fn).length - 1) >= 2));
+
+/* ---------------- Shader Engine: Portal Depth, Crystal Prism, Hypercube Drift ---------------- */
+section("Shader Engine — Portal Depth, Crystal Prism, Hypercube Drift");
+
+ok("SHADER_STYLE_ID gained the 3 new entries with the correct uStyle values (12/13/14)", (() => {
+  return /portal:\s*12/.test(script) && /crystal:\s*13/.test(script) && /hypercube:\s*14/.test(script);
+})());
+
+["portalStyle", "crystalStyle", "hypercubeStyle", "segGlow", "projCube"].forEach(fn =>
+  ok("GLSL " + fn + " defined & called", (frag.split(fn).length - 1) >= 2));
+
+ok("main()'s dispatch chain: laser's bare else became an explicit uStyle<11.5 branch, followed by portal/crystal/hypercube in order, ending in a bare else for hypercube", (() => {
+  const mainIdx = frag.lastIndexOf("void main(){");
+  if (mainIdx < 0) return false;
+  const mainBody = frag.slice(mainIdx);
+  const laserIdx = mainBody.indexOf("else if(uStyle < 11.5) col = laserStyle(uv*1.2);");
+  const portalIdx = mainBody.indexOf("else if(uStyle < 12.5) col = portalStyle(uv);");
+  const crystalIdx = mainBody.indexOf("else if(uStyle < 13.5) col = crystalStyle(uv);");
+  const hypercubeIdx = mainBody.indexOf("else                   col = hypercubeStyle(uv);");
+  return laserIdx >= 0 && portalIdx > laserIdx && crystalIdx > portalIdx && hypercubeIdx > crystalIdx;
+})());
+
+ok("#shStyle gained the 3 new <option> elements in order after laser", (() => {
+  const selMatch = html.match(/<select id="shStyle"[^>]*>([\s\S]*?)<\/select>/);
+  if (!selMatch) return false;
+  const body = selMatch[1];
+  const laserIdx = body.indexOf('value="laser"');
+  const portalIdx = body.indexOf('value="portal"');
+  const crystalIdx = body.indexOf('value="crystal"');
+  const hypercubeIdx = body.indexOf('value="hypercube"');
+  return laserIdx >= 0 && portalIdx > laserIdx && crystalIdx > portalIdx && hypercubeIdx > crystalIdx;
+})());
+
+ok("no GLSL array syntax introduced (WebGL1/GLSL ES 1.00 array-constructor risk avoided per design)", (() => {
+  const s3 = frag.indexOf("vec3 portalStyle");
+  const eIdx = frag.indexOf("void main(){", s3);
+  const newStylesSrc = s3 >= 0 && eIdx > s3 ? frag.slice(s3, eIdx) : "";
+  return newStylesSrc.length > 0 && !newStylesSrc.includes("[8]") && !newStylesSrc.includes("[24]") && !/vec[234]\s*\[/.test(newStylesSrc);
+})());
 
 /* v58: FX Rack III */
 const fx3Defs = (script.match(/const FX3_DEFS = \[([\s\S]*?)\];/) || [])[1] || "";
