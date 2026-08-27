@@ -6110,8 +6110,12 @@ function drawLayerB(W, H, hue, dt) {
     const zTarget = LAYERB_PHASE_ZOOM[S.phase] || 1;
     LB._progZoom = (LB._progZoom || 1) + (zTarget - (LB._progZoom || 1)) * Math.min(1, dt / 2.5);
   }
-  const sc = LB.scale * (1 + LB.scaleLfo.depth * lfoWave(LB.scaleLfo.shape, LB._scPhase || 0))
+  const scRaw = LB.scale * (1 + LB.scaleLfo.depth * lfoWave(LB.scaleLfo.shape, LB._scPhase || 0))
              * (1 + ((LB._progZoom || 1) - 1) * LB.progressZoomAmt);
+  // v122: floor sc away from 0 — isoGrid/moire/hexgrid derive loop counts from W/(k*sc), and an
+  // exact or near-zero sc (reachable via Scale LFO at full depth, worsened by Progress Zoom's
+  // low-end multipliers) turns that into an unbounded/near-infinite loop and freezes the tab.
+  const sc = Math.max(0.05, scRaw);
   const colr = (t, a) => {
     if (LB.color === "white") return `rgba(255,255,255,${a})`;
     if (LB.color === "dna" && S.palette.on && S.palette.mode === "named") {
@@ -6440,7 +6444,7 @@ function drawLayerB(W, H, hue, dt) {
       for (let row = -1; row < rows; row++) {
         for (let col = -1; col < cols; col++) {
           const x = col * cell + (row % 2) * cell * 0.5 - drift, y = row * cell * 0.5 - drift * 0.5;
-          const v = specAt((col + row * 5) % 40, 40);
+          const v = specAt(((col + row * 5) % 40 + 40) % 40, 40);   // row/col start at -1: keep index non-negative
           ctx.strokeStyle = colr((col + row) / (cols + rows), 0.1 + v * 0.35 + S.beat * 0.15);
           ctx.beginPath();
           ctx.moveTo(x, y); ctx.lineTo(x + cell * 0.5, y + cell * 0.25);

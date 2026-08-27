@@ -432,6 +432,14 @@ ok("drawLayerB has a case for isoGrid using the shared sc scale factor", (() => 
   return !!fn && fn.includes('case "isoGrid": {') && fn.includes("mn * 0.055 * sc");
 })());
 
+/* Final-review fix: row/col start at -1, so (col + row*5) % 40 can be negative — specAt's
+   analyser branch does Math.pow(i/n, 1.5), which is NaN for a negative i/n, silently breaking
+   the stroke color for a few off-canvas cells. Defensive double-modulo keeps the index in [0,40). */
+ok("isoGrid's specAt index is kept non-negative via a double-modulo (row/col start at -1)", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes("specAt(((col + row * 5) % 40 + 40) % 40, 40)");
+})());
+
 ok("drawLayerB has a case for voronoi with 14 deterministic seeds cached on LB._vSeeds", (() => {
   const fn = extractFn("drawLayerB");
   return !!fn && fn.includes('case "voronoi": {')
@@ -499,6 +507,18 @@ ok("drawLayerB's sc computation multiplies in the Progress Zoom term, and it's a
   // expression pattern rather than running the real (canvas-dependent) function.
   const noOpAtZero = (() => { const LB__progZoom = 999; const progressZoomAmt = 0; return (1 + ((LB__progZoom || 1) - 1) * progressZoomAmt) === 1; })();
   return hasTerm && noOpAtZero;
+})());
+
+/* Final-review fix: isoGrid/moire/hexgrid derive loop counts from W/(k*sc) — an exact or
+   near-zero sc (reachable via Scale LFO at full depth, worsened by Progress Zoom's low-end
+   multipliers) turns that into an unbounded/near-infinite loop and freezes the tab. sc must be
+   floored away from 0. */
+ok("drawLayerB floors sc at 0.05 so W/(k*sc)-derived loop counts (isoGrid/moire/hexgrid) can never reach Infinity", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes("const sc = Math.max(0.05, scRaw);");
+})());
+ok("Math.max(0.05, x) never returns 0 or a negative value regardless of how small/negative x is", (() => {
+  return Math.max(0.05, 0) === 0.05 && Math.max(0.05, -3) === 0.05 && Math.max(0.05, 1e-9) === 0.05;
 })());
 
 ok("#lbProgZoom slider exists in the Layer B Modulation panel", html.includes('id="lbProgZoom"'));

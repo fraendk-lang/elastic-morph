@@ -29,10 +29,16 @@ or any other part of the app.
   overlapping fine line-grids at a slowly oscillating angle offset, producing a genuine optical
   interference pattern). Each follows the exact same pattern every existing type already uses — a
   `case` in the switch, an entry in `LAYERB_TYPES` — no new architecture per-type.
-- **Progress Zoom is a global modulation**, applied identically to all 19 types (16 existing + 3
-  new), because it's computed once (a scale multiplier) and folded into the existing `sc` variable
-  that every case already uses for sizing. Consistent with how `scale`/`scaleLfo`/`pulse` already
-  work today.
+- **Progress Zoom is a global modulation**, computed once (a scale multiplier) and folded into the
+  existing `sc` variable — so it automatically reaches every case that already reads `sc` for
+  sizing, with no per-type wiring. In practice that's 18 of the 19 types (consistent with how
+  `scale`/`scaleLfo`/`pulse` already work today). **Correction, added post-implementation:** the
+  new Voronoi type does not read `sc` at all — its 40×~23 coarse grid is a fixed screen-space
+  resolution, deliberately independent of zoom so its cell layout never reflows (see the
+  determinism decision below). Progress Zoom (and the pre-existing Scale/Scale LFO controls) have
+  no visible effect on Voronoi. Confirmed acceptable with Frank rather than retrofitting a
+  zoom-camera transform onto Voronoi, which would risk fighting the "stable, non-jittering layout"
+  decision below.
 - **Driven by `S.phase`** (the song-structure label: "Birth"/"Grow"/"Tension"/"Break"/"Return"/
   "Fade", already computed every frame — live and during HQ export — via `segmentAt(S.progress)`),
   not by raw `S.progress` linearly. Confirmed with Frank: phase-coupling produces a "close → far →
