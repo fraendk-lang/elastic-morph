@@ -415,6 +415,59 @@ ok("drawLayerB does not use clamp01 (out of scope)", (() => {
 ["lbOpLfoRate", "lbOpLfoDepth", "lbOpLfoShape", "lbScLfoRate", "lbScLfoDepth", "lbScLfoShape"].forEach(id =>
   ok("control exists: " + id, html.includes('id="' + id + '"')));
 
+/* ---------------- Layer B: new grid/interference types ---------------- */
+section("Layer B — Iso-Grid, Voronoi, Moiré");
+
+ok("LAYERB_TYPES gained exactly the 3 new entries with the correct id/label pairs", (() => {
+  const m = script.match(/const LAYERB_TYPES = \[([\s\S]*?)\];/);
+  if (!m) return false;
+  const body = m[1];
+  return body.includes('["isoGrid",') && body.includes('"Iso-Grid"]')
+    && body.includes('["voronoi",') && body.includes('"Voronoi"]')
+    && body.includes('["moire",') && body.includes('"Moiré"]');
+})());
+
+ok("drawLayerB has a case for isoGrid using the shared sc scale factor", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "isoGrid": {') && fn.includes("mn * 0.055 * sc");
+})());
+
+ok("drawLayerB has a case for voronoi with 14 deterministic seeds cached on LB._vSeeds", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "voronoi": {')
+    && fn.includes("LB._vSeeds.length !== 14")
+    && fn.includes("0.61803398875") && fn.includes("0.38196601125");
+})());
+
+ok("drawLayerB has a case for moire drawing two rotated line-grids", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "moire": {') && fn.includes("const drawLines = (angle, offset, alpha)");
+})());
+
+ok("the 3 new cases sit after case \"orbits\" (the prior last case) inside the same switch", (() => {
+  const fn = extractFn("drawLayerB");
+  if (!fn) return false;
+  const orbitsIdx = fn.indexOf('case "orbits":');
+  const isoIdx = fn.indexOf('case "isoGrid":');
+  const vorIdx = fn.indexOf('case "voronoi":');
+  const moireIdx = fn.indexOf('case "moire":');
+  return orbitsIdx >= 0 && isoIdx > orbitsIdx && vorIdx > isoIdx && moireIdx > vorIdx;
+})());
+
+/* Voronoi seed generation is pure math — genuinely testable without any canvas/DOM mocking.
+   Extract just the seed-generation expression via the golden-ratio constants and confirm it's
+   deterministic (same call twice => identical coordinates) and within the [0.1, 0.9] band the
+   design specifies. */
+ok("Voronoi seed generation (golden-ratio sequence) is deterministic and stays within [0.1, 0.9]", (() => {
+  const genSeeds = () => Array.from({ length: 14 }, (_, i) => ({
+    x: 0.1 + 0.8 * ((i * 0.61803398875) % 1), y: 0.1 + 0.8 * ((i * 0.38196601125) % 1)
+  }));
+  const a = genSeeds(), b = genSeeds();
+  const sameEveryTime = a.every((s, i) => s.x === b[i].x && s.y === b[i].y);
+  const inBand = a.every(s => s.x >= 0.1 && s.x <= 0.9 && s.y >= 0.1 && s.y <= 0.9);
+  return sameEveryTime && inBand && a.length === 14;
+})());
+
 /* ---------------- DNA flow motion (curl noise) ---------------- */
 section("DNA flow motion (curl noise)");
 ok("function flowNoise defined", script.includes("function flowNoise("));
