@@ -3813,7 +3813,7 @@ vec3 cosmicDriftStyle(vec2 uv){
     glow += dens * exp(-t*0.15) * (0.7 + uBeat*0.7);
     t += 0.14;
   }
-  glow *= 0.02;
+  glow *= 0.04;
   float mixT = fract(uHue + glow*0.08 + uHighs*0.12 + uTime*0.02);
   float v = glow * (0.7 + uIntensity*0.6) * (0.7 + uLoud*0.6);
   vec3 col = mix(uPalOn > 0.5 ? uPalA : nebA, uPalOn > 0.5 ? uPalB : nebB, mixT) * v;
