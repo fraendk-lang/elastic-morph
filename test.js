@@ -137,14 +137,14 @@ ok("crystalDist's two diagonal facet planes use distinct (non-symmetric) weight 
   return !(a[0] === b[0] && a[1] === b[1] && a[2] === b[2]);
 })());
 
-ok("main()'s dispatch chain: laser's bare else became an explicit uStyle<11.5 branch, followed by portal/crystal/hypercube in order, ending in a bare else for hypercube", (() => {
+ok("main()'s dispatch chain: laser's bare else became an explicit uStyle<11.5 branch, followed by portal/crystal/hypercube in order, hypercube now an explicit uStyle<14.5 branch (cosmicDrift took over the bare else)", (() => {
   const mainIdx = frag.lastIndexOf("void main(){");
   if (mainIdx < 0) return false;
   const mainBody = frag.slice(mainIdx);
   const laserIdx = mainBody.indexOf("else if(uStyle < 11.5) col = laserStyle(uv*1.2);");
   const portalIdx = mainBody.indexOf("else if(uStyle < 12.5) col = portalStyle(uv);");
   const crystalIdx = mainBody.indexOf("else if(uStyle < 13.5) col = crystalStyle(uv);");
-  const hypercubeIdx = mainBody.indexOf("else                   col = hypercubeStyle(uv);");
+  const hypercubeIdx = mainBody.indexOf("else if(uStyle < 14.5) col = hypercubeStyle(uv);");
   return laserIdx >= 0 && portalIdx > laserIdx && crystalIdx > portalIdx && hypercubeIdx > crystalIdx;
 })());
 
@@ -164,6 +164,34 @@ ok("no GLSL array syntax introduced (WebGL1/GLSL ES 1.00 array-constructor risk 
   const eIdx = frag.indexOf("void main(){", s3);
   const newStylesSrc = s3 >= 0 && eIdx > s3 ? frag.slice(s3, eIdx) : "";
   return newStylesSrc.length > 0 && !newStylesSrc.includes("[8]") && !newStylesSrc.includes("[24]") && !/vec[234]\s*\[/.test(newStylesSrc);
+})());
+
+/* ---------------- Shader Engine: Cosmic Drift ---------------- */
+section("Shader Engine — Cosmic Drift");
+
+ok("SHADER_STYLE_ID gained the cosmicDrift entry with the correct uStyle value (15)", (() => {
+  return /cosmicDrift:\s*15/.test(script);
+})());
+
+["cosmicDriftDensity", "cosmicDriftStyle"].forEach(fn =>
+  ok("GLSL " + fn + " defined & called", (frag.split(fn).length - 1) >= 2));
+
+ok("main()'s dispatch chain: hypercube's bare else became an explicit uStyle<14.5 branch, followed by cosmicDrift as the new bare else", (() => {
+  const mainIdx = frag.lastIndexOf("void main(){");
+  if (mainIdx < 0) return false;
+  const mainBody = frag.slice(mainIdx);
+  const hypercubeIdx = mainBody.indexOf("else if(uStyle < 14.5) col = hypercubeStyle(uv);");
+  const cosmicIdx = mainBody.indexOf("else                   col = cosmicDriftStyle(uv);");
+  return hypercubeIdx >= 0 && cosmicIdx > hypercubeIdx;
+})());
+
+ok("#shStyle gained the new <option> after hypercube", (() => {
+  const selMatch = html.match(/<select id="shStyle"[^>]*>([\s\S]*?)<\/select>/);
+  if (!selMatch) return false;
+  const body = selMatch[1];
+  const hypercubeIdx = body.indexOf('value="hypercube"');
+  const cosmicIdx = body.indexOf('value="cosmicDrift"');
+  return hypercubeIdx >= 0 && cosmicIdx > hypercubeIdx;
 })());
 
 /* v58: FX Rack III */
