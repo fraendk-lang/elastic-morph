@@ -3789,7 +3789,7 @@ float cosmicDriftDensity(vec3 p){
   float d = 0.0, amp = 0.5, freq = 1.0;
   mat2 R = mat2(0.8,-0.6,0.6,0.8);
   for(int i=0;i<4;i++){
-    d += amp * abs(sin(p.x*freq) + sin(p.y*freq*1.3) + sin(p.z*freq*0.7));
+    d += amp * max(abs(sin(p.x*freq) + sin(p.y*freq*1.3) + sin(p.z*freq*0.7)) - 1.2, 0.0);   // final-review fix: unthresholded abs() had a ~0.98 DC floor everywhere (never truly empty), washing out blacks and crushing audio reactivity; the threshold restores real voids
     p.xy = R*p.xy; p.z += 1.7;
     freq *= 1.9; amp *= 0.55;
   }
@@ -3798,7 +3798,7 @@ float cosmicDriftDensity(vec3 p){
 vec3 cosmicDriftStyle(vec2 uv){
   vec3 nebA = vec3(0.15, 0.05, 0.6);
   vec3 nebB = vec3(0.9, 0.3, 0.85);
-  float starN = hash(floor(uv*380.0));
+  float starN = hash(floor(uv*200.0));   // final-review fix: 380 gave sub-pixel star cells at the export resolution cap (aliasing/shimmer); 200 keeps stars a few pixels wide
   float star = smoothstep(0.988, 1.0, starN) * (0.5 + 0.5*sin(uTime*3.0 + starN*40.0));
   vec3 ro = vec3(0.0, 0.0, -3.2);
   vec3 rd = normalize(vec3(uv, 1.5));
@@ -3813,7 +3813,7 @@ vec3 cosmicDriftStyle(vec2 uv){
     glow += dens * exp(-t*0.15) * (0.7 + uBeat*0.7);
     t += 0.14;
   }
-  glow *= 0.04;
+  glow *= 0.2;   // re-tuned for the thresholded density above — the old 0.02/0.04 masked the DC-floor problem rather than fixing it
   float mixT = fract(uHue + glow*0.08 + uHighs*0.12 + uTime*0.02);
   float v = glow * (0.7 + uIntensity*0.6) * (0.7 + uLoud*0.6);
   vec3 col = mix(uPalOn > 0.5 ? uPalA : nebA, uPalOn > 0.5 ? uPalB : nebB, mixT) * v;
@@ -3925,7 +3925,7 @@ function renderShader(W, H, hue){
     : Math.max(0.5, S.perfScale || 1);
   const cap = S.exporting
     ? Math.max(W, H) * (S.exportShaderCap != null ? S.exportShaderCap : 1)
-    : ((SH.style === "gyroid" || SH.style === "crystal") ? 820 : 1000) * pf;   // crystal is gyroid's structural twin (same 40-step march), same lower cap
+    : ((SH.style === "gyroid" || SH.style === "crystal" || SH.style === "cosmicDrift") ? 820 : 1000) * pf;   // crystal is gyroid's structural twin (same 40-step march), same lower cap; cosmicDrift measured ~2x gyroid's per-frame cost, same cap
   const scl = Math.min(1, cap / Math.max(W, H));
   const gw = Math.max(2, Math.round(W * scl));
   const gh = Math.max(2, Math.round(H * scl));
@@ -11714,7 +11714,7 @@ function initPhaseA() {
    ============================================================ */
 
 const HEAVY_ENGINES = new Set(["flame", "hyperspace", "reaction", "attractor"]);
-const HEAVY_SHADER = new Set(["gyroid", "raymarch", "feedback", "crystal", "hypercube"]);   // crystal: gyroid's structural twin (40-step march); hypercube: 32 unrolled segGlow + 16 projCube per pixel, comparable to feedback
+const HEAVY_SHADER = new Set(["gyroid", "raymarch", "feedback", "crystal", "hypercube", "cosmicDrift"]);   // crystal: gyroid's structural twin (40-step march); hypercube: 32 unrolled segGlow + 16 projCube per pixel, comparable to feedback; cosmicDrift: measured ~2x gyroid's per-frame cost, the heaviest style in the app
 
 function analysisReady() {
   return S.analyzeState === "done" && !!S.audioBuffer;
