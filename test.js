@@ -2448,7 +2448,7 @@ ok("tentacle is beat-reactive (S.beat) without bass/loudness motion-coupling (ma
   const endIdx = fn.indexOf("\n    }", startIdx);
   if (startIdx < 0 || endIdx < 0) return false;
   const body = fn.slice(startIdx, endIdx);
-  return body.includes("S.beat") && !body.includes("S.bass") && !body.includes("S.loudness");
+  return body.includes("S.beat") && !body.includes("S.bass") && !body.includes("S.loudness") && !body.includes("S.mids") && !body.includes("S.highs");
 })());
 
 ok("tentacle's shape is a pure function of S.time/dt — no Math.random, no accumulated per-frame state", (() => {

@@ -59,9 +59,10 @@ see `grid`/`helix`).
 
 **Audio reactivity.** Beat only, per Frank's selection: each bead's radius
 and alpha get a `S.beat`-scaled boost at draw time (same shape as `helix`'s
-`0.5 + S.beat*0.3` / `pulseRings`' ring-glow pattern) — no bass/highs coupling
-beyond the existing `colr()` hue helper's own `S.highs`-agnostic behavior
-(matches the approved scope: beat-pulse only).
+`0.5 + S.beat*0.3` / `pulseRings`' ring-glow pattern). No bass/mids/highs
+coupling anywhere in the `tentacle` case — the stroke uses a fixed alpha
+(`colr(0.5, 0.35)`), matching the approved scope: beat-pulse only, no other
+audio-reactive terms.
 
 **Mirror interaction.** No special-casing. Runs inside the existing
 mirror-passes loop identically to every other type: at `mirror: off` it reads
@@ -146,7 +147,7 @@ closing `break; }` and before the switch's closing `}`
         pts.push({ x, y, t });
       }
       ctx.lineWidth = Math.max(1.6, mn * 0.005);
-      ctx.strokeStyle = colr(0.5, 0.35 + S.highs * 0.15);
+      ctx.strokeStyle = colr(0.5, 0.35);
       ctx.beginPath();
       pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
       ctx.stroke();
@@ -166,8 +167,8 @@ closing `break; }` and before the switch's closing `}`
 ```
 
 All identifiers used (`mn`, `sc`, `cx`, `cy`, `baseRot`, `colr`, `S.time`,
-`S.beat`, `S.highs`) are already in scope at this point in `drawLayerB` —
-confirmed by reading `elastic-morph.html:6371-6446`.
+`S.beat`) are already in scope at this point in `drawLayerB` — confirmed by
+reading `elastic-morph.html:6371-6446`.
 
 ## Non-Goals (explicitly out of scope for this round)
 

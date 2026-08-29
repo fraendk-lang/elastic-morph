@@ -6791,7 +6791,7 @@ function drawLayerB(W, H, hue, dt) {
         pts.push({ x, y, t });
       }
       ctx.lineWidth = Math.max(1.6, mn * 0.005);
-      ctx.strokeStyle = colr(0.5, 0.35 + S.highs * 0.15);
+      ctx.strokeStyle = colr(0.5, 0.35);
       ctx.beginPath();
       pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
       ctx.stroke();
