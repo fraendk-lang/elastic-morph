@@ -2415,6 +2415,58 @@ ok("renderPreviews() has the 3 new mini-preview branches in order before the exi
   return tunnelIdx >= 0 && vortexIdx > tunnelIdx && mazeIdx > vortexIdx && danceIdx > mazeIdx;
 })());
 
+/* ---------------- Layer B: Bead Tentacle ---------------- */
+section("Layer B — Bead Tentacle");
+
+ok("LAYERB_TYPES gained the tentacle entry as its 20th element", (() => {
+  const m = script.match(/const LAYERB_TYPES = \[([\s\S]*?)\];/);
+  if (!m) return false;
+  const body = m[1];
+  const entries = body.match(/\[".*?",\s*".*?"\]/g) || [];
+  return entries.length === 20
+    && body.includes('["tentacle", "Bead Tentacle"]')
+    && entries[entries.length - 1].includes('"tentacle"');
+})());
+
+ok("drawLayerB has a case for tentacle positioned after case \"moire\" and before the switch closes", (() => {
+  const fn = extractFn("drawLayerB");
+  if (!fn) return false;
+  const moireIdx = fn.indexOf('case "moire":');
+  const tentacleIdx = fn.indexOf('case "tentacle":');
+  return moireIdx >= 0 && tentacleIdx > moireIdx;
+})());
+
+ok("tentacle's counter-rotation cancels and reverses the shared baseRot (-2 * baseRot, not just -baseRot)", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "tentacle": {') && fn.includes("ctx.rotate(-2 * baseRot);");
+})());
+
+ok("tentacle is beat-reactive (S.beat) without bass/loudness motion-coupling (matches the approved beat-only scope)", (() => {
+  const fn = extractFn("drawLayerB");
+  if (!fn) return false;
+  const startIdx = fn.indexOf('case "tentacle": {');
+  const endIdx = fn.indexOf("\n    }", startIdx);
+  if (startIdx < 0 || endIdx < 0) return false;
+  const body = fn.slice(startIdx, endIdx);
+  return body.includes("S.beat") && !body.includes("S.bass") && !body.includes("S.loudness");
+})());
+
+ok("tentacle's shape is a pure function of S.time/dt — no Math.random, no accumulated per-frame state", (() => {
+  const fn = extractFn("drawLayerB");
+  if (!fn) return false;
+  const startIdx = fn.indexOf('case "tentacle": {');
+  const endIdx = fn.indexOf("\n    }", startIdx);
+  if (startIdx < 0 || endIdx < 0) return false;
+  const body = fn.slice(startIdx, endIdx);
+  return !body.includes("Math.random");
+})());
+
+ok("LAYERB_GENERIC excludes tentacle (keeps the 2x Auto-VJ selection weight given to distinctive types)", (() => {
+  const m = script.match(/const LAYERB_GENERIC = new Set\(\[([^\]]*)\]\);/);
+  if (!m) return false;
+  return !m[1].includes('"tentacle"');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
