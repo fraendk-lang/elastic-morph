@@ -6189,7 +6189,6 @@ function drawParticleMode(W, H, baseHue, dt) {
   if (pmParticles.length === 0) initPM();
   const cx = W / 2, cy = H / 2, maxR = Math.hypot(W, H) / 2, sc = H / 720;
   const energy = 0.25 + S.loudness * 1.25, beat = S.beat, hi = S.highs;
-  const glowOn = S.exporting || (S.perfScale || 1) > 0.5;
 
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
@@ -6209,49 +6208,44 @@ function drawParticleMode(W, H, baseHue, dt) {
     switch (pm.pattern) {
       case "hyperspace": {
         pt.pr = pt.r;
-        pt.r += dt * (0.12 + energy * 0.85 + beat * 0.6 + S.bands.air * 0.9) * pt.spd;
+        pt.r += dt * (0.12 + energy * 0.85 + beat * 0.6) * pt.spd;
         if (pt.r >= 1) { pt.r = Math.random() * 0.04; pt.pr = pt.r; pt.a = Math.random() * Math.PI * 2; pt.hue = Math.random() * 360; }
         const x1 = cx + Math.cos(pt.a) * pt.pr * maxR, y1 = cy + Math.sin(pt.a) * pt.pr * maxR;
         const x2 = cx + Math.cos(pt.a) * pt.r * maxR, y2 = cy + Math.sin(pt.a) * pt.r * maxR;
         ctx.strokeStyle = pmColor(pt, baseHue, 55 + pt.r * 35, 0.15 + pt.r * 0.65);
         ctx.lineWidth = pt.sz * (0.4 + pt.r * 2) * sc;
-        ctx.shadowBlur = glowOn ? pt.sz * 3 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
         break;
       }
       case "starfall": {
-        pt.y += dt * (50 + energy * 230 + S.bands.highMid * 180) * pt.spd * sc;
+        pt.y += dt * (50 + energy * 230) * pt.spd * sc;
         pt.x += dt * (S.stereo * 40 + 12) * sc;
         if (pt.y > H + 12) { pt.y = -12; pt.x = Math.random() * W; }
         if (pt.x > W + 12) pt.x = -12;
-        const tail = (6 + energy * 34 + S.bands.air * 26) * sc;
+        const tail = (6 + energy * 34) * sc;
         ctx.strokeStyle = pmColor(pt, baseHue, 70, 0.2 + hi * 0.5);
         ctx.lineWidth = pt.sz * 0.9 * sc;
-        ctx.shadowBlur = glowOn ? pt.sz * 2.5 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x - tail * 0.25, pt.y - tail); ctx.stroke();
         break;
       }
       case "rain": {
-        pt.y += dt * (260 + energy * 420 + S.kickOnset * 260) * pt.spd * sc;
+        pt.y += dt * (260 + energy * 420) * pt.spd * sc;
         if (pt.y > H + 14) { pt.y = -14; pt.x = Math.random() * W; pt.hue = Math.random() * 360; }
         const tail = (14 + energy * 26) * sc;
         ctx.strokeStyle = pmColor(pt, baseHue, 60, 0.18 + hi * 0.4);
         ctx.lineWidth = pt.sz * 0.5 * sc;
-        ctx.shadowBlur = glowOn ? pt.sz * 2 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x, pt.y - tail); ctx.stroke();
         ctx.fillStyle = pmColor(pt, baseHue, 85, 0.5 + hi * 0.4);
-        ctx.shadowColor = ctx.fillStyle;
         ctx.fillRect(pt.x - 0.6 * sc, pt.y, 1.4 * sc, 2.2 * sc);
         break;
       }
       case "vortex": {
-        pt.a += dt * (0.5 + energy * 1.6 + S.bands.bass * 1.3) * pt.spd * (1.2 - pt.r * 0.4);
-        pt.r -= dt * (0.04 + energy * 0.22 + S.bands.lowMid * 0.18);
+        pt.a += dt * (0.5 + energy * 1.6) * pt.spd * (1.2 - pt.r * 0.4);
+        pt.r -= dt * (0.04 + energy * 0.22);
         if (pt.r < 0.02) { pt.r = 0.55 + Math.random() * 0.45; pt.hue = Math.random() * 360; }
         const x = cx + Math.cos(pt.a) * pt.r * maxR, y = cy + Math.sin(pt.a) * pt.r * maxR * 0.82;
         const s = pt.sz * (0.6 + (1 - pt.r) * 1.6) * sc;
         ctx.fillStyle = pmColor(pt, baseHue, 60 + (1 - pt.r) * 25, 0.3 + hi * 0.4);
-        ctx.shadowBlur = glowOn ? s * 1.4 : 0; ctx.shadowColor = ctx.fillStyle;
         ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
         break;
       }
@@ -6259,14 +6253,13 @@ function drawParticleMode(W, H, baseHue, dt) {
         if (pt.life <= 0) {
           pt.x = cx + (Math.random() - 0.5) * W * 0.06; pt.y = H - 8 * sc;
           pt.vx = (Math.random() - 0.5) * 160 * sc;
-          pt.vy = -(220 + Math.random() * 220 + energy * 260 + (S.bands.subBass + S.kickOnset) * 180) * sc;
+          pt.vy = -(220 + Math.random() * 220 + energy * 260) * sc;
           pt.life = 1; pt.hue = Math.random() * 360;
         }
         pt.vy += dt * 320 * sc;
         pt.x += pt.vx * dt; pt.y += pt.vy * dt;
         if (pt.y > H + 10) pt.life = 0;
         ctx.fillStyle = pmColor(pt, baseHue, 65, 0.35 + hi * 0.35);
-        ctx.shadowBlur = glowOn ? pt.sz * 2.6 * sc : 0; ctx.shadowColor = ctx.fillStyle;
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * 1.3 * sc, 0, Math.PI * 2); ctx.fill();
         break;
       }
@@ -6276,14 +6269,13 @@ function drawParticleMode(W, H, baseHue, dt) {
           pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.life -= dt * 0.7;
           const a = Math.max(0, pt.life);
           ctx.fillStyle = pmColor(pt, baseHue, 62, a * 0.95);
-          ctx.shadowBlur = glowOn ? pt.sz * (0.6 + a) * sc * 2 : 0; ctx.shadowColor = ctx.fillStyle;
-          ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (0.6 + a + S.snareOnset * 0.5) * sc, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (0.6 + a) * sc, 0, Math.PI * 2); ctx.fill();
         }
         break;
       }
       case "nebula": {
         const ang = noise2(pt.x * 0.0022 + S.time * 0.05, pt.y * 0.0022 - S.time * 0.03) * Math.PI * 2;
-        const v = dt * (24 + energy * 70 + S.bands.mid * 55) * sc;
+        const v = dt * (24 + energy * 70) * sc;
         pt.x += Math.cos(ang) * v; pt.y += Math.sin(ang) * v;
         if (pt.x < -20) pt.x = W + 20; else if (pt.x > W + 20) pt.x = -20;
         if (pt.y < -20) pt.y = H + 20; else if (pt.y > H + 20) pt.y = -20;
@@ -6296,15 +6288,14 @@ function drawParticleMode(W, H, baseHue, dt) {
         break;
       }
       case "swarm": {
-        const ax = cx + Math.sin(S.time * 0.7) * W * (0.32 + S.bands.bass * 0.1) + S.stereo * W * 0.1;
-        const ay = cy + Math.cos(S.time * 0.9) * H * (0.3 + S.bands.bass * 0.08);
+        const ax = cx + Math.sin(S.time * 0.7) * W * 0.32 + S.stereo * W * 0.1;
+        const ay = cy + Math.cos(S.time * 0.9) * H * 0.3;
         pt.vx += (ax - pt.x) * dt * 1.8; pt.vy += (ay - pt.y) * dt * 1.8;
-        pt.vx += (Math.random() - 0.5) * 220 * dt * (0.4 + beat + S.bands.mid * 0.6);
-        pt.vy += (Math.random() - 0.5) * 220 * dt * (0.4 + beat + S.bands.mid * 0.6);
+        pt.vx += (Math.random() - 0.5) * 220 * dt * (0.4 + beat);
+        pt.vy += (Math.random() - 0.5) * 220 * dt * (0.4 + beat);
         pt.vx *= 0.94; pt.vy *= 0.94;
         pt.x += pt.vx * dt; pt.y += pt.vy * dt;
         ctx.fillStyle = pmColor(pt, baseHue, 64, 0.3 + hi * 0.4);
-        ctx.shadowBlur = glowOn ? pt.sz * 2.2 * sc : 0; ctx.shadowColor = ctx.fillStyle;
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * 1.1 * sc, 0, Math.PI * 2); ctx.fill();
         break;
       }
@@ -14371,6 +14362,9 @@ drawParticleMode = function (W, H, baseHue, dt) {
   const inten = pmIntensity();
   const pf = S.exporting ? 1 : Math.max(0.55, S.perfScale || 1);
   const visN = Math.max(40, Math.round(pmParticles.length * Math.min(1, pf + 0.3)));
+  /* v130: perf-gated glow + frequency-band coupling — see docs/superpowers/specs/
+     2026-08-29-particle-mode-glow-bands-design.md. Reuses the S.geo2 threshold convention. */
+  const glowOn = S.exporting || (S.perfScale || 1) > 0.5;
 
   ctx.save();
   ctx.globalCompositeOperation = "screen";
@@ -14394,7 +14388,7 @@ drawParticleMode = function (W, H, baseHue, dt) {
     switch (pm.pattern) {
       case "hyperspace": {
         pt.pr = pt.r;
-        pt.r += dt * (0.1 + energy * 0.75 + beat * 0.55) * pt.spd;
+        pt.r += dt * (0.1 + energy * 0.75 + beat * 0.55 + S.bands.air * 0.9) * pt.spd;
         if (pt.r >= 1) {
           pt.r = Math.random() * 0.05;
           pt.pr = pt.r;
@@ -14406,42 +14400,47 @@ drawParticleMode = function (W, H, baseHue, dt) {
         const al = 0.12 + pt.r * 0.55 * inten;
         ctx.strokeStyle = pmColor(pt, baseHue, 52 + pt.r * 32, al);
         ctx.lineWidth = pt.sz * (0.35 + pt.r * 1.8 + S.bass * 0.4) * sc;
+        ctx.shadowBlur = glowOn ? pt.sz * 3 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
         if (pt.r > 0.55 && beat > 0.4) {
           ctx.strokeStyle = pmColor(pt, baseHue, 78, al * 0.35);
+          ctx.shadowColor = ctx.strokeStyle;
           ctx.lineWidth *= 0.45;
           ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
         }
         break;
       }
       case "starfall": {
-        pt.y += dt * (45 + energy * 210 + mid * 80) * pt.spd * sc;
+        pt.y += dt * (45 + energy * 210 + mid * 80 + S.bands.highMid * 180) * pt.spd * sc;
         pt.x += dt * (S.stereo * 36 + Math.sin(S.time * 0.4 + pt.hue) * 18) * sc;
         if (pt.y > H + 12) { pt.y = -12; pt.x = Math.random() * W; }
         if (pt.x > W + 12) pt.x = -12;
         if (pt.x < -12) pt.x = W + 12;
-        const tail = (8 + energy * 38 + beat * 22) * sc;
+        const tail = (8 + energy * 38 + beat * 22 + S.bands.air * 26) * sc;
         ctx.strokeStyle = pmColor(pt, baseHue, 68, 0.18 + hi * 0.42);
         ctx.lineWidth = pt.sz * (0.75 + beat * 0.35) * sc;
+        ctx.shadowBlur = glowOn ? pt.sz * 2.5 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x - tail * 0.2, pt.y - tail); ctx.stroke();
         break;
       }
       case "rain": {
-        pt.y += dt * (240 + energy * 380 + hi * 120) * pt.spd * sc;
+        pt.y += dt * (240 + energy * 380 + hi * 120 + S.kickOnset * 260) * pt.spd * sc;
         if (pt.y > H + 14) { pt.y = -14; pt.x = Math.random() * W; if (S.pmode.multicolor) pt.hue = Math.random() * 360; }
         const tail = (12 + energy * 24 + hi * 10) * sc;
         ctx.strokeStyle = pmColor(pt, baseHue, 58, 0.14 + hi * 0.38);
         ctx.lineWidth = pt.sz * 0.45 * sc;
+        ctx.shadowBlur = glowOn ? pt.sz * 2 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x, pt.y - tail); ctx.stroke();
         break;
       }
       case "vortex": {
-        pt.a += dt * (0.45 + energy * 1.45 + beat * 0.35) * pt.spd * (1.15 - pt.r * 0.35);
-        pt.r -= dt * (0.035 + energy * 0.18 + S.bass * 0.06);
+        pt.a += dt * (0.45 + energy * 1.45 + beat * 0.35 + S.bands.bass * 1.3) * pt.spd * (1.15 - pt.r * 0.35);
+        pt.r -= dt * (0.035 + energy * 0.18 + S.bass * 0.06 + S.bands.lowMid * 0.18);
         if (pt.r < 0.02) { pt.r = 0.5 + Math.random() * 0.45; if (S.pmode.multicolor) pt.hue = Math.random() * 360; }
         const x = cx + Math.cos(pt.a) * pt.r * maxR, y = cy + Math.sin(pt.a) * pt.r * maxR * 0.82;
         const s = pt.sz * (0.55 + (1 - pt.r) * 1.4 + beat * 0.25) * sc;
         ctx.fillStyle = pmColor(pt, baseHue, 58 + (1 - pt.r) * 22, 0.22 + hi * 0.35);
+        ctx.shadowBlur = glowOn ? s * 1.4 : 0; ctx.shadowColor = ctx.fillStyle;
         ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
         break;
       }
@@ -14450,7 +14449,7 @@ drawParticleMode = function (W, H, baseHue, dt) {
           pt.x = cx + (Math.random() - 0.5) * W * 0.08 + S.stereo * W * 0.06;
           pt.y = H - 6 * sc;
           pt.vx = (Math.random() - 0.5) * 140 * sc;
-          pt.vy = -(200 + Math.random() * 200 + energy * 240 + beat * 120) * sc;
+          pt.vy = -(200 + Math.random() * 200 + energy * 240 + beat * 120 + (S.bands.subBass + S.kickOnset) * 180) * sc;
           pt.life = 1;
           if (S.pmode.multicolor) pt.hue = Math.random() * 360;
         }
@@ -14460,8 +14459,10 @@ drawParticleMode = function (W, H, baseHue, dt) {
         const trail = 4 + beat * 6;
         ctx.strokeStyle = pmColor(pt, baseHue, 62, 0.2 + hi * 0.28);
         ctx.lineWidth = pt.sz * 0.9 * sc;
+        ctx.shadowBlur = glowOn ? pt.sz * 2.6 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x - pt.vx * dt * trail, pt.y - pt.vy * dt * trail); ctx.stroke();
         ctx.fillStyle = pmColor(pt, baseHue, 64, 0.28 + hi * 0.32);
+        ctx.shadowColor = ctx.fillStyle;
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (1.1 + beat * 0.3) * sc, 0, Math.PI * 2); ctx.fill();
         break;
       }
@@ -14471,13 +14472,14 @@ drawParticleMode = function (W, H, baseHue, dt) {
           pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.life -= dt * (0.65 + hi * 0.15);
           const a = Math.max(0, pt.life);
           ctx.fillStyle = pmColor(pt, baseHue, 60, a * 0.85);
-          ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (0.55 + a * 0.9) * sc, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowBlur = glowOn ? pt.sz * (0.55 + a * 0.9) * sc * 2 : 0; ctx.shadowColor = ctx.fillStyle;
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (0.55 + a * 0.9 + S.snareOnset * 0.5) * sc, 0, Math.PI * 2); ctx.fill();
         }
         break;
       }
       case "nebula": {
         const ang = noise2(pt.x * 0.002 + S.time * 0.045, pt.y * 0.002 - S.time * 0.028) * Math.PI * 2;
-        const v = dt * (20 + energy * 62 + mid * 20) * sc;
+        const v = dt * (20 + energy * 62 + mid * 20 + S.bands.mid * 45) * sc;
         pt.x += Math.cos(ang) * v; pt.y += Math.sin(ang) * v;
         if (pt.x < -24) pt.x = W + 24; else if (pt.x > W + 24) pt.x = -24;
         if (pt.y < -24) pt.y = H + 24; else if (pt.y > H + 24) pt.y = -24;
@@ -14490,15 +14492,16 @@ drawParticleMode = function (W, H, baseHue, dt) {
         break;
       }
       case "swarm": {
-        const ax = cx + Math.sin(S.time * 0.65 + pt.hue * 0.01) * W * 0.28 + S.stereo * W * 0.12;
-        const ay = cy + Math.cos(S.time * 0.85) * H * 0.26 + S.bass * H * 0.04;
+        const ax = cx + Math.sin(S.time * 0.65 + pt.hue * 0.01) * W * (0.28 + S.bands.bass * 0.1) + S.stereo * W * 0.12;
+        const ay = cy + Math.cos(S.time * 0.85) * H * (0.26 + S.bands.bass * 0.08) + S.bass * H * 0.04;
         pt.vx += (ax - pt.x) * dt * (1.6 + beat * 0.8);
         pt.vy += (ay - pt.y) * dt * (1.6 + beat * 0.8);
-        pt.vx += (Math.random() - 0.5) * 180 * dt * (0.35 + beat);
-        pt.vy += (Math.random() - 0.5) * 180 * dt * (0.35 + beat);
+        pt.vx += (Math.random() - 0.5) * 180 * dt * (0.35 + beat + S.bands.mid * 0.6);
+        pt.vy += (Math.random() - 0.5) * 180 * dt * (0.35 + beat + S.bands.mid * 0.6);
         pt.vx *= 0.93; pt.vy *= 0.93;
         pt.x += pt.vx * dt; pt.y += pt.vy * dt;
         ctx.fillStyle = pmColor(pt, baseHue, 62, 0.24 + hi * 0.36);
+        ctx.shadowBlur = glowOn ? pt.sz * 2.2 * sc : 0; ctx.shadowColor = ctx.fillStyle;
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (0.95 + beat * 0.35) * sc, 0, Math.PI * 2); ctx.fill();
         break;
       }

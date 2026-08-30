@@ -11,6 +11,18 @@ const FILE = path.join(__dirname, "elastic-morph.html");
 const html = fs.readFileSync(FILE, "utf8");
 const script = html.split("<script>").slice(-1)[0].replace(/<\/script>[\s\S]*$/, "");
 
+/* Read a src/inject-vNN.js file's raw source directly. Needed when a name is declared
+   pre-marker in elastic-morph.html (e.g. `function drawParticleMode(`) but REASSIGNED
+   post-marker (e.g. `drawParticleMode = function (...) {...};`, regenerated from this file
+   by build.js) — the post-marker assignment wins at runtime, shadowing the pre-marker
+   declaration entirely. extractFn(name) against the assembled `script` always finds the
+   pre-marker declaration first (see the build-pipeline-gotcha memory) and can silently test
+   dead code, so any name known to be reassigned this way must be tested against its real
+   src/inject-vNN.js source explicitly, not against `script`. */
+function injectSrc(fileName) {
+  return fs.readFileSync(path.join(__dirname, "src", fileName), "utf8");
+}
+
 let pass = 0, fail = 0;
 const pendingAsyncChecks = [];
 const ok = (name, cond, extra) => { if (cond) { pass++; console.log("  ✓ " + name); } else { fail++; console.log("  ✗ " + name + (extra ? "  → " + extra : "")); } };
@@ -23,7 +35,22 @@ function extractFn(name, src) {
   if (src === undefined) src = script;
   const start = src.indexOf("function " + name + "(");
   if (start < 0) {
-    /* fallback: a top-level `const NAME = ...;` declaration (e.g. an arrow function like
+    /* fallback 1: a reassignment-style function, `NAME = function (...) {...};` — the pattern
+       build.js's inject-vNN.js patches use to override an earlier `function NAME(` declaration.
+       Only reached when no `function NAME(` exists IN THE GIVEN src — safe against `script`
+       (which always has the original declaration first, so this never fires there) and is how
+       callers explicitly test an inject file's own content via injectSrc(). */
+    const asnStart = src.indexOf(name + " = function (") >= 0 ? src.indexOf(name + " = function (")
+      : src.indexOf(name + " = function(");
+    if (asnStart >= 0) {
+      let bi = src.indexOf("{", asnStart), depth = 0;
+      for (let j = bi; j < src.length; j++) {
+        if (src[j] === "{") depth++;
+        else if (src[j] === "}") { depth--; if (depth === 0) return src.slice(asnStart, j + 1); }
+      }
+      return null;
+    }
+    /* fallback 2: a top-level `const NAME = ...;` declaration (e.g. an arrow function like
        fract1) — only used when no `function NAME(` declaration exists, so it can't affect
        any existing call site above. Final-review hardening: a block-bodied arrow
        (`const NAME = () => { a(); b(); };`) has an inner `;` before its real end, so slicing
@@ -2470,13 +2497,28 @@ ok("LAYERB_GENERIC excludes tentacle (keeps the 2x Auto-VJ selection weight give
 /* ---------------- Particle Mode: Glow & Frequency-Band Coupling ---------------- */
 section("Particle Mode — Glow & Frequency-Band Coupling");
 
-ok("drawParticleMode defines glowOn as S.exporting || (S.perfScale || 1) > 0.5", (() => {
-  const fn = extractFn("drawParticleMode");
+/* CRITICAL: drawParticleMode/initPM/pmColor are declared pre-marker in elastic-morph.html
+   (elastic-morph.html:6186 etc.) but REASSIGNED post-marker in src/inject-v85.js
+   (`drawParticleMode = function (...) {...};`), regenerated into elastic-morph.html after the
+   @BUILD-INJECT-V58 marker by build.js on every build. The post-marker assignment always wins
+   at runtime (it runs after the pre-marker declaration in script order) — the pre-marker copy
+   is dead code. A first attempt at this feature edited the pre-marker copy by mistake; its
+   tests (via plain extractFn("drawParticleMode") against `script`) passed because they found
+   that pre-marker declaration first, but were testing code that never actually ran live. Fixed
+   by targeting src/inject-v85.js directly here, via extractFn's `src` override + injectSrc(). */
+const pmSrc = injectSrc("inject-v85.js");
+
+ok("drawParticleMode is genuinely reassigned post-marker in src/inject-v85.js (sanity check that we're testing the live function, not the dead pre-marker one)", (() => {
+  return pmSrc.includes("drawParticleMode = function (") && !pmSrc.includes("function drawParticleMode(");
+})());
+
+ok("drawParticleMode (the real, post-marker one) defines glowOn as S.exporting || (S.perfScale || 1) > 0.5", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc);
   return !!fn && fn.includes("const glowOn = S.exporting || (S.perfScale || 1) > 0.5;");
 })());
 
 /* Helper: slice one case body out of drawParticleMode's switch. This function's case blocks
-   close with 6-space-indented "}" (confirmed by direct inspection of elastic-morph.html —
+   close with 6-space-indented "}" (confirmed by direct inspection of src/inject-v85.js —
    deeper nesting than drawLayerB's switch, which uses 4-space closes), so the search pattern
    here is "\n      }", not the "\n    }" used for drawLayerB's case slicing elsewhere in this
    file. */
@@ -2489,8 +2531,8 @@ function pmCaseBody(fn, id) {
 
 const PM_GLOW_PATTERNS = ["hyperspace", "starfall", "rain", "vortex", "fountain", "fireworks", "swarm"];
 
-ok("all 7 non-Nebula patterns set ctx.shadowBlur gated by glowOn", (() => {
-  const fn = extractFn("drawParticleMode");
+ok("all 7 non-Nebula patterns set ctx.shadowBlur gated by glowOn (real function)", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc);
   if (!fn) return false;
   return PM_GLOW_PATTERNS.every(id => {
     const body = pmCaseBody(fn, id);
@@ -2498,8 +2540,8 @@ ok("all 7 non-Nebula patterns set ctx.shadowBlur gated by glowOn", (() => {
   });
 })());
 
-ok("nebula does NOT get ctx.shadowBlur (already has an equivalent radial-gradient glow)", (() => {
-  const fn = extractFn("drawParticleMode");
+ok("nebula does NOT get ctx.shadowBlur (already has an equivalent radial-gradient glow) (real function)", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc);
   if (!fn) return false;
   const body = pmCaseBody(fn, "nebula");
   return !!body && !body.includes("shadowBlur");
@@ -2516,8 +2558,8 @@ const PM_BAND_SIGNALS = {
   swarm: ["S.bands.bass", "S.bands.mid"]
 };
 
-ok("each pattern's case body contains all of its assigned frequency-band/onset signals", (() => {
-  const fn = extractFn("drawParticleMode");
+ok("each pattern's case body contains all of its assigned frequency-band/onset signals (real function)", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc);
   if (!fn) return false;
   return Object.entries(PM_BAND_SIGNALS).every(([id, signals]) => {
     const body = pmCaseBody(fn, id);
@@ -2530,6 +2572,11 @@ ok("glowOn's boundary logic: exporting always true, perfScale>0.5 true, perfScal
   return glowOn(true, 0.1) === true
     && glowOn(false, 0.51) === true
     && glowOn(false, 0.5) === false;
+})());
+
+ok("the pre-marker (dead) drawParticleMode in elastic-morph.html was correctly reverted — no orphaned glow/band code left behind to confuse future readers", (() => {
+  const fn = extractFn("drawParticleMode");   // default src = script -> finds the pre-marker copy
+  return !!fn && !fn.includes("glowOn") && !fn.includes("S.bands") && !fn.includes("S.kickOnset") && !fn.includes("S.snareOnset");
 })());
 
 /* ---------------- summary ---------------- */
