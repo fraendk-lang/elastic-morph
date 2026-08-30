@@ -2903,8 +2903,8 @@ const S = {
         invert: false, strobe: false, shake: false, pixelate: false, glitch: false },
   // v21: second FX rack — geometry / space (Ctrl+1..0)
   fx2: { hexkaleido: false, droste: false, mirrorgrid: false, echospin: false, radialblur: false,
-         slice: false, spin: false, halftone: false, triangulate: false, posterize: false },
-  fx2Spin: 0,
+         slice: false, spin: false, halftone: false, pulsezoom: false, posterize: false },
+  fx2Spin: 0, fx2Breath: 0,
   // v7: particle mode
   pmode: { on: false, pattern: "hyperspace", multicolor: false, amount: 0.6, mirror: "off", constellation: false },
   // v9: image layer A
@@ -7136,25 +7136,19 @@ function applyPostFX2(W, H, dt) {
     ctx.restore();
   }
 
-  // Triangulate — low-poly facets from a coarse grid
-  if (fx.triangulate) {
-    const gx = Math.max(10, Math.round(26 * q)), gy = Math.max(2, Math.round(gx * H / W));
-    chctx.globalCompositeOperation = "copy"; chctx.globalAlpha = 1; chctx.imageSmoothingEnabled = true;
-    chctx.drawImage(canvas, 0, 0, gx, gy);
-    const data = chctx.getImageData(0, 0, gx, gy).data;
-    const cw = W / (gx - 1), ch = H / (gy - 1);
-    const col = (ix, iy) => {
-      ix = Math.max(0, Math.min(gx - 1, ix)); iy = Math.max(0, Math.min(gy - 1, iy));
-      const o = (iy * gx + ix) * 4; return `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`;
-    };
+  // Pulse Zoom — v133: rhythmic breathing scale, replaces the removed Triangulate (Ctrl+9)
+  // per Frank's request (Triangulate was the one FX2 effect with zero audio-reactivity).
+  // Same accumulator shape as "Spin" above, driving scale instead of rotation.
+  if (fx.pulsezoom) {
+    snapshot(W, H);
+    S.fx2Breath += dt * (0.6 + S.mids * 0.8);
+    const breathe = Math.sin(S.fx2Breath) * 0.06 * (0.5 + S.loudness * 0.7);
+    const kick = S.beat * 0.09 + S.transient * 0.05;
+    const s = 1 + breathe + kick;
     ctx.save();
-    for (let y = 0; y < gy - 1; y++) for (let x = 0; x < gx - 1; x++) {
-      const x0 = x * cw, y0 = y * ch, x1 = x0 + cw, y1 = y0 + ch;
-      ctx.fillStyle = col(x, y);
-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.lineTo(x0, y1); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = col(x + 1, y + 1);
-      ctx.beginPath(); ctx.moveTo(x1, y0); ctx.lineTo(x1, y1); ctx.lineTo(x0, y1); ctx.closePath(); ctx.fill();
-    }
+    ctx.translate(cx, cy);
+    ctx.scale(s, s);
+    ctx.drawImage(fxC, -cx, -cy, W, H);
     ctx.restore();
   }
 
@@ -7906,7 +7900,7 @@ const FX2_DEFS = [
   ["slice",       "Slice Shear",  "sine-shifted bands"],
   ["spin",        "Spin",         "whole frame rotates"],
   ["halftone",    "Halftone",     "dot raster screen"],
-  ["triangulate", "Triangulate",  "low-poly facets"],
+  ["pulsezoom",   "Pulse Zoom",   "rhythmic breathing scale"],
   ["posterize",   "Posterize",    "banded color crush"]
 ];
 function buildFX() {
@@ -10085,7 +10079,7 @@ function autoVjStep() {
     Object.keys(S.fx2).forEach(k => S.fx2[k] = false);
     Object.keys(S.fx3).forEach(k => S.fx3[k] = false);
     const safe1 = ["mirror", "kaleido", "tile", "rgb", "invert", "pixelate", "glitch", "shake"];
-    const safe2 = ["hexkaleido", "droste", "mirrorgrid", "slice", "spin", "halftone", "triangulate", "posterize"];
+    const safe2 = ["hexkaleido", "droste", "mirrorgrid", "slice", "spin", "halftone", "pulsezoom", "posterize"];
     const safe3 = ["scanlines", "motionblur", "letterbox", "chromafringe"];
     // v-fx3-autovj: brightener pool now spans all three racks so "at most one" stays a
     // real invariant — fx3 has 6 additive/screen-composited effects (see brightFxActive).

@@ -2807,6 +2807,72 @@ ok("the pre-marker (dead) drawParticleMode in elastic-morph.html contains none o
     && !fn.includes("magAttractors") && !fn.includes("pmBurstR +=");
 })());
 
+/* ---------------- FX Rack II: Pulse Zoom (replaces Triangulate) ---------------- */
+section("FX Rack II — Pulse Zoom (replaces Triangulate)");
+
+ok("FX2_DEFS gained pulsezoom at index 8 (Ctrl+9) and no longer contains triangulate", (() => {
+  const m = script.match(/const FX2_DEFS = \[([\s\S]*?)\];/);
+  if (!m) return false;
+  const body = m[1];
+  const entries = body.match(/\[".*?",\s*".*?",\s*".*?"\]/g) || [];
+  return entries.length === 10
+    && entries[8].includes('"pulsezoom"') && entries[8].includes('"Pulse Zoom"')
+    && !body.includes('"triangulate"');
+})());
+
+ok("S.fx2 default state has pulsezoom: false (not triangulate) and S.fx2Breath: 0 alongside S.fx2Spin: 0", (() => {
+  return script.includes("pulsezoom: false") && !script.includes("triangulate: false")
+    && script.includes("fx2Spin: 0, fx2Breath: 0,");
+})());
+
+ok("applyPostFX2 has a case for pulsezoom and no longer has one for triangulate", (() => {
+  const fn = extractFn("applyPostFX2");
+  return !!fn && fn.includes("if (fx.pulsezoom) {") && !fn.includes("if (fx.triangulate)");
+})());
+
+ok("the pulsezoom block calls snapshot(W, H) before drawImage (matches every sibling FX2 effect's convention)", (() => {
+  const fn = extractFn("applyPostFX2");
+  if (!fn) return false;
+  const startIdx = fn.indexOf("if (fx.pulsezoom) {");
+  const endIdx = fn.indexOf("\n  }", startIdx);
+  if (startIdx < 0 || endIdx < 0) return false;
+  const body = fn.slice(startIdx, endIdx);
+  const snapIdx = body.indexOf("snapshot(W, H)");
+  const drawIdx = body.indexOf("ctx.drawImage(fxC");
+  return snapIdx >= 0 && drawIdx >= 0 && snapIdx < drawIdx;
+})());
+
+ok("pulsezoom references all 4 audio signals (S.mids, S.loudness, S.beat, S.transient) — genuine multi-signal reactivity, not a static effect like the one it replaces", (() => {
+  const fn = extractFn("applyPostFX2");
+  if (!fn) return false;
+  const startIdx = fn.indexOf("if (fx.pulsezoom) {");
+  const endIdx = fn.indexOf("\n  }", startIdx);
+  if (startIdx < 0 || endIdx < 0) return false;
+  const body = fn.slice(startIdx, endIdx);
+  return body.includes("S.mids") && body.includes("S.loudness") && body.includes("S.beat") && body.includes("S.transient");
+})());
+
+ok("Auto-VJ's safe2 pool contains pulsezoom (not triangulate) — Auto-VJ still has 8 safe FX2 options to pick from", (() => {
+  const m = script.match(/const safe2 = \[([^\]]*)\];/);
+  if (!m) return false;
+  const body = m[1];
+  const entries = body.match(/"[^"]+"/g) || [];
+  return entries.length === 8 && body.includes('"pulsezoom"') && !body.includes('"triangulate"');
+})());
+
+ok("no ACTIVE code references \"triangulate\" anymore — FX2_DEFS entry, S.fx2 field, applyPostFX2 case, and safe2 entry are all gone (the old v21/v27 changelog prose near the top of the file is a historical record of what shipped in those versions and is deliberately left untouched, matching this session's established convention of not rewriting old changelog entries)", (() => {
+  const fs = require("fs");
+  const path = require("path");
+  if (script.includes('"triangulate"') || script.includes("triangulate: false") || script.includes("fx.triangulate")) return false;
+  const srcDir = path.join(__dirname, "src");
+  if (fs.existsSync(srcDir)) {
+    for (const f of fs.readdirSync(srcDir)) {
+      if (fs.readFileSync(path.join(srcDir, f), "utf8").includes("triangulate")) return false;
+    }
+  }
+  return true;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
