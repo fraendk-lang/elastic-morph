@@ -2467,6 +2467,71 @@ ok("LAYERB_GENERIC excludes tentacle (keeps the 2x Auto-VJ selection weight give
   return !m[1].includes('"tentacle"');
 })());
 
+/* ---------------- Particle Mode: Glow & Frequency-Band Coupling ---------------- */
+section("Particle Mode — Glow & Frequency-Band Coupling");
+
+ok("drawParticleMode defines glowOn as S.exporting || (S.perfScale || 1) > 0.5", (() => {
+  const fn = extractFn("drawParticleMode");
+  return !!fn && fn.includes("const glowOn = S.exporting || (S.perfScale || 1) > 0.5;");
+})());
+
+/* Helper: slice one case body out of drawParticleMode's switch. This function's case blocks
+   close with 6-space-indented "}" (confirmed by direct inspection of elastic-morph.html —
+   deeper nesting than drawLayerB's switch, which uses 4-space closes), so the search pattern
+   here is "\n      }", not the "\n    }" used for drawLayerB's case slicing elsewhere in this
+   file. */
+function pmCaseBody(fn, id) {
+  const startIdx = fn.indexOf(`case "${id}": {`);
+  const endIdx = fn.indexOf("\n      }", startIdx);
+  if (startIdx < 0 || endIdx < 0) return null;
+  return fn.slice(startIdx, endIdx);
+}
+
+const PM_GLOW_PATTERNS = ["hyperspace", "starfall", "rain", "vortex", "fountain", "fireworks", "swarm"];
+
+ok("all 7 non-Nebula patterns set ctx.shadowBlur gated by glowOn", (() => {
+  const fn = extractFn("drawParticleMode");
+  if (!fn) return false;
+  return PM_GLOW_PATTERNS.every(id => {
+    const body = pmCaseBody(fn, id);
+    return !!body && body.includes("ctx.shadowBlur = glowOn ?");
+  });
+})());
+
+ok("nebula does NOT get ctx.shadowBlur (already has an equivalent radial-gradient glow)", (() => {
+  const fn = extractFn("drawParticleMode");
+  if (!fn) return false;
+  const body = pmCaseBody(fn, "nebula");
+  return !!body && !body.includes("shadowBlur");
+})());
+
+const PM_BAND_SIGNALS = {
+  hyperspace: ["S.bands.air"],
+  starfall: ["S.bands.highMid", "S.bands.air"],
+  rain: ["S.kickOnset"],
+  vortex: ["S.bands.bass", "S.bands.lowMid"],
+  fountain: ["S.bands.subBass", "S.kickOnset"],
+  fireworks: ["S.snareOnset"],
+  nebula: ["S.bands.mid"],
+  swarm: ["S.bands.bass", "S.bands.mid"]
+};
+
+ok("each pattern's case body contains all of its assigned frequency-band/onset signals", (() => {
+  const fn = extractFn("drawParticleMode");
+  if (!fn) return false;
+  return Object.entries(PM_BAND_SIGNALS).every(([id, signals]) => {
+    const body = pmCaseBody(fn, id);
+    return !!body && signals.every(sig => body.includes(sig));
+  });
+})());
+
+ok("glowOn's boundary logic: exporting always true, perfScale>0.5 true, perfScale===0.5 false (strict >, matches the S.geo2 precedent)", (() => {
+  const glowOn = (exporting, perfScale) => exporting || (perfScale || 1) > 0.5;
+  return glowOn(true, 0.1) === true
+    && glowOn(false, 0.51) === true
+    && glowOn(false, 0.5) === false;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
