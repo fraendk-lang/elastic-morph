@@ -6158,9 +6158,12 @@ const PM_PATTERNS = [
   ["fountain",   "Fountain"],
   ["fireworks",  "Fireworks"],
   ["nebula",     "Nebula"],
-  ["swarm",      "Swarm"]
+  ["swarm",      "Swarm"],
+  ["bokeh",      "Bokeh"],
+  ["magnetic",   "Magnetic Field"],
+  ["pulseBurst", "Pulse Burst"]
 ];
-let pmParticles = [], pmFireTimer = 0;
+let pmParticles = [], pmFireTimer = 0, pmBurstR = 0.3;
 function initPM() {
   const W = canvas.width || 1280, H = canvas.height || 720;
   const n = Math.round(90 + S.pmode.amount * 520);
@@ -14366,7 +14369,7 @@ pmColor = function (pt, baseHue, l, alpha) {
 
 /* v131: Kaleidoscope Mirror + Constellation lines — see docs/superpowers/specs/
    2026-08-29-particle-mode-mirror-constellation-design.md */
-const PM_CONST_PATTERNS = new Set(["nebula", "swarm", "vortex", "fountain"]);
+const PM_CONST_PATTERNS = new Set(["nebula", "swarm", "vortex", "fountain", "magnetic"]);
 
 function pmMirrorRotPasses(n) {
   return Array.from({ length: n }, (_, i) => ({ rot: i * Math.PI * 2 / n, flip: i % 2 === 1 }));
@@ -14438,6 +14441,21 @@ drawParticleMode = function (W, H, baseHue, dt) {
       pmFireTimer = 0.18 + (1 - beat) * 0.12;
       launchFirework(W, H);
     }
+  }
+
+  /* v132: 3 new patterns (Bokeh/Magnetic Field/Pulse Burst) — see docs/superpowers/specs/
+     2026-08-29-particle-mode-new-patterns-design.md. Magnetic Field's 4 attractors and Pulse
+     Burst's shared breathing radius are computed once per frame here, not per particle. */
+  let magAttractors = null;
+  if (pm.pattern === "magnetic") {
+    magAttractors = Array.from({ length: 4 }, (_, i) => {
+      const ang = S.time * 0.25 + i * (Math.PI * 2 / 4);
+      return { x: cx + Math.cos(ang) * W * 0.22, y: cy + Math.sin(ang * 1.3) * H * 0.22 };
+    });
+  }
+  if (pm.pattern === "pulseBurst") {
+    const target = 0.3 + beat * 0.7 + S.kickOnset * 0.5;
+    pmBurstR += (target - pmBurstR) * Math.min(1, dt * 4);
   }
 
   for (let pi = 0; pi < visN; pi++) {
@@ -14601,6 +14619,52 @@ drawParticleMode = function (W, H, baseHue, dt) {
         for (const mp of mPasses) {
           const [mx, my] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
           ctx.beginPath(); ctx.arc(mx, my, pt.sz * (0.95 + beat * 0.35) * sc, 0, Math.PI * 2); ctx.fill();
+        }
+        break;
+      }
+      case "bokeh": {
+        pt.x += Math.sin(S.time * 0.18 * pt.spd + pt.a) * dt * 9 * sc;
+        pt.y += Math.cos(S.time * 0.14 * pt.spd + pt.a * 1.4) * dt * 9 * sc + dt * 2 * sc;
+        if (pt.x < -40) pt.x = W + 40; else if (pt.x > W + 40) pt.x = -40;
+        if (pt.y < -40) pt.y = H + 40; else if (pt.y > H + 40) pt.y = -40;
+        const breathe = 0.85 + 0.3 * Math.sin(S.time * 1.1 + pt.a) + S.bands.subBass * 0.4;
+        const rad = pt.sz * (9 + pt.r * 9) * sc * breathe;
+        const col0 = pmColor(pt, baseHue, 72, 0.1 + hi * 0.12);
+        for (const mp of mPasses) {
+          const [mx, my] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+          const g = ctx.createRadialGradient(mx, my, 0, mx, my, rad);
+          g.addColorStop(0, col0);
+          g.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(mx, my, rad, 0, Math.PI * 2); ctx.fill();
+        }
+        break;
+      }
+      case "magnetic": {
+        const at = magAttractors[pi % magAttractors.length];
+        pt.vx += (at.x - pt.x) * dt * (1.2 + S.bands.lowMid * 1.5);
+        pt.vy += (at.y - pt.y) * dt * (1.2 + S.bands.lowMid * 1.5);
+        pt.vx += (Math.random() - 0.5) * 140 * dt * (0.3 + beat + S.bands.mid * 0.5);
+        pt.vy += (Math.random() - 0.5) * 140 * dt * (0.3 + beat + S.bands.mid * 0.5);
+        pt.vx *= 0.92; pt.vy *= 0.92;
+        pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+        if (pmConstOn && pmConstPts.length < 70) pmConstPts.push({ x: pt.x, y: pt.y, hue: pt.hue });
+        ctx.fillStyle = pmColor(pt, baseHue, 62, 0.26 + hi * 0.3);
+        ctx.shadowBlur = glowOn ? pt.sz * 2 * sc : 0; ctx.shadowColor = ctx.fillStyle;
+        for (const mp of mPasses) {
+          const [mx, my] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+          ctx.beginPath(); ctx.arc(mx, my, pt.sz * sc, 0, Math.PI * 2); ctx.fill();
+        }
+        break;
+      }
+      case "pulseBurst": {
+        const rad = pmBurstR * (0.55 + pt.r * 0.6) * maxR;
+        const x = cx + Math.cos(pt.a) * rad, y = cy + Math.sin(pt.a) * rad * 0.85;
+        ctx.fillStyle = pmColor(pt, baseHue, 60 + pt.r * 20, 0.22 + hi * 0.3 + S.bands.bass * 0.2);
+        ctx.shadowBlur = glowOn ? pt.sz * 2.4 * sc : 0; ctx.shadowColor = ctx.fillStyle;
+        for (const mp of mPasses) {
+          const [mx, my] = pmMirrorXY(x, y, cx, cy, mp);
+          ctx.beginPath(); ctx.arc(mx, my, pt.sz * sc, 0, Math.PI * 2); ctx.fill();
         }
         break;
       }

@@ -2719,6 +2719,94 @@ ok("sync-to-UI sets #pmMirror and #pmConstellation from S.pmode", (() => {
   return script.includes('$("pmMirror").value = S.pmode.mirror; $("pmConstellation").checked = S.pmode.constellation;');
 })());
 
+/* ---------------- Particle Mode: New Patterns (Bokeh, Magnetic Field, Pulse Burst) ---------------- */
+section("Particle Mode — New Patterns (Bokeh, Magnetic Field, Pulse Burst)");
+
+const pmSrc3 = injectSrc("inject-v85.js");
+
+ok("drawParticleMode is still genuinely reassigned post-marker in src/inject-v85.js (same sanity check as Rounds 1-2)", (() => {
+  return pmSrc3.includes("drawParticleMode = function (") && !pmSrc3.includes("function drawParticleMode(");
+})());
+
+ok("PM_PATTERNS gained exactly 3 new entries at the end: bokeh, magnetic, pulseBurst", (() => {
+  const m = script.match(/const PM_PATTERNS = \[([\s\S]*?)\];/);
+  if (!m) return false;
+  const body = m[1];
+  const entries = body.match(/\[".*?",\s*".*?"\]/g) || [];
+  return entries.length === 11
+    && entries[8].includes('"bokeh"') && entries[8].includes('"Bokeh"')
+    && entries[9].includes('"magnetic"') && entries[9].includes('"Magnetic Field"')
+    && entries[10].includes('"pulseBurst"') && entries[10].includes('"Pulse Burst"');
+})());
+
+ok("pmBurstR module state declared alongside pmParticles/pmFireTimer, initialized to 0.3", (() => {
+  return script.includes("let pmParticles = [], pmFireTimer = 0, pmBurstR = 0.3;");
+})());
+
+ok("PM_CONST_PATTERNS is exactly nebula/swarm/vortex/fountain/magnetic (5 entries) — bokeh and pulseBurst are NOT constellation-eligible", (() => {
+  const m = pmSrc3.match(/const PM_CONST_PATTERNS = new Set\(\[([^\]]*)\]\);/);
+  if (!m) return false;
+  const body = m[1];
+  return body.includes('"nebula"') && body.includes('"swarm"') && body.includes('"vortex"') && body.includes('"fountain"') && body.includes('"magnetic"')
+    && !body.includes('"bokeh"') && !body.includes('"pulseBurst"');
+})());
+
+ok("magAttractors/pmBurstR per-frame setup block exists before the particle loop (runs once per frame, not once per particle)", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc3);
+  if (!fn) return false;
+  const loopIdx = fn.indexOf("for (let pi = 0; pi < visN; pi++)");
+  const magSetupIdx = fn.indexOf('pm.pattern === "magnetic"');
+  const burstSetupIdx = fn.indexOf('pm.pattern === "pulseBurst"');
+  return loopIdx >= 0 && magSetupIdx >= 0 && magSetupIdx < loopIdx
+    && burstSetupIdx >= 0 && burstSetupIdx < loopIdx;
+})());
+
+const PM_NEW_PATTERNS = ["bokeh", "magnetic", "pulseBurst"];
+
+ok("all 3 new patterns' case bodies contain at least one mirror-pass draw loop", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc3);
+  if (!fn) return false;
+  return PM_NEW_PATTERNS.every(id => {
+    const body = pmCaseBody2(fn, id);
+    return !!body && body.includes("for (const mp of mPasses)");
+  });
+})());
+
+ok("bokeh does NOT get ctx.shadowBlur (matches Nebula's exemption); magnetic and pulseBurst DO", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc3);
+  if (!fn) return false;
+  const bokehBody = pmCaseBody2(fn, "bokeh");
+  const magBody = pmCaseBody2(fn, "magnetic");
+  const burstBody = pmCaseBody2(fn, "pulseBurst");
+  return !!bokehBody && !bokehBody.includes("shadowBlur")
+    && !!magBody && magBody.includes("ctx.shadowBlur = glowOn ?")
+    && !!burstBody && burstBody.includes("ctx.shadowBlur = glowOn ?");
+})());
+
+ok("only magnetic pushes to pmConstPts among the 3 new patterns; bokeh and pulseBurst do not", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc3);
+  if (!fn) return false;
+  const magBody = pmCaseBody2(fn, "magnetic");
+  const bokehBody = pmCaseBody2(fn, "bokeh");
+  const burstBody = pmCaseBody2(fn, "pulseBurst");
+  return !!magBody && magBody.includes("pmConstPts.push(")
+    && !!bokehBody && !bokehBody.includes("pmConstPts.push(")
+    && !!burstBody && !burstBody.includes("pmConstPts.push(");
+})());
+
+ok("pulseBurst never mutates pt.a (fixed angle — reads as one coherent breathing sphere, not independent trajectories)", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc3);
+  if (!fn) return false;
+  const body = pmCaseBody2(fn, "pulseBurst");
+  return !!body && !body.includes("pt.a +=") && !body.includes("pt.a -=") && !body.includes("pt.a =");
+})());
+
+ok("the pre-marker (dead) drawParticleMode in elastic-morph.html contains none of the 3 new patterns' drawing logic", (() => {
+  const fn = extractFn("drawParticleMode");   // default src = script -> finds the pre-marker copy
+  return !!fn && !fn.includes('"bokeh"') && !fn.includes('"magnetic"') && !fn.includes('"pulseBurst"')
+    && !fn.includes("magAttractors") && !fn.includes("pmBurstR +=");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
