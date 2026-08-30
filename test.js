@@ -2873,6 +2873,62 @@ ok("no ACTIVE code references \"triangulate\" anymore — FX2_DEFS entry, S.fx2 
   return true;
 })());
 
+section("Text Mode — Hypno Loop");
+
+ok("drawTextLayer's signature gained a 5th `dt` parameter", (() => {
+  return script.includes("function drawTextLayer(W, H, hue, P, dt) {");
+})());
+
+ok("the render loop's drawTextLayer call site now passes dt", (() => {
+  return script.includes("drawTextLayer(W, H, hue, P, dt);");
+})());
+
+ok("src/inject-v98.js's drawTextLayer wrapper threads dt through both its signature and its inner call (this file is regenerated into elastic-morph.html on every build — editing only the html mirror would be silently overwritten)", (() => {
+  const src = injectSrc("inject-v98.js");
+  return src.includes("drawTextLayer = function (W, H, hue, P, dt) {") &&
+         src.includes("return _drawTextLayer(W, H, hue, P, dt);");
+})());
+
+ok("S default state has textHypnoPhase: 0", (() => {
+  return script.includes("textHypnoPhase: 0");
+})());
+
+ok("the textAnim <select> gained a hypno option, scoped to that specific select (not just anywhere in the file)", (() => {
+  const m = html.match(/<select id="textAnim">([\s\S]*?)<\/select>/);
+  return !!m && m[1].includes('<option value="hypno">Hypno Loop</option>');
+})());
+
+ok("advanceHypnoPhase exists, advances S.textHypnoPhase by dt scaled by mids/loudness, and wraps with % 1", (() => {
+  const fn = extractFn("advanceHypnoPhase");
+  return !!fn && fn.includes("S.textHypnoPhase") && fn.includes("dt *") && fn.includes("S.mids") &&
+         fn.includes("S.loudness") && fn.includes("% 1");
+})());
+
+ok("the anim === \"hypno\" branch calls advanceHypnoPhase(dt) and sets the hypno flag", (() => {
+  const fn = extractFn("drawTextLayer");
+  return !!fn && /anim === "hypno"\) \{\s*advanceHypnoPhase\(dt\);\s*hypno = true;/.test(fn);
+})());
+
+ok("paintLine renders the hypno echo trail (4 staggered copies, scale grows, alpha fades) inside the same final-else branch depth3d already uses", (() => {
+  const fn = extractFn("drawTextLayer");   // paintLine is nested inside drawTextLayer, so its source comes along
+  return !!fn && fn.includes("if (hypno) {") && fn.includes("const ECHOES = 4, GROWTH = 1.6;") &&
+         fn.includes("S.textHypnoPhase - k / ECHOES");
+})());
+
+ok("advanceHypnoPhase keeps S.textHypnoPhase within [0, 1) across many frames of varying dt/mids/loudness (genuine behavioral check, not just a structural text match)", (() => {
+  global.S = { textHypnoPhase: 0, mids: 0, loudness: 0 };
+  const { advanceHypnoPhase } = loadFns(["advanceHypnoPhase"]);
+  let ok2 = true;
+  for (let i = 0; i < 500; i++) {
+    global.S.mids = Math.random();
+    global.S.loudness = Math.random();
+    const dt = Math.random() * 0.1;   // up to 100ms, generous frame-time range
+    const v = advanceHypnoPhase(dt);
+    if (!(v >= 0 && v < 1)) { ok2 = false; break; }
+  }
+  return ok2;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

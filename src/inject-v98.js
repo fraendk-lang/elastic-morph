@@ -15,9 +15,9 @@ function patchCanvasTextLiveToggle() {
 
   if (typeof drawTextLayer === "function" && !drawTextLayer._v98) {
     const _drawTextLayer = drawTextLayer;
-    drawTextLayer = function (W, H, hue, P) {
+    drawTextLayer = function (W, H, hue, P, dt) {
       if (S.textLiveHidden) return;
-      return _drawTextLayer(W, H, hue, P);
+      return _drawTextLayer(W, H, hue, P, dt);
     };
     drawTextLayer._v98 = true;
   }

@@ -1276,6 +1276,7 @@
             <option value="depth">3D Depth</option>
             <option value="beatgate">Beat Gate</option>
             <option value="phases">Intro &amp; Outro only</option>
+            <option value="hypno">Hypno Loop</option>
           </select>
         </div>
         <div class="opt"><span>Weight</span>
@@ -2887,6 +2888,8 @@ const S = {
   textShadow: false, textPlateColor: "#000000", textPlateOpacity: 0.5, textBlend: "source-over",
   // v30.1: 2-colour gradient + circle/path text
   textCustom2: "#d946ef", textGradDir: "h", textPattern: "straight",
+  // v134: Hypno loop phase accumulator (persistent, audio-driven — see advanceHypnoPhase)
+  textHypnoPhase: 0,
   // v3: live input, demo, quality
   micMode: false,
   virtualT: 0,        // virtual track time in mic/demo mode
@@ -5941,7 +5944,7 @@ function drawScene(dt) {
   drawIntroCover(W, H);
 
   /* --- text layer (screen space) --- */
-  drawTextLayer(W, H, hue, P);
+  drawTextLayer(W, H, hue, P, dt);
 
   /* --- v52: logo / watermark (above everything) --- */
   drawLogo(W, H);
@@ -7476,7 +7479,14 @@ function ensureTextFontLoaded(key) {
     document.fonts.load(`${F.aw} 16px "${fam}"`).catch(() => {});
   } catch (e) {}
 }
-function drawTextLayer(W, H, hue, P) {
+// v134: Hypno loop's phase accumulator — driven by dt (not raw S.time), so speed changes from
+// S.mids/S.loudness don't cause a visible phase jump. Wraps into [0, 1). Pure S read/write, no
+// canvas calls, so it's independently testable.
+function advanceHypnoPhase(dt) {
+  S.textHypnoPhase = ((S.textHypnoPhase || 0) + dt * (0.18 + S.mids * 0.30 + S.loudness * 0.14)) % 1;
+  return S.textHypnoPhase;
+}
+function drawTextLayer(W, H, hue, P, dt) {
   /* source of text: synced lyrics take over when enabled, else the designer fields */
   let srcTitle, srcArtist;
   const LY = S.lyrics;
@@ -7498,6 +7508,7 @@ function drawTextLayer(W, H, hue, P) {
   let dx = 0, glow = 0, glitch = false, wave = false, karaoke = -1;
   let shimmer = false, chroma = false, bounce = false;
   let scramble = false, scrambleK = 1, depth3d = false;
+  let hypno = false;
   if (anim === "beat") {
     alpha = 0.8 + 0.2 * S.beat;
     scale = 1 + S.beat * 0.03 * ctrl.pulse;
@@ -7546,6 +7557,9 @@ function drawTextLayer(W, H, hue, P) {
     else if (S.progress >= z.a) v = Math.min(1, (S.progress - z.a) / Math.max(0.001, (z.b - z.a) * 0.3));
     if (v <= 0.01) return;
     alpha = v;
+  } else if (anim === "hypno") {
+    advanceHypnoPhase(dt);
+    hypno = true;
   }
 
   const F = TEXT_FONTS[S.textFont] || TEXT_FONTS.sans;
@@ -7813,7 +7827,24 @@ function drawTextLayer(W, H, hue, P) {
         }
         ctx.restore();
       }
-      glyph(fill, ax, y);
+      if (hypno) {   // v134: 4 staggered echoes growing "toward camera" then dissolving, endless loop
+        const ECHOES = 4, GROWTH = 1.6;
+        ctx.save();
+        for (let k = ECHOES - 1; k >= 0; k--) {
+          const ep = (((S.textHypnoPhase - k / ECHOES) % 1) + 1) % 1;
+          const es = 1 + ep * GROWTH;
+          const ea = (dim ? alpha * 0.7 : alpha) * (1 - ep) * (k === 0 ? 1 : 0.6);
+          if (ea <= 0.01) continue;
+          ctx.save();
+          ctx.globalAlpha = ea;
+          ctx.translate(ax, y); ctx.scale(es, es); ctx.translate(-ax, -y);
+          glyph(fill, ax, y);
+          ctx.restore();
+        }
+        ctx.restore();
+      } else {
+        glyph(fill, ax, y);
+      }
     }
 
     ctx.shadowBlur = 0;
@@ -15749,9 +15780,9 @@ function patchCanvasTextLiveToggle() {
 
   if (typeof drawTextLayer === "function" && !drawTextLayer._v98) {
     const _drawTextLayer = drawTextLayer;
-    drawTextLayer = function (W, H, hue, P) {
+    drawTextLayer = function (W, H, hue, P, dt) {
       if (S.textLiveHidden) return;
-      return _drawTextLayer(W, H, hue, P);
+      return _drawTextLayer(W, H, hue, P, dt);
     };
     drawTextLayer._v98 = true;
   }
