@@ -2929,6 +2929,85 @@ ok("advanceHypnoPhase keeps S.textHypnoPhase within [0, 1) across many frames of
   return ok2;
 })());
 
+section("Text Mode — 5 Text Endings (F1–F5)");
+
+ok("TEXT_ENDING_DUR has exactly the 5 expected keys, each a positive number", (() => {
+  const fn = script.match(/const TEXT_ENDING_DUR = \{([^}]*)\};/);
+  if (!fn) return false;
+  const obj = eval("({" + fn[1] + "})");
+  const keys = Object.keys(obj);
+  return keys.length === 5 &&
+         ["shatter", "vortexsuck", "dissolve", "iris", "glitchout"].every(k => k in obj && obj[k] > 0);
+})());
+
+ok("triggerTextEnding refuses to start an ending during lyric mode and when nothing is showing", (() => {
+  const fn = extractFn("triggerTextEnding");
+  return !!fn && fn.includes("S.lyrics.on && S.lyrics.cues.length > 0") && fn.includes("if (lyricMode) return;") &&
+         fn.includes("!S.textShow");
+})());
+
+ok("the keydown handler has 5 distinct F1–F5 checks calling triggerTextEnding with 5 distinct type strings", (() => {
+  const keys = ["F1", "F2", "F3", "F4", "F5"];
+  const types = ["shatter", "vortexsuck", "dissolve", "iris", "glitchout"];
+  return keys.every((k, i) => script.includes(`e.key === "${k}"`) && script.includes(`triggerTextEnding("${types[i]}")`)) &&
+         new Set(types).size === 5;
+})());
+
+ok("none of the 5 ending type strings are exposed as a persistent, user-selectable textAnim option", (() => {
+  const m = html.match(/<select id="textAnim">([\s\S]*?)<\/select>/);
+  if (!m) return false;
+  return ["shatter", "vortexsuck", "dissolve", "iris", "glitchout"].every(t => !m[1].includes(`value="${t}"`));
+})());
+
+ok("drawTextLayer resolves an active (non-lyric-mode) S.textEnding into `ending`/`endingP`/`anim`", (() => {
+  const fn = extractFn("drawTextLayer");
+  return !!fn && fn.includes("const ending = !lyricMode ? S.textEnding : null;") &&
+         fn.includes("TEXT_ENDING_DUR[ending.type]") &&
+         fn.includes("const anim = ending ? ending.type :");
+})());
+
+ok("all 5 ending anim-chain branches exist and set alpha to fade toward 0 as endingP grows", (() => {
+  const fn = extractFn("drawTextLayer");
+  if (!fn) return false;
+  return ['anim === "shatter"', 'anim === "vortexsuck"', 'anim === "dissolve"', 'anim === "iris"', 'anim === "glitchout"']
+    .every(needle => fn.includes(needle)) && fn.includes("alpha = 1 - endingP") && fn.includes("glitchEndP = endingP");
+})());
+
+ok("paintLine has per-character render branches for dissolveFX/shatter/vortex and a clip-based branch for irisFX", (() => {
+  const fn = extractFn("drawTextLayer");   // paintLine is nested inside; its source comes along
+  return !!fn && fn.includes("} else if (dissolveFX) {") && fn.includes("} else if (shatter) {") &&
+         fn.includes("} else if (vortex) {") && fn.includes("} else if (irisFX) {") &&
+         fn.includes("ctx.arc(ax, y - size * 0.32, R, 0, Math.PI * 2)");
+})());
+
+ok("the glitch/chroma RGB-split distance widens with glitchEndP during Glitch Blackout", (() => {
+  const fn = extractFn("drawTextLayer");
+  return !!fn && fn.includes("glitchEndP > 0 ? size * (0.05 + glitchEndP * 0.35)");
+})());
+
+ok("finalizeTextEndingIfDone exists and drawTextLayer calls it once an ending is active", (() => {
+  const hasFn = !!extractFn("finalizeTextEndingIfDone");
+  const caller = extractFn("drawTextLayer");
+  return hasFn && !!caller && caller.includes("if (ending) finalizeTextEndingIfDone();");
+})());
+
+ok("finalizeTextEndingIfDone does nothing before an ending's duration has elapsed, and clears S.textEnding + hides text + syncs the checkbox once it has (genuine behavioral check via mock S/$/checkbox, not a structural text match)", (() => {
+  const checkboxStub = { checked: true };
+  global.$ = id => (id === "textShow" ? checkboxStub : null);
+  global.TEXT_ENDING_DUR = { shatter: 0.6 };
+  global.S = { time: 5.0, textEnding: { type: "shatter", t0: 4.5 }, textShow: true };   // elapsed 0.5s of 0.6s
+  const { finalizeTextEndingIfDone } = loadFns(["finalizeTextEndingIfDone"]);
+
+  finalizeTextEndingIfDone();
+  const notYetDone = global.S.textEnding !== null && global.S.textShow === true && checkboxStub.checked === true;
+
+  global.S.time = 5.2;   // elapsed 0.7s of 0.6s — done
+  finalizeTextEndingIfDone();
+  const done = global.S.textEnding === null && global.S.textShow === false && checkboxStub.checked === false;
+
+  return notYetDone && done;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

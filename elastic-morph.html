@@ -2890,6 +2890,8 @@ const S = {
   textCustom2: "#d946ef", textGradDir: "h", textPattern: "straight",
   // v134: Hypno loop phase accumulator (persistent, audio-driven — see advanceHypnoPhase)
   textHypnoPhase: 0,
+  // v134: in-flight Text Ending (F1–F5) — {type, t0} while playing, null otherwise
+  textEnding: null,
   // v3: live input, demo, quality
   micMode: false,
   virtualT: 0,        // virtual track time in mic/demo mode
@@ -7486,6 +7488,28 @@ function advanceHypnoPhase(dt) {
   S.textHypnoPhase = ((S.textHypnoPhase || 0) + dt * (0.18 + S.mids * 0.30 + S.loudness * 0.14)) % 1;
   return S.textHypnoPhase;
 }
+// v134: 5 manual Text Endings (F1–F5) — a fixed duration per style, keyed by the same `anim`
+// string space drawTextLayer already switches on, but never exposed in the textAnim <select>
+// (trigger-only, never a persistent user-selectable style).
+const TEXT_ENDING_DUR = { shatter: 0.6, vortexsuck: 1.0, dissolve: 0.9, iris: 0.8, glitchout: 0.5 };
+
+function triggerTextEnding(type) {
+  const lyricMode = S.lyrics.on && S.lyrics.cues.length > 0;
+  if (lyricMode) return;                                                       // scoped out — see design spec Non-Goals
+  if (!S.textShow || (!S.textTitle && !S.textArtist && !S.textLabel)) return;   // nothing visible to end
+  S.textEnding = { type, t0: S.time };
+}
+
+function finalizeTextEndingIfDone() {
+  const ending = S.textEnding;
+  if (!ending) return;
+  const p = Math.min(1, (S.time - ending.t0) / TEXT_ENDING_DUR[ending.type]);
+  if (p < 1) return;
+  S.textEnding = null;
+  S.textShow = false;
+  const cb = $("textShow");
+  if (cb) cb.checked = false;
+}
 function drawTextLayer(W, H, hue, P, dt) {
   /* source of text: synced lyrics take over when enabled, else the designer fields */
   let srcTitle, srcArtist;
@@ -7500,8 +7524,12 @@ function drawTextLayer(W, H, hue, P, dt) {
     if (!S.textShow || (!S.textTitle && !S.textArtist && !S.textLabel)) return;
     srcTitle = S.textTitle; srcArtist = S.textArtist;
   }
+  // v134: a Text Ending (F1–F5) overrides whatever anim is selected, but never during lyric mode
+  // (triggerTextEnding already refuses to start one there — this is defence in depth)
+  const ending = !lyricMode ? S.textEnding : null;
+  const endingP = ending ? Math.min(1, (S.time - ending.t0) / TEXT_ENDING_DUR[ending.type]) : 0;
   // "phases" framing makes no sense for line-by-line lyrics → treat as static
-  const anim = (lyricMode && S.textAnim === "phases") ? "static" : S.textAnim;
+  const anim = ending ? ending.type : (lyricMode && S.textAnim === "phases") ? "static" : S.textAnim;
 
   /* animation: alpha / scale / typewriter chars / offsets / extras */
   let alpha = 1, scale = 1, chars = Infinity;
@@ -7509,6 +7537,8 @@ function drawTextLayer(W, H, hue, P, dt) {
   let shimmer = false, chroma = false, bounce = false;
   let scramble = false, scrambleK = 1, depth3d = false;
   let hypno = false;
+  let shatter = false, shatterP = 0, vortex = false, vortexP = 0;
+  let dissolveFX = false, dissolveP = 0, irisFX = false, irisP = 0, glitchEndP = 0;
   if (anim === "beat") {
     alpha = 0.8 + 0.2 * S.beat;
     scale = 1 + S.beat * 0.03 * ctrl.pulse;
@@ -7560,6 +7590,17 @@ function drawTextLayer(W, H, hue, P, dt) {
   } else if (anim === "hypno") {
     advanceHypnoPhase(dt);
     hypno = true;
+  } else if (anim === "shatter") {
+    shatter = true; shatterP = endingP; alpha = 1 - endingP;
+  } else if (anim === "vortexsuck") {
+    vortex = true; vortexP = endingP; alpha = 1 - endingP;
+  } else if (anim === "dissolve") {
+    dissolveFX = true; dissolveP = endingP; alpha = 1 - endingP;
+  } else if (anim === "iris") {
+    irisFX = true; irisP = endingP; alpha = 1 - endingP;
+  } else if (anim === "glitchout") {
+    glitch = true; glitchEndP = endingP;
+    alpha = (1 - endingP) * (Math.random() < 0.25 + endingP * 0.5 ? 1 : 0.3);
   }
 
   const F = TEXT_FONTS[S.textFont] || TEXT_FONTS.sans;
@@ -7636,6 +7677,7 @@ function drawTextLayer(W, H, hue, P, dt) {
   }
   stackLines.forEach(l => paintLine(l, l.role === "label"));
   if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+  if (ending) finalizeTextEndingIfDone();   // v134: clears S.textEnding + hides text once its fade completes
 
   /* draw a line of text letter-by-letter along a fixed geometric pattern */
   function drawPatternText(l, pattern) {
@@ -7772,7 +7814,9 @@ function drawTextLayer(W, H, hue, P, dt) {
 
     // chroma / glitch: additive RGB-split copies around the anchor
     if (glitch || chroma) {
-      const d = chroma ? (size * 0.03 + (S.highs + S.beat) * size * 0.06) : (size * 0.05 + S.transient * size * 0.1);
+      const d = glitchEndP > 0 ? size * (0.05 + glitchEndP * 0.35)
+              : chroma ? (size * 0.03 + (S.highs + S.beat) * size * 0.06)
+              : (size * 0.05 + S.transient * size * 0.1);
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       ctx.fillStyle = "rgba(255,40,90,0.55)"; ctx.fillText(text, ax - d, y);
@@ -7795,6 +7839,60 @@ function drawTextLayer(W, H, hue, P, dt) {
         cxp += ctx.measureText(real).width;
       }
       ctx.textAlign = prev;
+    } else if (dissolveFX) {
+      // v134: reverse of "scramble" — chars increasingly turn to noise and fade, left-to-right
+      const CH = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&@*+=";
+      const prev2 = ctx.textAlign; ctx.textAlign = "left";
+      let cxp2 = left;
+      for (let i = 0; i < text.length; i++) {
+        const real = text[i];
+        const thresh = i / Math.max(1, text.length);
+        const ch = real === " " || dissolveP < thresh ? real : CH[(Math.random() * CH.length) | 0];
+        ctx.fillStyle = solid;
+        ctx.fillText(ch, cxp2, y);
+        cxp2 += ctx.measureText(real).width;
+      }
+      ctx.textAlign = prev2;
+    } else if (shatter) {
+      // v134: each char flies outward on its own deterministic pseudo-random vector
+      const prev2 = ctx.textAlign; ctx.textAlign = "left";
+      let cxp2 = left;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const seedA = ((i * 9301 + ch.charCodeAt(0) * 49297) % 233280) / 233280;
+        const seedB = ((i * 49297 + ch.charCodeAt(0) * 9301 + 1) % 233280) / 233280;
+        const ang = seedA * Math.PI * 2;
+        const dist = shatterP * shatterP * size * (2.2 + seedB * 1.6);
+        const rot = (seedB - 0.5) * shatterP * 2.4;
+        const cw = ctx.measureText(ch).width;
+        ctx.save();
+        ctx.translate(cxp2 + cw / 2 + Math.cos(ang) * dist, y + Math.sin(ang) * dist);
+        ctx.rotate(rot);
+        ctx.fillStyle = solid; ctx.fillText(ch, -cw / 2, 0);
+        ctx.restore();
+        cxp2 += cw;
+      }
+      ctx.textAlign = prev2;
+    } else if (vortex) {
+      // v134: each char spirals into the line's own anchor point and shrinks to nothing
+      const prev2 = ctx.textAlign; ctx.textAlign = "left";
+      let cxp2 = left;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const cw = ctx.measureText(ch).width;
+        const dxp = (cxp2 + cw / 2 - ax) * (1 - vortexP);
+        const spin = vortexP * Math.PI * 3;
+        const rx = dxp * Math.cos(spin);
+        const ry = dxp * Math.sin(spin);
+        const s = Math.max(0.001, 1 - vortexP);
+        ctx.save();
+        ctx.translate(ax + rx, y + ry);
+        ctx.scale(s, s);
+        ctx.fillStyle = solid; ctx.fillText(ch, -cw / 2, 0);
+        ctx.restore();
+        cxp2 += cw;
+      }
+      ctx.textAlign = prev2;
     } else if (wave || bounce) {
       // per-character vertical motion
       const prev = ctx.textAlign; ctx.textAlign = "left";
@@ -7841,6 +7939,13 @@ function drawTextLayer(W, H, hue, P, dt) {
           glyph(fill, ax, y);
           ctx.restore();
         }
+        ctx.restore();
+      } else if (irisFX) {
+        // v134: shrinking circular clip — a mechanical shutter closing over the line
+        const R = Math.max(0, 1 - irisP) * size * 3.2;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(ax, y - size * 0.32, R, 0, Math.PI * 2); ctx.clip();
+        glyph(fill, ax, y);
         ctx.restore();
       } else {
         glyph(fill, ax, y);
@@ -9541,6 +9646,12 @@ document.addEventListener("keydown", e => {
   if ((e.key === "t" || e.key === "T") && S.lyrics.tap.active) { e.preventDefault(); tapOnce(); return; }
   if (e.code === "Space" && audioEl.src) { e.preventDefault(); S.playing ? pause() : play(); }
   if (e.key === "Home") { e.preventDefault(); restart(); }
+  // v134: F1–F5 — manual Text Endings (live VJ cue), see triggerTextEnding()
+  if (e.key === "F1") { e.preventDefault(); triggerTextEnding("shatter"); }
+  if (e.key === "F2") { e.preventDefault(); triggerTextEnding("vortexsuck"); }
+  if (e.key === "F3") { e.preventDefault(); triggerTextEnding("dissolve"); }
+  if (e.key === "F4") { e.preventDefault(); triggerTextEnding("iris"); }
+  if (e.key === "F5") { e.preventDefault(); triggerTextEnding("glitchout"); }
   if (e.key === "ArrowLeft") { e.preventDefault(); skip(-5); }
   if (e.key === "ArrowRight") { e.preventDefault(); skip(5); }
   if (e.key === "ArrowDown" && !e.shiftKey && !e.altKey) { e.preventDefault(); cyclePresetLook(1); }
