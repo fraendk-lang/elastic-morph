@@ -83,6 +83,16 @@ function loadFns(names) {
   return eval("(function(){ " + src.join("\n") + "\n return {" + names.join(",") + "}; })()");
 }
 
+/* Same as loadFns, but against an explicit src string (e.g. an inject-vNN.js file's own content
+   via injectSrc()) instead of the assembled script — needed for functions that only exist in a
+   src/inject-vNN.js file's own scope, like this round's pmMirrorXY/pmMirrorPasses. */
+function loadFns2(names, src) {
+  const fns = names.map(n => extractFn(n, src));
+  const missing = names.filter((n, k) => !fns[k]);
+  if (missing.length) throw new Error("could not extract: " + missing.join(", "));
+  return eval("(function(){ " + fns.join("\n") + "\n return {" + names.join(",") + "}; })()");
+}
+
 /* pull a GLSL function's full source via brace matching, anchored on its exact signature
    (GLSL functions aren't JS `function` declarations, so extractFn can't find them) */
 function extractGlslFn(signature) {
@@ -2577,6 +2587,108 @@ ok("glowOn's boundary logic: exporting always true, perfScale>0.5 true, perfScal
 ok("the pre-marker (dead) drawParticleMode in elastic-morph.html was correctly reverted — no orphaned glow/band code left behind to confuse future readers", (() => {
   const fn = extractFn("drawParticleMode");   // default src = script -> finds the pre-marker copy
   return !!fn && !fn.includes("glowOn") && !fn.includes("S.bands") && !fn.includes("S.kickOnset") && !fn.includes("S.snareOnset");
+})());
+
+/* ---------------- Particle Mode: Kaleidoscope Mirror & Constellation ---------------- */
+section("Particle Mode — Kaleidoscope Mirror & Constellation");
+
+const pmSrc2 = injectSrc("inject-v85.js");
+
+ok("drawParticleMode is still genuinely reassigned post-marker in src/inject-v85.js (same sanity check as the Round 1 fix)", (() => {
+  return pmSrc2.includes("drawParticleMode = function (") && !pmSrc2.includes("function drawParticleMode(");
+})());
+
+ok("PM_CONST_PATTERNS is exactly nebula/swarm/vortex/fountain", (() => {
+  const m = pmSrc2.match(/const PM_CONST_PATTERNS = new Set\(\[([^\]]*)\]\);/);
+  if (!m) return false;
+  const body = m[1];
+  return body.includes('"nebula"') && body.includes('"swarm"') && body.includes('"vortex"') && body.includes('"fountain"')
+    && !body.includes('"hyperspace"') && !body.includes('"starfall"') && !body.includes('"rain"') && !body.includes('"fireworks"');
+})());
+
+ok("pmMirrorPasses returns the right pass count per mode (quad=4, oct=8, off/unknown=1)", (() => {
+  const { pmMirrorPasses, pmMirrorRotPasses } = loadFns2(["pmMirrorPasses", "pmMirrorRotPasses"], pmSrc2);
+  return pmMirrorPasses("quad").length === 4
+    && pmMirrorPasses("oct").length === 8
+    && pmMirrorPasses("hex").length === 6
+    && pmMirrorPasses("h").length === 2
+    && pmMirrorPasses("v").length === 2
+    && pmMirrorPasses("diag").length === 2
+    && pmMirrorPasses("off").length === 1
+    && pmMirrorPasses("nonsense").length === 1;
+})());
+
+ok("pmMirrorXY under h-flip ({sx:-1,sy:1}) negates only the x-delta", (() => {
+  const { pmMirrorXY } = loadFns2(["pmMirrorXY"], pmSrc2);
+  const [x, y] = pmMirrorXY(130, 220, 100, 200, { sx: -1, sy: 1 });
+  return x === 70 && y === 220;   // dx=30 -> -30 -> cx-30=70; dy=20 unchanged -> cy+20=220
+})());
+
+ok("pmMirrorXY under diag swaps the x/y deltas", (() => {
+  const { pmMirrorXY } = loadFns2(["pmMirrorXY"], pmSrc2);
+  const [x, y] = pmMirrorXY(130, 220, 100, 200, { diag: true });
+  return x === 120 && y === 230;   // dx=30, dy=20 -> swapped: cx+20=120, cy+30=230
+})());
+
+ok("pmMirrorXY applies flip BEFORE rotate for rotational passes (matches Layer B's actual canvas-transform composition order, not the reverse)", (() => {
+  const { pmMirrorXY } = loadFns2(["pmMirrorXY"], pmSrc2);
+  // point at (cx, cy+1) i.e. dx=0, dy=1; rot=60deg, flip=true
+  const [x, y] = pmMirrorXY(0, 1, 0, 0, { rot: Math.PI / 3, flip: true });
+  // hand-derived: flip first -> dy=-1; rotate by 60deg: (0*cos - (-1)*sin, 0*sin + (-1)*cos)
+  const c = Math.cos(Math.PI / 3), s = Math.sin(Math.PI / 3);
+  const expectedX = 0 * c - (-1) * s, expectedY = 0 * s + (-1) * c;
+  return Math.abs(x - expectedX) < 1e-9 && Math.abs(y - expectedY) < 1e-9;
+})());
+
+ok("the perf-degradation ladder matches drawLayerB's own thresholds exactly (0.75/0.65/0.55/0.45)", (() => {
+  const lbFn = extractFn("drawLayerB");
+  const pmFn = extractFn("drawParticleMode", pmSrc2);
+  if (!lbFn || !pmFn) return false;
+  return lbFn.includes("pf57 < 0.75") && pmFn.includes("pf57 < 0.75")
+    && lbFn.includes("pf57 < 0.65") && pmFn.includes("pf57 < 0.65")
+    && lbFn.includes("pf57 < 0.55") && pmFn.includes("pf57 < 0.55")
+    && lbFn.includes("pf57 < 0.45") && pmFn.includes("pf57 < 0.45");
+})());
+
+function pmCaseBody2(fn, id) {
+  const startIdx = fn.indexOf(`case "${id}": {`);
+  const endIdx = fn.indexOf("\n      }", startIdx);
+  if (startIdx < 0 || endIdx < 0) return null;
+  return fn.slice(startIdx, endIdx);
+}
+
+const PM_ALL_PATTERNS = ["hyperspace", "starfall", "rain", "vortex", "fountain", "fireworks", "nebula", "swarm"];
+
+ok("all 8 patterns' case bodies contain at least one mirror-pass draw loop", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc2);
+  if (!fn) return false;
+  return PM_ALL_PATTERNS.every(id => {
+    const body = pmCaseBody2(fn, id);
+    return !!body && body.includes("for (const mp of mPasses)");
+  });
+})());
+
+ok("only nebula/swarm/vortex/fountain push to pmConstPts; hyperspace/starfall/rain/fireworks do not", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc2);
+  if (!fn) return false;
+  const shouldHave = ["nebula", "swarm", "vortex", "fountain"];
+  const shouldNotHave = ["hyperspace", "starfall", "rain", "fireworks"];
+  return shouldHave.every(id => { const b = pmCaseBody2(fn, id); return !!b && b.includes("pmConstPts.push("); })
+    && shouldNotHave.every(id => { const b = pmCaseBody2(fn, id); return !!b && !b.includes("pmConstPts.push("); });
+})());
+
+ok("all 4 constellation-eligible cases cap collection at 70 points", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc2);
+  if (!fn) return false;
+  return ["nebula", "swarm", "vortex", "fountain"].every(id => {
+    const body = pmCaseBody2(fn, id);
+    return !!body && body.includes("pmConstPts.length < 70");
+  });
+})());
+
+ok("constellation line-drawing block is gated by pmConstOn && pmConstPts.length > 1", (() => {
+  const fn = extractFn("drawParticleMode", pmSrc2);
+  return !!fn && fn.includes("if (pmConstOn && pmConstPts.length > 1) {");
 })());
 
 /* ---------------- summary ---------------- */

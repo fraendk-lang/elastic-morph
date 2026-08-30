@@ -14351,6 +14351,40 @@ pmColor = function (pt, baseHue, l, alpha) {
   return `hsla(${((h % 360) + 360) % 360}, ${sat}%, ${l}%, ${Math.min(alpha, cap)})`;
 };
 
+/* v131: Kaleidoscope Mirror + Constellation lines — see docs/superpowers/specs/
+   2026-08-29-particle-mode-mirror-constellation-design.md */
+const PM_CONST_PATTERNS = new Set(["nebula", "swarm", "vortex", "fountain"]);
+
+function pmMirrorRotPasses(n) {
+  return Array.from({ length: n }, (_, i) => ({ rot: i * Math.PI * 2 / n, flip: i % 2 === 1 }));
+}
+
+function pmMirrorPasses(mode) {
+  return mode === "quad" ? [{ sx: 1, sy: 1 }, { sx: -1, sy: 1 }, { sx: 1, sy: -1 }, { sx: -1, sy: -1 }]
+    : mode === "h" ? [{ sx: 1, sy: 1 }, { sx: -1, sy: 1 }]
+    : mode === "v" ? [{ sx: 1, sy: 1 }, { sx: 1, sy: -1 }]
+    : mode === "diag" ? [{ sx: 1, sy: 1 }, { diag: true }]
+    : mode === "hex" ? pmMirrorRotPasses(6)
+    : mode === "oct" ? pmMirrorRotPasses(8)
+    : [{ sx: 1, sy: 1 }];
+}
+
+function pmMirrorXY(x, y, cx, cy, mp) {
+  let dx = x - cx, dy = y - cy;
+  if (mp.rot != null) {
+    /* Must match Layer B's actual canvas-transform order: translate(cx,cy); rotate(rot);
+       scale(1,-1) [if flip]; translate(-cx,-cy) — composed, that applies flip FIRST, then
+       rotate (the last-called transform acts on the point first). Flip-then-rotate is NOT
+       the same as rotate-then-flip. */
+    if (mp.flip) dy = -dy;
+    const c = Math.cos(mp.rot), s = Math.sin(mp.rot);
+    const rx = dx * c - dy * s, ry = dx * s + dy * c;
+    return [cx + rx, cy + ry];
+  }
+  if (mp.diag) return [cx + dy, cy + dx];
+  return [cx + dx * mp.sx, cy + dy * mp.sy];
+}
+
 drawParticleMode = function (W, H, baseHue, dt) {
   const pm = S.pmode;
   if (!pm.on) return;
@@ -14365,6 +14399,16 @@ drawParticleMode = function (W, H, baseHue, dt) {
   /* v130: perf-gated glow + frequency-band coupling — see docs/superpowers/specs/
      2026-08-29-particle-mode-glow-bands-design.md. Reuses the S.geo2 threshold convention. */
   const glowOn = S.exporting || (S.perfScale || 1) > 0.5;
+
+  const pf57 = S.exporting ? 1 : (S.perfScale || 1);
+  let mmode = pm.mirror || "off";
+  if (pf57 < 0.75 && mmode === "oct") mmode = "hex";
+  if (pf57 < 0.65 && mmode === "hex") mmode = "quad";
+  if (pf57 < 0.55 && mmode === "quad") mmode = "h";
+  if (pf57 < 0.45 && mmode !== "off") mmode = "off";
+  const mPasses = pmMirrorPasses(mmode);
+  const pmConstOn = pm.constellation && PM_CONST_PATTERNS.has(pm.pattern);
+  const pmConstPts = [];
 
   ctx.save();
   ctx.globalCompositeOperation = "screen";
@@ -14401,12 +14445,20 @@ drawParticleMode = function (W, H, baseHue, dt) {
         ctx.strokeStyle = pmColor(pt, baseHue, 52 + pt.r * 32, al);
         ctx.lineWidth = pt.sz * (0.35 + pt.r * 1.8 + S.bass * 0.4) * sc;
         ctx.shadowBlur = glowOn ? pt.sz * 3 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
-        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        for (const mp of mPasses) {
+          const [mx1, my1] = pmMirrorXY(x1, y1, cx, cy, mp);
+          const [mx2, my2] = pmMirrorXY(x2, y2, cx, cy, mp);
+          ctx.beginPath(); ctx.moveTo(mx1, my1); ctx.lineTo(mx2, my2); ctx.stroke();
+        }
         if (pt.r > 0.55 && beat > 0.4) {
           ctx.strokeStyle = pmColor(pt, baseHue, 78, al * 0.35);
           ctx.shadowColor = ctx.strokeStyle;
           ctx.lineWidth *= 0.45;
-          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+          for (const mp of mPasses) {
+            const [mx1, my1] = pmMirrorXY(x1, y1, cx, cy, mp);
+            const [mx2, my2] = pmMirrorXY(x2, y2, cx, cy, mp);
+            ctx.beginPath(); ctx.moveTo(mx1, my1); ctx.lineTo(mx2, my2); ctx.stroke();
+          }
         }
         break;
       }
@@ -14420,7 +14472,11 @@ drawParticleMode = function (W, H, baseHue, dt) {
         ctx.strokeStyle = pmColor(pt, baseHue, 68, 0.18 + hi * 0.42);
         ctx.lineWidth = pt.sz * (0.75 + beat * 0.35) * sc;
         ctx.shadowBlur = glowOn ? pt.sz * 2.5 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
-        ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x - tail * 0.2, pt.y - tail); ctx.stroke();
+        for (const mp of mPasses) {
+          const [mx1, my1] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+          const [mx2, my2] = pmMirrorXY(pt.x - tail * 0.2, pt.y - tail, cx, cy, mp);
+          ctx.beginPath(); ctx.moveTo(mx1, my1); ctx.lineTo(mx2, my2); ctx.stroke();
+        }
         break;
       }
       case "rain": {
@@ -14430,7 +14486,11 @@ drawParticleMode = function (W, H, baseHue, dt) {
         ctx.strokeStyle = pmColor(pt, baseHue, 58, 0.14 + hi * 0.38);
         ctx.lineWidth = pt.sz * 0.45 * sc;
         ctx.shadowBlur = glowOn ? pt.sz * 2 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
-        ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x, pt.y - tail); ctx.stroke();
+        for (const mp of mPasses) {
+          const [mx1, my1] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+          const [mx2, my2] = pmMirrorXY(pt.x, pt.y - tail, cx, cy, mp);
+          ctx.beginPath(); ctx.moveTo(mx1, my1); ctx.lineTo(mx2, my2); ctx.stroke();
+        }
         break;
       }
       case "vortex": {
@@ -14439,9 +14499,13 @@ drawParticleMode = function (W, H, baseHue, dt) {
         if (pt.r < 0.02) { pt.r = 0.5 + Math.random() * 0.45; if (S.pmode.multicolor) pt.hue = Math.random() * 360; }
         const x = cx + Math.cos(pt.a) * pt.r * maxR, y = cy + Math.sin(pt.a) * pt.r * maxR * 0.82;
         const s = pt.sz * (0.55 + (1 - pt.r) * 1.4 + beat * 0.25) * sc;
+        if (pmConstOn && pmConstPts.length < 70) pmConstPts.push({ x, y, hue: pt.hue });
         ctx.fillStyle = pmColor(pt, baseHue, 58 + (1 - pt.r) * 22, 0.22 + hi * 0.35);
         ctx.shadowBlur = glowOn ? s * 1.4 : 0; ctx.shadowColor = ctx.fillStyle;
-        ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+        for (const mp of mPasses) {
+          const [mx, my] = pmMirrorXY(x, y, cx, cy, mp);
+          ctx.beginPath(); ctx.arc(mx, my, s, 0, Math.PI * 2); ctx.fill();
+        }
         break;
       }
       case "fountain": {
@@ -14456,14 +14520,23 @@ drawParticleMode = function (W, H, baseHue, dt) {
         pt.vy += dt * 300 * sc;
         pt.x += pt.vx * dt; pt.y += pt.vy * dt;
         if (pt.y > H + 10) pt.life = 0;
+        if (pmConstOn && pmConstPts.length < 70) pmConstPts.push({ x: pt.x, y: pt.y, hue: pt.hue });
         const trail = 4 + beat * 6;
+        const tx = pt.x - pt.vx * dt * trail, ty = pt.y - pt.vy * dt * trail;
         ctx.strokeStyle = pmColor(pt, baseHue, 62, 0.2 + hi * 0.28);
         ctx.lineWidth = pt.sz * 0.9 * sc;
         ctx.shadowBlur = glowOn ? pt.sz * 2.6 * sc : 0; ctx.shadowColor = ctx.strokeStyle;
-        ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x - pt.vx * dt * trail, pt.y - pt.vy * dt * trail); ctx.stroke();
+        for (const mp of mPasses) {
+          const [mx1, my1] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+          const [mx2, my2] = pmMirrorXY(tx, ty, cx, cy, mp);
+          ctx.beginPath(); ctx.moveTo(mx1, my1); ctx.lineTo(mx2, my2); ctx.stroke();
+        }
         ctx.fillStyle = pmColor(pt, baseHue, 64, 0.28 + hi * 0.32);
         ctx.shadowColor = ctx.fillStyle;
-        ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (1.1 + beat * 0.3) * sc, 0, Math.PI * 2); ctx.fill();
+        for (const mp of mPasses) {
+          const [mx, my] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+          ctx.beginPath(); ctx.arc(mx, my, pt.sz * (1.1 + beat * 0.3) * sc, 0, Math.PI * 2); ctx.fill();
+        }
         break;
       }
       case "fireworks": {
@@ -14471,9 +14544,13 @@ drawParticleMode = function (W, H, baseHue, dt) {
           pt.vy += dt * 120 * sc; pt.vx *= 0.982; pt.vy *= 0.982;
           pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.life -= dt * (0.65 + hi * 0.15);
           const a = Math.max(0, pt.life);
+          const rad = pt.sz * (0.55 + a * 0.9 + S.snareOnset * 0.5) * sc;
           ctx.fillStyle = pmColor(pt, baseHue, 60, a * 0.85);
           ctx.shadowBlur = glowOn ? pt.sz * (0.55 + a * 0.9) * sc * 2 : 0; ctx.shadowColor = ctx.fillStyle;
-          ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (0.55 + a * 0.9 + S.snareOnset * 0.5) * sc, 0, Math.PI * 2); ctx.fill();
+          for (const mp of mPasses) {
+            const [mx, my] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+            ctx.beginPath(); ctx.arc(mx, my, rad, 0, Math.PI * 2); ctx.fill();
+          }
         }
         break;
       }
@@ -14483,12 +14560,17 @@ drawParticleMode = function (W, H, baseHue, dt) {
         pt.x += Math.cos(ang) * v; pt.y += Math.sin(ang) * v;
         if (pt.x < -24) pt.x = W + 24; else if (pt.x > W + 24) pt.x = -24;
         if (pt.y < -24) pt.y = H + 24; else if (pt.y > H + 24) pt.y = -24;
+        if (pmConstOn && pmConstPts.length < 70) pmConstPts.push({ x: pt.x, y: pt.y, hue: pt.hue });
         const rad = pt.sz * (7 + beat * 2.5) * sc;
-        const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, rad);
-        g.addColorStop(0, pmColor(pt, baseHue, 58, 0.1 + S.loudness * 0.16));
-        g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(pt.x, pt.y, rad, 0, Math.PI * 2); ctx.fill();
+        const col0 = pmColor(pt, baseHue, 58, 0.1 + S.loudness * 0.16);
+        for (const mp of mPasses) {
+          const [mx, my] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+          const g = ctx.createRadialGradient(mx, my, 0, mx, my, rad);
+          g.addColorStop(0, col0);
+          g.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(mx, my, rad, 0, Math.PI * 2); ctx.fill();
+        }
         break;
       }
       case "swarm": {
@@ -14500,10 +14582,33 @@ drawParticleMode = function (W, H, baseHue, dt) {
         pt.vy += (Math.random() - 0.5) * 180 * dt * (0.35 + beat + S.bands.mid * 0.6);
         pt.vx *= 0.93; pt.vy *= 0.93;
         pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+        if (pmConstOn && pmConstPts.length < 70) pmConstPts.push({ x: pt.x, y: pt.y, hue: pt.hue });
         ctx.fillStyle = pmColor(pt, baseHue, 62, 0.24 + hi * 0.36);
         ctx.shadowBlur = glowOn ? pt.sz * 2.2 * sc : 0; ctx.shadowColor = ctx.fillStyle;
-        ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.sz * (0.95 + beat * 0.35) * sc, 0, Math.PI * 2); ctx.fill();
+        for (const mp of mPasses) {
+          const [mx, my] = pmMirrorXY(pt.x, pt.y, cx, cy, mp);
+          ctx.beginPath(); ctx.arc(mx, my, pt.sz * (0.95 + beat * 0.35) * sc, 0, Math.PI * 2); ctx.fill();
+        }
         break;
+      }
+    }
+  }
+  if (pmConstOn && pmConstPts.length > 1) {
+    const thr = Math.min(W, H) * 0.12, thr2 = thr * thr;
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 0.7;
+    for (let i = 0; i < pmConstPts.length; i++) {
+      for (let j = i + 1; j < pmConstPts.length; j++) {
+        const dx = pmConstPts[i].x - pmConstPts[j].x, dy = pmConstPts[i].y - pmConstPts[j].y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < thr2) {
+          const al = (1 - Math.sqrt(d2) / thr) * 0.16 * (0.5 + hi + beat * 0.4);
+          ctx.strokeStyle = pmColor(pmConstPts[i], baseHue, 68, al);
+          ctx.beginPath();
+          ctx.moveTo(pmConstPts[i].x, pmConstPts[i].y);
+          ctx.lineTo(pmConstPts[j].x, pmConstPts[j].y);
+          ctx.stroke();
+        }
       }
     }
   }
