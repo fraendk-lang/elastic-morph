@@ -2691,6 +2691,34 @@ ok("constellation line-drawing block is gated by pmConstOn && pmConstPts.length 
   return !!fn && fn.includes("if (pmConstOn && pmConstPts.length > 1) {");
 })());
 
+ok("S.pmode's default object includes mirror: \"off\" and constellation: false", (() => {
+  return /pmode:\s*\{\s*on:\s*false,\s*pattern:\s*"hyperspace",\s*multicolor:\s*false,\s*amount:\s*0\.6,\s*mirror:\s*"off",\s*constellation:\s*false\s*\}/.test(script);
+})());
+
+ok("the #pmMirror select and #pmConstellation checkbox exist, with #pmMirror offering the same 7 modes as #lbMirror", (() => {
+  if (!html.includes('id="pmConstellation"')) return false;
+  const m = html.match(/<select id="pmMirror"[\s\S]*?<\/select>/);
+  if (!m) return false;
+  const body = m[0];
+  return body.includes('value="off"') && body.includes('value="h"') && body.includes('value="v"')
+    && body.includes('value="diag"') && body.includes('value="quad"') && body.includes('value="hex"') && body.includes('value="oct"');
+})());
+
+ok("buildParticleMode() wires pmMirror change and pmConstellation change to S.pmode", (() => {
+  const fn = extractFn("buildParticleMode");
+  return !!fn
+    && fn.includes('$("pmMirror").addEventListener("change", e => S.pmode.mirror = e.target.value);')
+    && fn.includes('$("pmConstellation").addEventListener("change", e => S.pmode.constellation = e.target.checked);');
+})());
+
+ok("pmode save serialization includes mirror and constellation", (() => {
+  return script.includes("pmode: { on: S.pmode.on, pattern: S.pmode.pattern, multicolor: S.pmode.multicolor, amount: S.pmode.amount, mirror: S.pmode.mirror, constellation: S.pmode.constellation },");
+})());
+
+ok("sync-to-UI sets #pmMirror and #pmConstellation from S.pmode", (() => {
+  return script.includes('$("pmMirror").value = S.pmode.mirror; $("pmConstellation").checked = S.pmode.constellation;');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

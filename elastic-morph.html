@@ -1763,6 +1763,16 @@
       <label>Amount <span class="val" id="pmAmtVal">60</span></label>
       <input type="range" id="pmAmt" min="0" max="100" value="60">
     </div>
+    <select id="pmMirror" class="pm-select" style="margin-top:8px">
+      <option value="off" selected>Mirror: Off</option>
+      <option value="h">Mirror: Horizontal</option>
+      <option value="v">Mirror: Vertical</option>
+      <option value="diag">Mirror: Diagonal</option>
+      <option value="quad">Mirror: 4-way (Kaleido)</option>
+      <option value="hex">Mirror: 6-way (Kaleido)</option>
+      <option value="oct">Mirror: 8-way (Kaleido)</option>
+    </select>
+    <label class="check" style="margin-top:10px"><input type="checkbox" id="pmConstellation"> Constellation lines (Nebula/Swarm/Vortex/Fountain)</label>
     <div class="divider"></div>
     <h3>Image Layer A</h3>
     <button class="btn" id="imgUploadBtn" style="width:100%;margin-bottom:8px">Upload Image A</button>
@@ -2896,7 +2906,7 @@ const S = {
          slice: false, spin: false, halftone: false, triangulate: false, posterize: false },
   fx2Spin: 0,
   // v7: particle mode
-  pmode: { on: false, pattern: "hyperspace", multicolor: false, amount: 0.6 },
+  pmode: { on: false, pattern: "hyperspace", multicolor: false, amount: 0.6, mirror: "off", constellation: false },
   // v9: image layer A
   image: { on: false, mode: "dispersion", img: null, src: null, cells: [], cols: 0, rows: 0,
            imgAR: 1, opacity: 0.9, amount: 0.6, tint: false, kenburns: false, kbPhase: 0, filter: "none", blend: "source-over", beatSync: false },
@@ -7992,6 +8002,8 @@ function buildParticleMode() {
     $("pmAmtVal").textContent = e.target.value;
     if (S.pmode.on) initPM();
   });
+  $("pmMirror").addEventListener("change", e => S.pmode.mirror = e.target.value);
+  $("pmConstellation").addEventListener("change", e => S.pmode.constellation = e.target.checked);
 }
 
 /* ---- image layer controls ---- */
@@ -8091,7 +8103,7 @@ function projectData() {
     bgVid: { on: S.bgVid.on, opacity: S.bgVid.opacity, blend: S.bgVid.blend, cover: S.bgVid.cover, filter: S.bgVid.filter },
     cues: S.cues.map(c => ({ t: c.t, scene: c.scene, trans: c.trans, transDur: c.transDur, fx: c.fx ? { a: [...c.fx.a], b: [...c.fx.b] } : null })),
     setActive: S.setActive,
-    pmode: { on: S.pmode.on, pattern: S.pmode.pattern, multicolor: S.pmode.multicolor, amount: S.pmode.amount },
+    pmode: { on: S.pmode.on, pattern: S.pmode.pattern, multicolor: S.pmode.multicolor, amount: S.pmode.amount, mirror: S.pmode.mirror, constellation: S.pmode.constellation },
     image: imgLayerData(S.image),
     image2: imgLayerData(S.image2),
     imgMix: { ...S.imgMix },
@@ -8254,6 +8266,7 @@ function applyProject(o, fromScene) {
   $("pmOn").checked = S.pmode.on; $("pmPattern").value = S.pmode.pattern;
   $("pmMulti").checked = S.pmode.multicolor;
   $("pmAmt").value = Math.round(S.pmode.amount * 100); $("pmAmtVal").textContent = Math.round(S.pmode.amount * 100);
+  $("pmMirror").value = S.pmode.mirror; $("pmConstellation").checked = S.pmode.constellation;
 
   $("textShow").checked = S.textShow; $("textTitle").value = S.textTitle; $("textArtist").value = S.textArtist;
   $("textPos").value = S.textPos; $("textFont").value = S.textFont; $("textColor").value = S.textColor;
