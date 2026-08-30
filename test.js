@@ -2962,7 +2962,7 @@ ok("none of the 5 ending type strings are exposed as a persistent, user-selectab
 ok("drawTextLayer resolves an active (non-lyric-mode) S.textEnding into `ending`/`endingP`/`anim`", (() => {
   const fn = extractFn("drawTextLayer");
   return !!fn && fn.includes("const ending = !lyricMode ? S.textEnding : null;") &&
-         fn.includes("TEXT_ENDING_DUR[ending.type]") &&
+         fn.includes("textEndingDuration(ending.type)") &&   // v135: was TEXT_ENDING_DUR[ending.type] directly, see textEndingDuration
          fn.includes("const anim = ending ? ending.type :");
 })());
 
@@ -2995,8 +2995,8 @@ ok("finalizeTextEndingIfDone does nothing before an ending's duration has elapse
   const checkboxStub = { checked: true };
   global.$ = id => (id === "textShow" ? checkboxStub : null);
   global.TEXT_ENDING_DUR = { shatter: 0.6 };
-  global.S = { time: 5.0, textEnding: { type: "shatter", t0: 4.5 }, textShow: true };   // elapsed 0.5s of 0.6s
-  const { finalizeTextEndingIfDone } = loadFns(["finalizeTextEndingIfDone"]);
+  global.S = { time: 5.0, textEnding: { type: "shatter", t0: 4.5 }, textShow: true };   // elapsed 0.5s of 0.6s (textEndingScale unset -> falls back to 1)
+  const { finalizeTextEndingIfDone } = loadFns(["finalizeTextEndingIfDone", "textEndingDuration"]);
 
   finalizeTextEndingIfDone();
   const notYetDone = global.S.textEnding !== null && global.S.textShow === true && checkboxStub.checked === true;
@@ -3006,6 +3006,67 @@ ok("finalizeTextEndingIfDone does nothing before an ending's duration has elapse
   const done = global.S.textEnding === null && global.S.textShow === false && checkboxStub.checked === false;
 
   return notYetDone && done;
+})());
+
+section("Text Endings — adjustable duration slider");
+
+ok("the Ending-Dauer slider markup exists with min=50/max=200/value=140 and its paired value label (HTML markup check — uses `html`, not `script`)", (() => {
+  return html.includes('<input type="range" id="textEndingScale" min="50" max="200" value="140">') &&
+         html.includes('<span class="val" id="textEndingScaleVal">140%</span>');
+})());
+
+ok("S default state has textEndingScale: 1.4", (() => {
+  return script.includes("textEndingScale: 1.4,");
+})());
+
+ok("textEndingDuration exists and multiplies TEXT_ENDING_DUR[type] by S.textEndingScale, with a fallback of 1", (() => {
+  const fn = extractFn("textEndingDuration");
+  return !!fn && fn.includes("TEXT_ENDING_DUR[type]") && fn.includes("S.textEndingScale || 1");
+})());
+
+ok("textEndingDuration behaves correctly: scales the base duration, and falls back to the unscaled base when S.textEndingScale is falsy (genuine behavioral check via loadFns + a mock S/TEXT_ENDING_DUR, not just a structural text match)", (() => {
+  global.TEXT_ENDING_DUR = { shatter: 0.6 };
+  global.S = { textEndingScale: 2 };
+  const { textEndingDuration } = loadFns(["textEndingDuration"]);
+  const scaled = Math.abs(textEndingDuration("shatter") - 1.2) < 1e-9;   // 0.6 * 2
+
+  global.S.textEndingScale = 0;   // falsy — must fall back to the unscaled base (0.6), not 0
+  const fallback = Math.abs(textEndingDuration("shatter") - 0.6) < 1e-9;
+
+  return scaled && fallback;
+})());
+
+ok("drawTextLayer's endingP calls textEndingDuration(ending.type) and no longer reads TEXT_ENDING_DUR[ending.type] directly", (() => {
+  const fn = extractFn("drawTextLayer");
+  return !!fn && fn.includes("textEndingDuration(ending.type)") && !fn.includes("TEXT_ENDING_DUR[ending.type]");
+})());
+
+ok("finalizeTextEndingIfDone calls textEndingDuration(ending.type) and no longer reads TEXT_ENDING_DUR[ending.type] directly", (() => {
+  const fn = extractFn("finalizeTextEndingIfDone");
+  return !!fn && fn.includes("textEndingDuration(ending.type)") && !fn.includes("TEXT_ENDING_DUR[ending.type]");
+})());
+
+ok("the event listener wires the slider to S.textEndingScale and updates its value label from the raw slider value", (() => {
+  return script.includes('$("textEndingScale").addEventListener("input", e => {') &&
+         script.includes("S.textEndingScale = e.target.value / 100;") &&
+         script.includes('$("textEndingScaleVal").textContent = e.target.value + "%";');
+})());
+
+ok("the project save blob includes endingScale: S.textEndingScale", (() => {
+  return script.includes("endingScale: S.textEndingScale }");
+})());
+
+ok("applyProject's load-apply sets S.textEndingScale from t.endingScale, falling back to 1.4 for an older saved project that predates this field", (() => {
+  return script.includes('S.textEndingScale = t.endingScale != null ? t.endingScale : 1.4;');
+})());
+
+ok("applyProject's UI sync sets the slider position and value label from S.textEndingScale", (() => {
+  return script.includes('$("textEndingScale").value = Math.round(S.textEndingScale * 100); $("textEndingScaleVal").textContent = Math.round(S.textEndingScale * 100) + "%";');
+})());
+
+ok("applyTextPreset never references textEndingScale — switching a Text style preset must not silently change Frank's preferred Ending speed", (() => {
+  const fn = extractFn("applyTextPreset");
+  return !!fn && !fn.includes("textEndingScale");
 })());
 
 /* ---------------- summary ---------------- */

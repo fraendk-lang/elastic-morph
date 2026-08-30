@@ -1307,6 +1307,10 @@
           <input type="range" id="textSize" min="50" max="400" value="100">
           <span class="val" id="textSizeVal">100%</span>
         </div>
+        <div class="opt"><span>Ending-Dauer</span>
+          <input type="range" id="textEndingScale" min="50" max="200" value="140">
+          <span class="val" id="textEndingScaleVal">140%</span>
+        </div>
         <div class="opt"><span>Shadow</span>
           <label class="check" style="flex:1"><input type="checkbox" id="textShadow"> Drop shadow</label>
         </div>
@@ -2892,6 +2896,9 @@ const S = {
   textHypnoPhase: 0,
   // v134: in-flight Text Ending (F1–F5) — {type, t0} while playing, null otherwise
   textEnding: null,
+  // v135: live-adjustable multiplier on all 5 Text Endings' base durations (F1-F5) —
+  // 1.0 = TEXT_ENDING_DUR's original values, default raised to 1.4 per Frank's "too fast" feedback
+  textEndingScale: 1.4,
   // v3: live input, demo, quality
   micMode: false,
   virtualT: 0,        // virtual track time in mic/demo mode
@@ -7492,6 +7499,11 @@ function advanceHypnoPhase(dt) {
 // string space drawTextLayer already switches on, but never exposed in the textAnim <select>
 // (trigger-only, never a persistent user-selectable style).
 const TEXT_ENDING_DUR = { shatter: 0.6, vortexsuck: 1.0, dissolve: 0.9, iris: 0.8, glitchout: 0.5 };
+// v135: the base table above stays fixed (each ending's relative "character" — Glitch Blackout
+// short and hard vs. Vortex Suck slow — is preserved); S.textEndingScale scales all 5 uniformly.
+function textEndingDuration(type) {
+  return TEXT_ENDING_DUR[type] * (S.textEndingScale || 1);
+}
 
 function triggerTextEnding(type) {
   const lyricMode = S.lyrics.on && S.lyrics.cues.length > 0;
@@ -7503,7 +7515,7 @@ function triggerTextEnding(type) {
 function finalizeTextEndingIfDone() {
   const ending = S.textEnding;
   if (!ending) return;
-  const p = Math.min(1, (S.time - ending.t0) / TEXT_ENDING_DUR[ending.type]);
+  const p = Math.min(1, (S.time - ending.t0) / textEndingDuration(ending.type));
   if (p < 1) return;
   S.textEnding = null;
   S.textShow = false;
@@ -7527,7 +7539,7 @@ function drawTextLayer(W, H, hue, P, dt) {
   // v134: a Text Ending (F1–F5) overrides whatever anim is selected, but never during lyric mode
   // (triggerTextEnding already refuses to start one there — this is defence in depth)
   const ending = !lyricMode ? S.textEnding : null;
-  const endingP = ending ? Math.min(1, (S.time - ending.t0) / TEXT_ENDING_DUR[ending.type]) : 0;
+  const endingP = ending ? Math.min(1, (S.time - ending.t0) / textEndingDuration(ending.type)) : 0;
   // "phases" framing makes no sense for line-by-line lyrics → treat as static
   const anim = ending ? ending.type : (lyricMode && S.textAnim === "phases") ? "static" : S.textAnim;
 
@@ -8246,7 +8258,8 @@ function projectData() {
             custom: S.textCustom, upper: S.textUpper, weight: S.textWeight, track: S.textTrack,
             nudgeX: S.textNudgeX, nudgeY: S.textNudgeY, label: S.textLabel, lower: S.textLower,
             shadow: S.textShadow, plateColor: S.textPlateColor, plateOpacity: S.textPlateOpacity,
-            custom2: S.textCustom2, gradDir: S.textGradDir, pattern: S.textPattern, blend: S.textBlend },
+            custom2: S.textCustom2, gradDir: S.textGradDir, pattern: S.textPattern, blend: S.textBlend,
+            endingScale: S.textEndingScale },
     lyrics: { on: S.lyrics.on, cues: S.lyrics.cues, offset: S.lyrics.offset },
     layerB: (() => { const { _spin, _hue, _opPhase, _scPhase, _progZoom, _vSeeds, ...rest } = S.layerB; return rest; })(),
     feedbackFX: { ...S.feedbackFX },
@@ -8311,6 +8324,7 @@ function applyProject(o, fromScene) {
   S.textPattern = t.pattern || (t.circle ? "circle" : "straight");   // v119: back-compat with old "circle" boolean
   S.textLabel = t.label || ""; S.textLower = !!t.lower;
   S.textBlend = t.blend || "source-over"; if ($("textBlend")) $("textBlend").value = S.textBlend;
+  S.textEndingScale = t.endingScale != null ? t.endingScale : 1.4;   // v135
 
   const setImg = (IM, ob, defMode) => {
     ob = ob || {};
@@ -8406,6 +8420,7 @@ function applyProject(o, fromScene) {
   $("textAnim").value = S.textAnim;
   $("textStyle").value = S.textStyle; $("textPlate").checked = S.textPlate;
   $("textSize").value = Math.round(S.textSize * 100); $("textSizeVal").textContent = Math.round(S.textSize * 100) + "%";
+  $("textEndingScale").value = Math.round(S.textEndingScale * 100); $("textEndingScaleVal").textContent = Math.round(S.textEndingScale * 100) + "%";
   $("textLabel").value = S.textLabel; $("textLower").checked = S.textLower;
   $("textCustom").value = /^#[0-9a-fA-F]{6}$/.test(S.textCustom) ? S.textCustom : "#4be1e8";
   $("textWeight").value = S.textWeight; $("textUpper").checked = S.textUpper;
@@ -9222,6 +9237,10 @@ $("textPlate").addEventListener("change", e => S.textPlate = e.target.checked);
 $("textSize").addEventListener("input", e => {
   S.textSize = e.target.value / 100;
   $("textSizeVal").textContent = e.target.value + "%";
+});
+$("textEndingScale").addEventListener("input", e => {
+  S.textEndingScale = e.target.value / 100;
+  $("textEndingScaleVal").textContent = e.target.value + "%";
 });
 /* v34: custom palette */
 function drawPalettePreview() {
