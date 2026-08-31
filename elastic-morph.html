@@ -10266,6 +10266,21 @@ function autoVjStep() {
     $("lbOn").checked = S.layerB.on; $("lbType").value = S.layerB.type;
     if (S.layerB.type === "starfield") initStars();
   }
+  // v136: sometimes randomize Particle Mode — on/off + pattern + mirror + constellation
+  // together, same "toggle + retype in one step" shape as the Layer B block above. Both the
+  // pattern and mirror pools are read from their live source of truth (PM_PATTERNS / the
+  // #pmMirror <select>'s own options) so this can't go stale the way the shader pool did.
+  if (R() < 0.4) {
+    S.pmode.on = R() < 0.7;
+    const patterns = PM_PATTERNS.map(p => p[0]);
+    S.pmode.pattern = patterns[Math.floor(R() * patterns.length)];
+    const mirrorOpts = [...document.querySelectorAll("#pmMirror option")].map(o => o.value);
+    S.pmode.mirror = mirrorOpts[Math.floor(R() * mirrorOpts.length)];
+    S.pmode.constellation = R() < 0.35;
+    $("pmOn").checked = S.pmode.on; $("pmPattern").value = S.pmode.pattern;
+    $("pmMirror").value = S.pmode.mirror; $("pmConstellation").checked = S.pmode.constellation;
+    if (S.pmode.on) initPM();
+  }
   // FX: curate a FRESH small selection each step. Toggling used to let additive
   // effects pile up over time and blow the frame out to white — instead we clear
   // both racks and enable a controlled set with AT MOST ONE brightener.
@@ -10296,10 +10311,21 @@ function autoVjStep() {
   // sometimes flip the GPU shader on/off and reroll its style
   if (R() < 0.35) {
     S.shader.on = R() < 0.7;
-    const styles = ["fluid", "metaballs", "tunnel"];
+    const styles = Object.keys(SHADER_STYLE_ID);   // v136: derives from the live style set — never goes stale again
     S.shader.style = styles[Math.floor(R() * styles.length)];
     $("shOn").checked = S.shader.on; $("shStyle").value = S.shader.style;
     if (S.shader.on) initGL();
+  }
+  // v136: sometimes reroll the text ANIMATION style only — leaves the displayed title/artist strings alone.
+  // Gated on S.textShow (no-op when text display is off). Derived from the live #textAnim
+  // <select> options, so it automatically includes hypno and any future addition, and can never
+  // include the 5 F1-F5 Text Ending trigger-only strings — those are deliberately never options
+  // in that select to begin with.
+  if (S.textShow && R() < 0.4) {
+    const anims = [...document.querySelectorAll("#textAnim option")].map(o => o.value);
+    S.textAnim = anims[Math.floor(R() * anims.length)];
+    $("textAnim").value = S.textAnim;
+    restartType();
   }
 }
 $("autoVjOn").addEventListener("change", e => { S.autoVJ.on = e.target.checked; S.autoVJ.t = 0; $("autoVjBtn").classList.toggle("on", e.target.checked); });

@@ -3166,6 +3166,87 @@ ok("warpTunnel is deliberately NOT added to the 820px-resolution-cap style list 
   return !!m && !script.includes('SH.style === "warpTunnel"');
 })());
 
+section("Auto-VJ pool catch-up");
+
+ok("the shader-style pool derives from Object.keys(SHADER_STYLE_ID), not a hardcoded literal — the old 3-item array is gone from autoVjStep", (() => {
+  const fn = extractFn("autoVjStep");
+  return !!fn && fn.includes("Object.keys(SHADER_STYLE_ID)") && !fn.includes('["fluid", "metaballs", "tunnel"]');
+})());
+
+ok("autoVjStep's Particle Mode block derives its pattern pool from PM_PATTERNS and its mirror pool from the live #pmMirror <select>, sets on/pattern/mirror/constellation, and calls initPM() when turning on", (() => {
+  const fn = extractFn("autoVjStep");
+  return !!fn && fn.includes("S.pmode.on = R() < 0.7;") && fn.includes("PM_PATTERNS.map(p => p[0])") &&
+         fn.includes('document.querySelectorAll("#pmMirror option")') && fn.includes("S.pmode.constellation = R() < 0.35;") &&
+         fn.includes("if (S.pmode.on) initPM();");
+})());
+
+ok("autoVjStep's Text Mode block is gated on S.textShow, derives its pool from the live #textAnim <select>, calls restartType(), and never references textTitle/textArtist/textLabel anywhere in the function", (() => {
+  const fn = extractFn("autoVjStep");
+  return !!fn && fn.includes("if (S.textShow && R() < 0.4)") && fn.includes('document.querySelectorAll("#textAnim option")') &&
+         fn.includes("restartType();") && !fn.includes("textTitle") && !fn.includes("textArtist") && !fn.includes("textLabel");
+})());
+
+ok("autoVjStep's Particle Mode block picks a real PM_PATTERNS id when forced into its 'on' branch (genuine behavioral check via loadFns + a full mock environment, not a structural text match)", (() => {
+  const shaderStyleIdSrc = (script.match(/const SHADER_STYLE_ID = (\{[^}]+\});/) || [])[1];
+  global.SHADER_STYLE_ID = shaderStyleIdSrc ? eval("(" + shaderStyleIdSrc + ")") : {};
+  const pmPatternsSrc = (script.match(/const PM_PATTERNS = (\[[\s\S]*?\]);/) || [])[1];
+  global.PM_PATTERNS = pmPatternsSrc ? eval(pmPatternsSrc) : [];
+
+  function extractOptionValues(id) {
+    const m = html.match(new RegExp(`<select id="${id}"[^>]*>([\\s\\S]*?)</select>`));
+    return m ? [...m[1].matchAll(/value="(\w+)"/g)].map(x => x[1]) : [];
+  }
+  const pmMirrorOpts = extractOptionValues("pmMirror");
+  const textAnimOpts = extractOptionValues("textAnim");
+  global.document = {
+    querySelectorAll: sel => {
+      if (sel === "#pmMirror option") return pmMirrorOpts.map(v => ({ value: v }));
+      if (sel === "#textAnim option") return textAnimOpts.map(v => ({ value: v }));
+      return [];
+    }
+  };
+  const stubEl = () => ({ value: "", checked: false, textContent: "", classList: { toggle() {} } });
+  global.$ = () => stubEl();
+  global.PRESETS = [{ id: "p1" }, { id: "p2" }];
+  global.ctrl = { morph: 0.5, colorDrift: 0.5, camDrift: 0.5, density: 0.5, pulse: 0.5 };
+  global.updateBadge = () => {};
+  global.spawnParticles = () => {};
+  global.pickLayerBType = () => "moire";
+  global.initStars = () => {};
+  global.syncSliderUI = () => {};
+  global.syncFXUI = () => {};
+  global.syncFX2UI = () => {};
+  global.syncFX3UI = () => {};
+  global.initGL = () => {};
+  global.initPM = () => {};
+  global.restartType = () => {};
+  global.fbctx = { clearRect() {} };
+  global.fbC = { width: 10, height: 10 };
+  global.S = {
+    blendWith: null, blendAmt: 0,
+    layerB: { on: false, type: "moire" },
+    fx: { mirror: false, kaleido: false, tile: false, rgb: false, invert: false, pixelate: false, glitch: false, shake: false, feedback: false, strobe: false },
+    fx2: { hexkaleido: false, droste: false, mirrorgrid: false, slice: false, spin: false, halftone: false, pulsezoom: false, posterize: false, radialblur: false, echospin: false },
+    fx3: { scanlines: false, motionblur: false, letterbox: false, chromafringe: false, anamorphflare: false, bleachpulse: false, doubleexposure: false, dustscratches: false, lensflare: false, lightleak: false },
+    shader: { on: false, style: "fluid" },
+    pmode: { on: false, pattern: "hyperspace", mirror: "off", constellation: false },
+    textShow: true, textAnim: "static",
+    autoVJ: { on: true, t: 0, intensity: 1 }
+  };
+
+  const origRandom = Math.random;
+  Math.random = () => 0.1;
+  try {
+    const { autoVjStep } = loadFns(["autoVjStep"]);
+    autoVjStep();
+  } finally {
+    Math.random = origRandom;
+  }
+
+  const realPatternIds = global.PM_PATTERNS.map(p => p[0]);
+  return global.S.pmode.on === true && realPatternIds.includes(global.S.pmode.pattern);
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
