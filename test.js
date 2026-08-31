@@ -213,12 +213,12 @@ ok("SHADER_STYLE_ID gained the cosmicDrift entry with the correct uStyle value (
 ["cosmicDriftDensity", "cosmicDriftStyle"].forEach(fn =>
   ok("GLSL " + fn + " defined & called", (frag.split(fn).length - 1) >= 2));
 
-ok("main()'s dispatch chain: hypercube's bare else became an explicit uStyle<14.5 branch, followed by cosmicDrift as the new bare else", (() => {
+ok("main()'s dispatch chain: hypercube's bare else became an explicit uStyle<14.5 branch, followed by cosmicDrift now an explicit uStyle<15.5 branch (warpTunnel took over the bare else)", (() => {
   const mainIdx = frag.lastIndexOf("void main(){");
   if (mainIdx < 0) return false;
   const mainBody = frag.slice(mainIdx);
   const hypercubeIdx = mainBody.indexOf("else if(uStyle < 14.5) col = hypercubeStyle(uv);");
-  const cosmicIdx = mainBody.indexOf("else                   col = cosmicDriftStyle(uv);");
+  const cosmicIdx = mainBody.indexOf("else if(uStyle < 15.5) col = cosmicDriftStyle(uv);");
   return hypercubeIdx >= 0 && cosmicIdx > hypercubeIdx;
 })());
 
@@ -3117,6 +3117,53 @@ ok("all 3 new card titles are present exactly once each: Particle Mode, Live Tex
   return count("<h3>Particle Mode</h3>") === 1 &&
          count("<h3>Live Text &amp; Lyrics</h3>") === 1 &&
          count("<h3>Video Timeline</h3>") === 1;
+})());
+
+section("Shader Engine — Warp Tunnel");
+
+ok("SHADER_STYLE_ID gained the warpTunnel entry with the correct uStyle value (16)", (() => {
+  return /warpTunnel:\s*16/.test(script);
+})());
+
+["warpTunnelStyle"].forEach(fn =>
+  ok("GLSL " + fn + " defined & called", (frag.split(fn).length - 1) >= 2));
+
+ok("segGlow's total source-text occurrence count rises above hypercube's own 33 (1 definition + 32 call sites) baseline by the 4 new call sites warpTunnelStyle actually adds in source form (1 inside the 48-iteration streak loop + 3 inside the 3-iteration shard loop — the 48 and 3 are runtime loop counts, not unrolled source occurrences)", (() => {
+  return (frag.split("segGlow").length - 1) >= 37;
+})());
+
+ok("main()'s dispatch chain: cosmicDrift's bare else became an explicit uStyle<15.5 branch, followed by warpTunnel as the new bare else", (() => {
+  const mainIdx = frag.lastIndexOf("void main(){");
+  if (mainIdx < 0) return false;
+  const mainBody = frag.slice(mainIdx);
+  const cosmicIdx = mainBody.indexOf("else if(uStyle < 15.5) col = cosmicDriftStyle(uv);");
+  const warpIdx = mainBody.indexOf("else                   col = warpTunnelStyle(uv);");
+  return cosmicIdx >= 0 && warpIdx > cosmicIdx;
+})());
+
+ok("#shStyle gained the new <option> after cosmicDrift", (() => {
+  const selMatch = html.match(/<select id="shStyle"[^>]*>([\s\S]*?)<\/select>/);
+  if (!selMatch) return false;
+  const body = selMatch[1];
+  const cosmicIdx = body.indexOf('value="cosmicDrift"');
+  const warpIdx = body.indexOf('value="warpTunnel"');
+  return cosmicIdx >= 0 && warpIdx > cosmicIdx;
+})());
+
+ok("src/inject-v64.js's HEAVY_SHADER Set literal includes warpTunnel — the actual source of truth (this file is regenerated into elastic-morph.html on every build; editing only the html mirror would be silently overwritten)", (() => {
+  const src = injectSrc("inject-v64.js");
+  const m = src.match(/const HEAVY_SHADER = new Set\(\[([^\]]*)\]\);/);
+  return !!m && m[1].includes('"warpTunnel"');
+})());
+
+ok("the assembled elastic-morph.html mirror's HEAVY_SHADER matches src/inject-v64.js exactly, proving node build.js regeneration actually propagated the change", (() => {
+  const m = script.match(/const HEAVY_SHADER = new Set\(\[([^\]]*)\]\);/);
+  return !!m && m[1].includes('"warpTunnel"');
+})());
+
+ok("warpTunnel is deliberately NOT added to the 820px-resolution-cap style list (gyroid/crystal/cosmicDrift only) — it has no raymarch loop, matching hypercube's precedent", (() => {
+  const m = script.match(/SH\.style === "gyroid" \|\| SH\.style === "crystal" \|\| SH\.style === "cosmicDrift"/);
+  return !!m && !script.includes('SH.style === "warpTunnel"');
 })());
 
 /* ---------------- summary ---------------- */

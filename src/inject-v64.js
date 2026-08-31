@@ -3,7 +3,7 @@
    ============================================================ */
 
 const HEAVY_ENGINES = new Set(["flame", "hyperspace", "reaction", "attractor"]);
-const HEAVY_SHADER = new Set(["gyroid", "raymarch", "feedback", "crystal", "hypercube", "cosmicDrift"]);   // crystal: gyroid's structural twin (40-step march); hypercube: 32 unrolled segGlow + 16 projCube per pixel, comparable to feedback; cosmicDrift: measured ~2x gyroid's per-frame cost, the heaviest style in the app
+const HEAVY_SHADER = new Set(["gyroid", "raymarch", "feedback", "crystal", "hypercube", "cosmicDrift", "warpTunnel"]);   // crystal: gyroid's structural twin (40-step march); hypercube: 32 unrolled segGlow + 16 projCube per pixel, comparable to feedback; cosmicDrift: measured ~2x gyroid's per-frame cost, the heaviest style in the app; warpTunnel: ~57 segGlow evaluations (48 streaks + 9 shard edges), same cost class as hypercube, no raymarch
 
 function analysisReady() {
   return S.analyzeState === "done" && !!S.audioBuffer;

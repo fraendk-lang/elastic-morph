@@ -1657,6 +1657,7 @@
       <option value="crystal">Style: Crystal Prism</option>
       <option value="hypercube">Style: Hypercube Drift</option>
       <option value="cosmicDrift">Style: Cosmic Drift</option>
+      <option value="warpTunnel">Style: Warp Tunnel</option>
     </select>
     <select id="shBlend" class="pm-select" style="margin-top:8px">
       <option value="lighter" selected>Blend: Add</option>
@@ -3844,6 +3845,37 @@ vec3 cosmicDriftStyle(vec2 uv){
   col = applyEyeCatcherFX(col, uv);
   return col;
 }
+vec3 warpTunnelStyle(vec2 uv){
+  vec3 col = vec3(0.0);
+  float speed = 0.35 + uBass*0.5 + uBeat*0.3;
+  for(int i=0;i<48;i++){
+    float fi = float(i);
+    float rnd = fract(sin(fi*12.9898)*43758.5453);
+    float ang = (fi/48.0)*6.2831853 + rnd*0.15 + uTime*0.03;
+    vec2 dir = vec2(cos(ang), sin(ang));
+    float phase = fract(uTime*speed*(0.6+rnd*0.8) + rnd);
+    float rNear = phase*phase*1.3;
+    float rFar  = rNear + 0.05 + phase*0.25;
+    float glow = segGlow(uv, dir*rNear, dir*rFar);
+    float fade = smoothstep(0.0,0.08,phase) * smoothstep(1.0,0.75,phase);
+    float hue = uHue + rnd*0.15 + uHighs*0.1;
+    vec3 lineCol = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) : hsv2rgb(vec3(fract(hue), 0.8, 1.0));
+    col += lineCol * glow * fade * (0.6 + uLoud*0.7 + uBeat*0.5);
+  }
+  float shardA = uTime*0.25;
+  mat2 Rs = mat2(cos(shardA),-sin(shardA),sin(shardA),cos(shardA));
+  for(int s=0;s<3;s++){
+    float fs = float(s);
+    float sc = 0.35 + fs*0.18 + uMids*0.1;
+    vec2 p0 = Rs*vec2(0.0, sc);
+    vec2 p1 = Rs*vec2(sc*0.87, -sc*0.5);
+    vec2 p2 = Rs*vec2(-sc*0.87, -sc*0.5);
+    float sglow = segGlow(uv,p0,p1)+segGlow(uv,p1,p2)+segGlow(uv,p2,p0);
+    col += vec3(0.7,0.85,1.0) * sglow * 0.12 * (0.5+uBeat*0.8);
+  }
+  col = applyEyeCatcherFX(col, uv);
+  return col;
+}
 
 void main(){
   vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);
@@ -3866,7 +3898,8 @@ void main(){
   else if(uStyle < 12.5) col = portalStyle(uv);
   else if(uStyle < 13.5) col = crystalStyle(uv);
   else if(uStyle < 14.5) col = hypercubeStyle(uv);
-  else                   col = cosmicDriftStyle(uv);
+  else if(uStyle < 15.5) col = cosmicDriftStyle(uv);
+  else                   col = warpTunnelStyle(uv);
   // gentle vignette + filmic-ish tone
   float vig = 1.0 - dot(uv,uv)*0.35;
   col *= clamp(vig,0.0,1.0);
@@ -3932,7 +3965,7 @@ function initGL(){
   }catch(e){ console.warn("WebGL init failed:", e); GL.ok = false; return false; }
 }
 
-const SHADER_STYLE_ID = { fluid:0, metaballs:1, tunnel:2, aurora:3, electric:4, chrome:5, gyroid:6, raymarch:7, feedback:8, strobe:9, warehouse:10, laser:11, portal:12, crystal:13, hypercube:14, cosmicDrift:15 };
+const SHADER_STYLE_ID = { fluid:0, metaballs:1, tunnel:2, aurora:3, electric:4, chrome:5, gyroid:6, raymarch:7, feedback:8, strobe:9, warehouse:10, laser:11, portal:12, crystal:13, hypercube:14, cosmicDrift:15, warpTunnel:16 };
 
 /* render the shader to its own canvas and composite onto the 2D context */
 function renderShader(W, H, hue){
@@ -11927,7 +11960,7 @@ function initPhaseA() {
    ============================================================ */
 
 const HEAVY_ENGINES = new Set(["flame", "hyperspace", "reaction", "attractor"]);
-const HEAVY_SHADER = new Set(["gyroid", "raymarch", "feedback", "crystal", "hypercube", "cosmicDrift"]);   // crystal: gyroid's structural twin (40-step march); hypercube: 32 unrolled segGlow + 16 projCube per pixel, comparable to feedback; cosmicDrift: measured ~2x gyroid's per-frame cost, the heaviest style in the app
+const HEAVY_SHADER = new Set(["gyroid", "raymarch", "feedback", "crystal", "hypercube", "cosmicDrift", "warpTunnel"]);   // crystal: gyroid's structural twin (40-step march); hypercube: 32 unrolled segGlow + 16 projCube per pixel, comparable to feedback; cosmicDrift: measured ~2x gyroid's per-frame cost, the heaviest style in the app; warpTunnel: ~57 segGlow evaluations (48 streaks + 9 shard edges), same cost class as hypercube, no raymarch
 
 function analysisReady() {
   return S.analyzeState === "done" && !!S.audioBuffer;
