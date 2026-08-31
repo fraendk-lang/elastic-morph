@@ -3086,6 +3086,39 @@ ok("the new F1-F5 line is positioned after Alt+1-0 (FX Rack III) and before the 
   return altIdx > 0 && f1Idx > altIdx && zoomIdx > f1Idx;
 })());
 
+section("Landing page — feature card refresh");
+// NOTE: the module-level `html` const above is elastic-morph.html (the app), not index.html
+// (the marketing landing page). This section tests index.html specifically, so it reads
+// that file into its own local variable rather than reusing `html`.
+const indexHtml = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+
+ok("index.html no longer says \"20 FX\" and now says \"30 FX\"", (() => {
+  return !indexHtml.includes("20 FX") && indexHtml.includes("30 FX");
+})());
+
+ok("I18N.de and I18N.en both define f6 (Particle Mode) — exactly 2 occurrences across both language blocks", (() => {
+  return (indexHtml.match(/f6: "/g) || []).length === 2;
+})());
+
+ok("I18N.de and I18N.en both define f7 (Live Text & Lyrics) — exactly 2 occurrences across both language blocks", (() => {
+  return (indexHtml.match(/f7: "/g) || []).length === 2;
+})());
+
+ok("I18N.de and I18N.en both define f8 (Video Timeline) — exactly 2 occurrences across both language blocks", (() => {
+  return (indexHtml.match(/f8: "/g) || []).length === 2;
+})());
+
+ok("the feature grid has exactly 8 cards (5 kept + 3 new)", (() => {
+  return (indexHtml.match(/<div class="card /g) || []).length === 8;
+})());
+
+ok("all 3 new card titles are present exactly once each: Particle Mode, Live Text & Lyrics, Video Timeline", (() => {
+  const count = s => (indexHtml.match(new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+  return count("<h3>Particle Mode</h3>") === 1 &&
+         count("<h3>Live Text &amp; Lyrics</h3>") === 1 &&
+         count("<h3>Video Timeline</h3>") === 1;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
