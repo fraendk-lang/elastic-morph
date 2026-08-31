@@ -3069,6 +3069,23 @@ ok("applyTextPreset never references textEndingScale — switching a Text style 
   return !!fn && !fn.includes("textEndingScale");
 })());
 
+section("Help Overlay — F1-F5 + FX Rack III mentions");
+
+ok("the Ebenen summary no longer says \"FX Rack I+II\" and now says \"FX Rack I–III\"", (() => {
+  return !html.includes("FX Rack I+II") && html.includes("FX Rack I–III");
+})());
+
+ok("the Tastatur list documents F1–F5 Text-Endings", (() => {
+  return html.includes("<span><b>F1–F5</b> Text-Endings (Shatter/Vortex/Dissolve/Iris/Glitch)</span>");
+})());
+
+ok("the new F1-F5 line is positioned after Alt+1-0 (FX Rack III) and before the Zoom line, matching the intended reading order", (() => {
+  const altIdx = html.indexOf("<span><b>Alt+1–0</b> FX Rack III</span>");
+  const f1Idx = html.indexOf("<span><b>F1–F5</b> Text-Endings");
+  const zoomIdx = html.indexOf("<span><b>+ / − / 0</b> Zoom");
+  return altIdx > 0 && f1Idx > altIdx && zoomIdx > f1Idx;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
