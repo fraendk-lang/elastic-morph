@@ -3247,6 +3247,53 @@ ok("autoVjStep's Particle Mode block picks a real PM_PATTERNS id when forced int
   return global.S.pmode.on === true && realPatternIds.includes(global.S.pmode.pattern);
 })());
 
+section("Lyric Mode upgrade — adaptive wipe, next-line preview, Hypno preset");
+
+ok("lyricWipeDuration is defined and called from drawTextLayer's lyric-mode setup", (() => {
+  const fn = extractFn("lyricWipeDuration");
+  const caller = extractFn("drawTextLayer");
+  return !!fn && !!caller && caller.includes("lyricWipeDuration(cur.line.t, next ? next.t : null)");
+})());
+
+ok("lyricWipeDuration clamps correctly in all 4 cases: passes a normal gap through, clamps a long gap down to 2.4, clamps a very short gap up to 0.6, and falls back to 2.4 when there's no next cue (genuine behavioral check via loadFns, not a structural text match)", (() => {
+  const { lyricWipeDuration } = loadFns(["lyricWipeDuration"]);
+  const normal = Math.abs(lyricWipeDuration(10, 11) - 1.0) < 1e-9;      // 1.0s gap, passes through
+  const long = Math.abs(lyricWipeDuration(10, 14) - 2.4) < 1e-9;        // 4.0s gap, clamped down
+  const short = Math.abs(lyricWipeDuration(10, 10.2) - 0.6) < 1e-9;     // 0.2s gap, clamped up
+  const noNext = Math.abs(lyricWipeDuration(10, null) - 2.4) < 1e-9;    // last cue, no next
+  return normal && long && short && noNext;
+})());
+
+ok("drawTextLayer's lyric-mode setup declares lyricNextText, computes the next cue, and sets S.lyricWipeDur via lyricWipeDuration", (() => {
+  const fn = extractFn("drawTextLayer");
+  return !!fn && fn.includes("let srcTitle, srcArtist, lyricNextText = \"\";") &&
+         fn.includes("const next = LY.cues[cur.idx + 1];") &&
+         fn.includes("lyricNextText = next ? next.text : \"\";") &&
+         fn.includes("S.lyricWipeDur = lyricWipeDuration(cur.line.t, next ? next.t : null);");
+})());
+
+ok("the Karaoke Wipe branch uses S.lyricWipeDur in lyric mode and keeps the original fixed 2.4 otherwise", (() => {
+  const fn = extractFn("drawTextLayer");
+  return !!fn && fn.includes("(S.time - S.textT0) / (lyricMode ? S.lyricWipeDur : 2.4)");
+})());
+
+ok("the label line now shows lyricNextText in lyric mode, and still shows S.textLabel otherwise", (() => {
+  const fn = extractFn("drawTextLayer");
+  return !!fn && fn.includes("label = fmt(lyricMode ? lyricNextText : S.textLabel);");
+})());
+
+ok("src/inject-v104.js's LYRICS_STUDIO_PRESETS gained the hypno entry — the actual source of truth (this file is regenerated into elastic-morph.html on every build; editing only the html mirror would be silently overwritten)", (() => {
+  const src = injectSrc("inject-v104.js");
+  return src.includes('id: "hypno", name: "Hypno"') && src.includes('anim: "hypno"');
+})());
+
+ok("the assembled elastic-morph.html mirror's LYRICS_STUDIO_PRESETS matches src/inject-v104.js — 4 entries total, proving node build.js regeneration actually propagated the change", (() => {
+  const m = script.match(/const LYRICS_STUDIO_PRESETS = \[([\s\S]*?)\n\];/);
+  if (!m) return false;
+  const idCount = (m[1].match(/id:\s*"/g) || []).length;
+  return idCount === 4 && m[1].includes('id: "hypno"');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

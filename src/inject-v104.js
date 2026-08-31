@@ -20,6 +20,13 @@ const LYRICS_STUDIO_PRESETS = [
     style: "outline", plate: false, shadow: true, lower: false, circle: false,
     upper: false, weight: "900", track: 2, blend: "source-over",
     hint: "Eine Zeile, viel Luft in der Mitte"
+  },
+  {
+    id: "hypno", name: "Hypno",
+    show: true, pos: "c", font: "sans", color: "white", anim: "hypno", size: 1.2,
+    style: "fill", plate: false, shadow: true, lower: false, circle: false,
+    upper: false, weight: "700", track: 1, blend: "source-over",
+    hint: "Endloser Zoom-Sog, mitten im Bild"
   }
 ];
 
