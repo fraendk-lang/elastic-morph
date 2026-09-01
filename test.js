@@ -3480,6 +3480,11 @@ ok("applyPostFX4 contains all 5 new effect blocks, each referencing its document
   });
 })());
 
+section("Bugfix — Scene Bank Shift+1-8 recall no longer collides with FX Rack II/III/IV digit shortcuts");
+
+ok("Scene Bank recall requires bare Shift (no Ctrl/Meta/Alt), so it no longer double-fires alongside Ctrl+Shift+digit (FX Rack IV), Ctrl+digit (FX Rack II), or Alt+digit (FX Rack III)",
+  script.includes('if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && /^Digit[1-8]$/.test(e.code)) { e.preventDefault(); recallScene((activeSceneBank - 1) * 8 + (+e.code.slice(5) - 1)); }'));
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
