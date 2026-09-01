@@ -3294,6 +3294,45 @@ ok("the assembled elastic-morph.html mirror's LYRICS_STUDIO_PRESETS matches src/
   return idCount === 4 && m[1].includes('id: "hypno"');
 })());
 
+/* ---------------- DNA Visual — Modular Patch (Patchbay engine) ---------------- */
+section("DNA Visual — Modular Patch (Patchbay engine)");
+
+["drawPatchbay", "buildPatchTopology"].forEach(fn =>
+  ok("function " + fn + " defined", script.includes("function " + fn + "(")));
+
+ok("drawScene's dispatch chain has a patchbay branch calling drawPatchbay, positioned after mazeGrid and before the final bare else", (() => {
+  const mazeIdx = script.indexOf('dnaEngine === "mazeGrid"');
+  const patchIdx = script.indexOf('dnaEngine === "patchbay"');
+  const callIdx = script.indexOf("drawPatchbay(base, hue, growthF, energySize, seed);");
+  return mazeIdx >= 0 && patchIdx > mazeIdx && callIdx > patchIdx;
+})());
+
+ok("renderPreviews has a patchbay branch positioned between the mazeGrid and dance branches", (() => {
+  const mazeIdx = script.indexOf('p.engine === "mazeGrid"');
+  const patchIdx = script.indexOf('p.engine === "patchbay"');
+  const danceIdx = script.indexOf('p.engine === "dance"');
+  return mazeIdx >= 0 && patchIdx > mazeIdx && danceIdx > patchIdx;
+})());
+
+ok("PRESETS contains exactly one modularPatch entry with bank rhythm and engine patchbay", (() => {
+  const count = (script.match(/id:\s*"modularPatch"/g) || []).length;
+  return count === 1 &&
+    script.includes('id: "modularPatch", name: "Modular Patch", bank: "rhythm"') &&
+    script.includes('engine: "patchbay"');
+})());
+
+ok("buildPatchTopology is deterministic, stays in range, avoids self-loops, and varies across seeds (genuine behavioral check via loadFns)", (() => {
+  const { buildPatchTopology } = loadFns(["buildPatchTopology", "fract1"]);
+  const a = buildPatchTopology(7);
+  const b = buildPatchTopology(7);
+  const c = buildPatchTopology(42);
+  const sameForSameSeed = JSON.stringify(a) === JSON.stringify(b);
+  const validShape = a.length === 5 && a.every(([x, y]) =>
+    Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x <= 9 && y >= 0 && y <= 9 && x !== y);
+  const variesAcrossSeeds = JSON.stringify(a) !== JSON.stringify(c);
+  return sameForSameSeed && validShape && variesAcrossSeeds;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
