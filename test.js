@@ -3335,7 +3335,7 @@ ok("buildPatchTopology is deterministic, stays in range, avoids self-loops, and 
   return sameForSameSeed && validShape && variesAcrossSeeds;
 })());
 
-section("FX Rack IV — Warp / Verzerrungsfeld (Cmd+1..0)");
+section("FX Rack IV — Warp / Verzerrungsfeld (Ctrl+Shift+1..0)");
 
 ok("FX4_DEFS defined with exactly 5 entries matching the 5 warp effect keys", (() => {
   const idx = script.indexOf("const FX4_DEFS = [");
@@ -3345,18 +3345,17 @@ ok("FX4_DEFS defined with exactly 5 entries matching the 5 warp effect keys", ((
 })());
 
 ok("S.fx4 state initialized with the 5 warp keys all false, plus fx4MeltPhase: 0",
-  script.includes("fx4: { ripple: false, fisheye: false, melt: false, pagewarp: false, wavemirror: false },") &&
+  script.includes("fx4: { ripple: false, fisheye: false, melt: false, pagewarp: false, wavemirror: false,") &&
   script.includes("fx4MeltPhase: 0,"));
 
 ["buildFX4", "toggleFX4", "syncFX4UI", "applyPostFX4"].forEach(fn =>
   ok("function " + fn + " defined", script.includes("function " + fn + "(")));
 
-ok("keydown dispatch has a real e.metaKey branch calling toggleFX4, between the Ctrl (Rack II) branch and the final plain-digit else", (() => {
-  const ctrlIdx = script.indexOf('if (e.ctrlKey) {                       // Ctrl+digit');
-  const metaIdx = script.indexOf('} else if (e.metaKey) {                // Cmd/Meta+digit');
+ok("keydown dispatch has a real e.ctrlKey && e.shiftKey branch calling toggleFX4, before the plain Ctrl (Rack II) branch", (() => {
+  const shiftIdx = script.indexOf('if (e.ctrlKey && e.shiftKey) {         // Ctrl+Shift+digit');
+  const ctrlIdx = script.indexOf('} else if (e.ctrlKey) {                // Ctrl+digit');
   const callIdx = script.indexOf("toggleFX4(def4[0]);");
-  const elseIdx = script.indexOf("} else {                               // plain digit → FX Rack I");
-  return ctrlIdx >= 0 && metaIdx > ctrlIdx && callIdx > metaIdx && elseIdx > callIdx;
+  return shiftIdx >= 0 && callIdx > shiftIdx && ctrlIdx > callIdx;
 })());
 
 ok("the old bare !e.metaKey guard is gone (replaced by the real branch above)",
@@ -3375,12 +3374,12 @@ ok("buildFX4() is called after buildFX3() in the post-boot init sequence", (() =
   return b3 >= 0 && b4 > b3;
 })());
 
-ok("HTML has the fx4Chips container and a Cmd+1–0 label, positioned after the Rack III block", (() => {
+ok("HTML has the fx4Chips container and a Ctrl+Shift+1–0 label, positioned after the Rack III block", (() => {
   const fx3Block = html.indexOf('id="fx3Chips"');
   const fx4Label = html.indexOf("FX Rack IV");
   const fx4Chips = html.indexOf('id="fx4Chips"');
   return fx3Block >= 0 && fx4Label > fx3Block && fx4Chips > fx4Label &&
-    html.slice(fx4Label, fx4Chips).includes("Cmd+1");
+    html.slice(fx4Label, fx4Chips).includes("Ctrl+Shift+1");
 })());
 
 ok("projectData()/applyProject() round-trip fx4 in their pre-marker base functions (before @BUILD-INJECT-V58)", (() => {
@@ -3390,8 +3389,8 @@ ok("projectData()/applyProject() round-trip fx4 in their pre-marker base functio
   return markerIdx > 0 && saveIdx > 0 && saveIdx < markerIdx && loadIdx > 0 && loadIdx < markerIdx;
 })());
 
-ok("Auto-VJ has a safe4 pool with all 5 warp keys, clears S.fx4 with the other racks, and syncs FX4 UI",
-  script.includes('const safe4 = ["ripple", "fisheye", "melt", "pagewarp", "wavemirror"];') &&
+ok("Auto-VJ has a safe4 pool with all 10 warp keys, clears S.fx4 with the other racks, and syncs FX4 UI",
+  script.includes('const safe4 = ["ripple", "fisheye", "melt", "pagewarp", "wavemirror",\n      "haze", "vortex", "noise", "slitscan", "gravity"];') &&
   script.includes("Object.keys(S.fx4).forEach(k => S.fx4[k] = false);") &&
   script.includes("syncFXUI(); syncFX2UI(); syncFX3UI(); syncFX4UI();"));
 
@@ -3422,6 +3421,62 @@ ok("each of the 5 warp effects references its documented audio signal and calls 
     if (flagIdx < 0) return false;
     const block = body.slice(flagIdx, flagIdx + 700);
     return block.includes(sig) && block.includes("snapshot(W, H);");
+  });
+})());
+
+section("FX Rack IV Part 2 — rebind (Ctrl+Shift+1..0) + 5 remaining effects");
+
+ok("FX4_DEFS has 10 entries with the 5 new keys correct", (() => {
+  const idx = script.indexOf("const FX4_DEFS = [");
+  if (idx < 0) return false;
+  const slice = script.slice(idx, idx + 1400);
+  const allKeys = ["ripple", "fisheye", "melt", "pagewarp", "wavemirror",
+    "haze", "vortex", "noise", "slitscan", "gravity"];
+  return allKeys.every(k => slice.includes(`"${k}"`));
+})());
+
+ok("S.fx4 initialized with all 10 keys false, plus fx4SlitIdx: 0",
+  script.includes("haze: false, vortex: false, noise: false, slitscan: false, gravity: false") &&
+  script.includes("fx4SlitIdx: 0,"));
+
+ok("FX4_SLIT_DEPTH and fx4SlitBuf module-level ring buffer defined",
+  script.includes("const FX4_SLIT_DEPTH = 10;") &&
+  script.includes("const fx4SlitBuf = Array.from({ length: FX4_SLIT_DEPTH }"));
+
+ok("resize() sizes the Slit-Scan ring buffer alongside bloomC",
+  script.includes("fx4SlitBuf.forEach(b => { b.c.width = bloomC.width; b.c.height = bloomC.height; });"));
+
+ok("keydown dispatch checks e.ctrlKey && e.shiftKey BEFORE plain e.ctrlKey, and the old e.metaKey Rack IV branch is gone", (() => {
+  const shiftIdx = script.indexOf("if (e.ctrlKey && e.shiftKey) {         // Ctrl+Shift+digit");
+  const ctrlIdx = script.indexOf("} else if (e.ctrlKey) {                // Ctrl+digit");
+  const oldMetaGone = !script.includes("Cmd/Meta+digit → FX Rack IV");
+  return shiftIdx >= 0 && ctrlIdx > shiftIdx && oldMetaGone;
+})());
+
+ok("HTML label reads Ctrl+Shift+1–0, old Cmd+1–0 text is gone", (() => {
+  const hasNew = html.includes("FX Rack IV — Warp") && html.includes("(Ctrl+Shift+1–0)</small>");
+  const oldGone = !html.includes("(Cmd+1–0)</small>");
+  return hasNew && oldGone;
+})());
+
+ok("applyPostFX4 contains all 5 new effect blocks, each referencing its documented audio signal (except slitscan) and calling snapshot(W, H) (except slitscan)", (() => {
+  const idx = script.indexOf("function applyPostFX4(W, H, dt) {");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 8000);
+  const checks = [
+    ["fx.haze", "S.loudness", true],
+    ["fx.vortex", "S.transient", true],
+    ["fx.noise", "S.highs", true],
+    ["fx.slitscan", null, false],
+    ["fx.gravity", "S.transient", true]
+  ];
+  return checks.every(([flag, sig, needsSnapshot]) => {
+    const flagIdx = body.indexOf("if (" + flag + ")");
+    if (flagIdx < 0) return false;
+    const block = body.slice(flagIdx, flagIdx + 900);
+    const sigOk = sig ? block.includes(sig) : true;
+    const snapOk = needsSnapshot ? block.includes("snapshot(W, H)") : true;
+    return sigOk && snapOk;
   });
 })());
 

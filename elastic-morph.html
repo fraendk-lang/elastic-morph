@@ -1761,7 +1761,7 @@
     <h3>FX Rack III — Cinematic <small style="color:var(--text-dim);font-weight:400">(Alt+1–0)</small></h3>
     <div id="fx3Chips"></div>
     <div class="divider"></div>
-    <h3>FX Rack IV — Warp <small style="color:var(--text-dim);font-weight:400">(Cmd+1–0)</small></h3>
+    <h3>FX Rack IV — Warp <small style="color:var(--text-dim);font-weight:400">(Ctrl+Shift+1–0)</small></h3>
     <div id="fx4Chips"></div>
     <div class="divider"></div>
     <h3>Particle Mode <small style="color:var(--text-dim);font-weight:400">(P)</small></h3>
@@ -2934,8 +2934,10 @@ const S = {
          slice: false, spin: false, halftone: false, pulsezoom: false, posterize: false },
   fx2Spin: 0, fx2Breath: 0,
   // v139: fourth FX rack — Warp / Verzerrungsfeld (Cmd+1..0)
-  fx4: { ripple: false, fisheye: false, melt: false, pagewarp: false, wavemirror: false },
+  fx4: { ripple: false, fisheye: false, melt: false, pagewarp: false, wavemirror: false,
+         haze: false, vortex: false, noise: false, slitscan: false, gravity: false },
   fx4MeltPhase: 0,
+  fx4SlitIdx: 0,
   // v7: particle mode
   pmode: { on: false, pattern: "hyperspace", multicolor: false, amount: 0.6, mirror: "off", constellation: false },
   // v9: image layer A
@@ -2978,6 +2980,14 @@ const bloomC = document.createElement("canvas"), bctx = bloomC.getContext("2d");
 const fxC = document.createElement("canvas"), fxctx = fxC.getContext("2d");   // full-res snapshot
 const chC = document.createElement("canvas"), chctx = chC.getContext("2d");   // channel scratch (RGB split)
 const fbC = document.createElement("canvas"), fbctx = fbC.getContext("2d");   // feedback accumulation
+// v140: FX Rack IV Slit-Scan Drift — small ring buffer of past frames at quarter
+// resolution (same sizing idiom as bloomC), so each output column can sample a
+// different moment in time.
+const FX4_SLIT_DEPTH = 10;
+const fx4SlitBuf = Array.from({ length: FX4_SLIT_DEPTH }, () => {
+  const c = document.createElement("canvas");
+  return { c, x: c.getContext("2d") };
+});
 const glC = document.createElement("canvas"), glctx = glC.getContext("2d");   // Video Timeline glitch-transition RGB-recombine accumulator (half-res)
 let vigGrad = null;
 const audioEl = $("audioEl");
@@ -8278,11 +8288,16 @@ function toggleFX3(key) {
 // src/inject-vNN.js on every deploy; genuinely new code always goes in the untouched
 // pre-marker region in this codebase, regardless of which existing code it resembles.
 const FX4_DEFS = [
-  ["ripple",     "Liquid Ripple",   "concentric rings, beat-driven"],
-  ["fisheye",    "Fisheye Pulse",   "barrel bulge, beat-driven"],
-  ["melt",       "Horizontal Melt", "vertical drip distortion, bass-driven"],
-  ["pagewarp",   "Page Warp",       "single flag-wave bend, mids-driven"],
-  ["wavemirror", "Wave Mirror",     "banded sine offset, stronger at the edges"]
+  ["ripple",     "Liquid Ripple",       "concentric rings, beat-driven"],
+  ["fisheye",    "Fisheye Pulse",       "barrel bulge, beat-driven"],
+  ["melt",       "Horizontal Melt",     "vertical drip distortion, bass-driven"],
+  ["pagewarp",   "Page Warp",           "single flag-wave bend, mids-driven"],
+  ["wavemirror", "Wave Mirror",         "banded sine offset, stronger at the edges"],
+  ["haze",       "Heat Haze",           "fine shimmer, loudness-driven"],
+  ["vortex",     "Vortex Twist",        "localized swirl, transient-driven"],
+  ["noise",      "Displacement Noise",  "organic curl-noise drift, highs-driven"],
+  ["slitscan",   "Slit-Scan Drift",     "temporal column smear, always-on"],
+  ["gravity",    "Gravity Well",        "off-center pull, transient-driven"]
 ];
 function buildFX4() {
   const chips = $("fx4Chips"); if (!chips) return;
@@ -8388,6 +8403,95 @@ function applyPostFX4(W, H, dt) {
       const off = Math.sin(S.time * 2 + i * 0.5) * baseAmp * t;
       ctx.drawImage(fxC, 0, y0, W, bh + 1, off, y0, W, bh + 1);
       ctx.drawImage(fxC, 0, y0, W, bh + 1, off - Math.sign(off) * W, y0, W, bh + 1);
+    }
+    ctx.restore();
+  }
+
+  // Heat Haze — fine organic shimmer across many horizontal bands, loudness-driven
+  if (fx.haze) {
+    snapshot(W, H);
+    const bands = 40, bh = H / bands, amp = W * 0.004 + S.loudness * W * 0.012;
+    ctx.save();
+    for (let i = 0; i < bands; i++) {
+      const y0 = i * bh;
+      const off = noise2(i * 0.4, S.time * 1.1) * amp;
+      ctx.drawImage(fxC, 0, y0, W, bh + 1, off, y0, W, bh + 1);
+      ctx.drawImage(fxC, 0, y0, W, bh + 1, off - Math.sign(off) * W, y0, W, bh + 1);
+    }
+    ctx.restore();
+  }
+
+  // Vortex Twist — localized rotational swirl, radial falloff (center twists most)
+  if (fx.vortex) {
+    snapshot(W, H);
+    const rings = 24, twist = 0.5 + S.transient * 1.8;
+    ctx.save();
+    for (let i = 0; i < rings; i++) {
+      const t0 = i / rings, t1 = (i + 1) / rings;
+      const ang = (1 - t0) * (1 - t0) * twist;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, maxR * t1, 0, Math.PI * 2);
+      ctx.arc(cx, cy, maxR * t0, 0, Math.PI * 2, true);
+      ctx.clip();
+      ctx.translate(cx, cy); ctx.rotate(ang); ctx.translate(-cx, -cy);
+      ctx.drawImage(fxC, 0, 0, W, H);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  // Displacement Noise — organic curl-noise drift across horizontal bands, highs-driven
+  if (fx.noise) {
+    snapshot(W, H);
+    const bands = 32, bh = H / bands, amp = W * 0.015 + S.highs * W * 0.05;
+    ctx.save();
+    for (let i = 0; i < bands; i++) {
+      const y0 = i * bh;
+      const off = curlFlow(i * 0.25, S.time * 0.35).x * amp;
+      ctx.drawImage(fxC, 0, y0, W, bh + 1, off, y0, W, bh + 1);
+      ctx.drawImage(fxC, 0, y0, W, bh + 1, off - Math.sign(off) * W, y0, W, bh + 1);
+    }
+    ctx.restore();
+  }
+
+  // Slit-Scan Drift — 26 columns, each sampled from a different age in the ring buffer
+  // (oldest on the left, newest on the right); always sweeping while active.
+  if (fx.slitscan) {
+    const slot = fx4SlitBuf[S.fx4SlitIdx];
+    slot.x.drawImage(canvas, 0, 0, slot.c.width, slot.c.height);
+    S.fx4SlitIdx = (S.fx4SlitIdx + 1) % FX4_SLIT_DEPTH;
+    const cols = 26, cw = W / cols;
+    ctx.save();
+    for (let i = 0; i < cols; i++) {
+      const age = Math.floor((i / cols) * FX4_SLIT_DEPTH);
+      const slotIdx = (S.fx4SlitIdx + age) % FX4_SLIT_DEPTH;
+      const buf = fx4SlitBuf[slotIdx];
+      const sx = i * cw;
+      ctx.drawImage(buf.c, sx / W * buf.c.width, 0, buf.c.width / cols, buf.c.height, sx, 0, cw + 1, H);
+    }
+    ctx.restore();
+  }
+
+  // Gravity Well — off-center point (slow orbit, pure function of S.time) pulls inward
+  if (fx.gravity) {
+    snapshot(W, H);
+    const gx = cx + Math.cos(S.time * 0.15) * W * 0.22;
+    const gy = cy + Math.sin(S.time * 0.11) * H * 0.22;
+    const gMaxR = Math.hypot(Math.max(gx, W - gx), Math.max(gy, H - gy));
+    const rings = 24, pull = 0.05 + S.transient * 0.12;
+    ctx.save();
+    for (let i = 0; i < rings; i++) {
+      const t0 = i / rings, t1 = (i + 1) / rings;
+      const s = 1 - pull * (1 - t0) * (1 - t0);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(gx, gy, gMaxR * t1, 0, Math.PI * 2);
+      ctx.arc(gx, gy, gMaxR * t0, 0, Math.PI * 2, true);
+      ctx.clip();
+      ctx.translate(gx, gy); ctx.scale(s, s); ctx.translate(-gx, -gy);
+      ctx.drawImage(fxC, 0, 0, W, H);
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -9898,6 +10002,8 @@ function resize() {
   // bloom buffer at 1/4 resolution
   bloomC.width = Math.max(2, Math.round(canvas.width / 4));
   bloomC.height = Math.max(2, Math.round(canvas.height / 4));
+  // v140: Slit-Scan ring buffer shares bloomC's quarter-resolution sizing
+  fx4SlitBuf.forEach(b => { b.c.width = bloomC.width; b.c.height = bloomC.height; });
   // post-FX buffers at full resolution
   fxC.width = chC.width = fbC.width = glC.width = canvas.width;
   fxC.height = chC.height = fbC.height = glC.height = canvas.height;
@@ -9972,12 +10078,12 @@ document.addEventListener("keydown", e => {
       if (def3) { e.preventDefault(); toggleFX3(def3[0]); }
     } else if (e.key >= "0" && e.key <= "9") {
       const idx = e.key === "0" ? 9 : +e.key - 1;
-      if (e.ctrlKey) {                       // Ctrl+digit → FX Rack II (geometry)
-        const def2 = FX2_DEFS[idx];
-        if (def2) { e.preventDefault(); toggleFX2(def2[0]); }
-      } else if (e.metaKey) {                // Cmd/Meta+digit → FX Rack IV (warp)
+      if (e.ctrlKey && e.shiftKey) {         // Ctrl+Shift+digit → FX Rack IV (warp)
         const def4 = FX4_DEFS[idx];
         if (def4) { e.preventDefault(); toggleFX4(def4[0]); }
+      } else if (e.ctrlKey) {                // Ctrl+digit → FX Rack II (geometry)
+        const def2 = FX2_DEFS[idx];
+        if (def2) { e.preventDefault(); toggleFX2(def2[0]); }
       } else {                               // plain digit → FX Rack I
         const def = FX_DEFS[idx];
         if (def) toggleFX(def[0]);
@@ -10526,7 +10632,8 @@ function autoVjStep() {
     const safe1 = ["mirror", "kaleido", "tile", "rgb", "invert", "pixelate", "glitch", "shake"];
     const safe2 = ["hexkaleido", "droste", "mirrorgrid", "slice", "spin", "halftone", "pulsezoom", "posterize"];
     const safe3 = ["scanlines", "motionblur", "letterbox", "chromafringe"];
-    const safe4 = ["ripple", "fisheye", "melt", "pagewarp", "wavemirror"];
+    const safe4 = ["ripple", "fisheye", "melt", "pagewarp", "wavemirror",
+      "haze", "vortex", "noise", "slitscan", "gravity"];
     // v-fx3-autovj: brightener pool now spans all three racks so "at most one" stays a
     // real invariant — fx3 has 6 additive/screen-composited effects (see brightFxActive).
     // Rack IV is pure distortion (no additive/screen blending), so it joins the safe pick
