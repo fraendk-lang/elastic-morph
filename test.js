@@ -3217,6 +3217,7 @@ ok("autoVjStep's Particle Mode block picks a real PM_PATTERNS id when forced int
   global.syncFXUI = () => {};
   global.syncFX2UI = () => {};
   global.syncFX3UI = () => {};
+  global.syncFX4UI = () => {};
   global.initGL = () => {};
   global.initPM = () => {};
   global.restartType = () => {};
@@ -3228,6 +3229,7 @@ ok("autoVjStep's Particle Mode block picks a real PM_PATTERNS id when forced int
     fx: { mirror: false, kaleido: false, tile: false, rgb: false, invert: false, pixelate: false, glitch: false, shake: false, feedback: false, strobe: false },
     fx2: { hexkaleido: false, droste: false, mirrorgrid: false, slice: false, spin: false, halftone: false, pulsezoom: false, posterize: false, radialblur: false, echospin: false },
     fx3: { scanlines: false, motionblur: false, letterbox: false, chromafringe: false, anamorphflare: false, bleachpulse: false, doubleexposure: false, dustscratches: false, lensflare: false, lightleak: false },
+    fx4: { ripple: false, fisheye: false, melt: false, pagewarp: false, wavemirror: false },
     shader: { on: false, style: "fluid" },
     pmode: { on: false, pattern: "hyperspace", mirror: "off", constellation: false },
     textShow: true, textAnim: "static",
@@ -3331,6 +3333,96 @@ ok("buildPatchTopology is deterministic, stays in range, avoids self-loops, and 
     Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x <= 9 && y >= 0 && y <= 9 && x !== y);
   const variesAcrossSeeds = JSON.stringify(a) !== JSON.stringify(c);
   return sameForSameSeed && validShape && variesAcrossSeeds;
+})());
+
+section("FX Rack IV — Warp / Verzerrungsfeld (Cmd+1..0)");
+
+ok("FX4_DEFS defined with exactly 5 entries matching the 5 warp effect keys", (() => {
+  const idx = script.indexOf("const FX4_DEFS = [");
+  if (idx < 0) return false;
+  const slice = script.slice(idx, idx + 800);
+  return ["ripple", "fisheye", "melt", "pagewarp", "wavemirror"].every(k => slice.includes(`"${k}"`));
+})());
+
+ok("S.fx4 state initialized with the 5 warp keys all false, plus fx4MeltPhase: 0",
+  script.includes("fx4: { ripple: false, fisheye: false, melt: false, pagewarp: false, wavemirror: false },") &&
+  script.includes("fx4MeltPhase: 0,"));
+
+["buildFX4", "toggleFX4", "syncFX4UI", "applyPostFX4"].forEach(fn =>
+  ok("function " + fn + " defined", script.includes("function " + fn + "(")));
+
+ok("keydown dispatch has a real e.metaKey branch calling toggleFX4, between the Ctrl (Rack II) branch and the final plain-digit else", (() => {
+  const ctrlIdx = script.indexOf('if (e.ctrlKey) {                       // Ctrl+digit');
+  const metaIdx = script.indexOf('} else if (e.metaKey) {                // Cmd/Meta+digit');
+  const callIdx = script.indexOf("toggleFX4(def4[0]);");
+  const elseIdx = script.indexOf("} else {                               // plain digit → FX Rack I");
+  return ctrlIdx >= 0 && metaIdx > ctrlIdx && callIdx > metaIdx && elseIdx > callIdx;
+})());
+
+ok("the old bare !e.metaKey guard is gone (replaced by the real branch above)",
+  !script.includes("} else if (!e.metaKey) {               // plain digit → FX Rack I"));
+
+ok("applyPostFX4 is called in the render chain after applyPostFX3 and before applyAutoExposure", (() => {
+  const fx3Idx = script.indexOf("applyPostFX3(W, H, dt);");
+  const fx4Idx = script.indexOf("applyPostFX4(W, H, dt);");
+  const aeIdx = script.indexOf("applyAutoExposure(W, H);");
+  return fx3Idx >= 0 && fx4Idx > fx3Idx && aeIdx > fx4Idx;
+})());
+
+ok("buildFX4() is called after buildFX3() in the post-boot init sequence", (() => {
+  const b3 = script.indexOf("buildFX3();");
+  const b4 = script.indexOf("buildFX4();");
+  return b3 >= 0 && b4 > b3;
+})());
+
+ok("HTML has the fx4Chips container and a Cmd+1–0 label, positioned after the Rack III block", (() => {
+  const fx3Block = html.indexOf('id="fx3Chips"');
+  const fx4Label = html.indexOf("FX Rack IV");
+  const fx4Chips = html.indexOf('id="fx4Chips"');
+  return fx3Block >= 0 && fx4Label > fx3Block && fx4Chips > fx4Label &&
+    html.slice(fx4Label, fx4Chips).includes("Cmd+1");
+})());
+
+ok("projectData()/applyProject() round-trip fx4 in their pre-marker base functions (before @BUILD-INJECT-V58)", (() => {
+  const markerIdx = script.indexOf("/* @BUILD-INJECT-V58 */");
+  const saveIdx = script.indexOf("fx4: { ...S.fx4 },");
+  const loadIdx = script.indexOf("if (o.fx4) for (const k in S.fx4) S.fx4[k] = !!o.fx4[k];");
+  return markerIdx > 0 && saveIdx > 0 && saveIdx < markerIdx && loadIdx > 0 && loadIdx < markerIdx;
+})());
+
+ok("Auto-VJ has a safe4 pool with all 5 warp keys, clears S.fx4 with the other racks, and syncs FX4 UI",
+  script.includes('const safe4 = ["ripple", "fisheye", "melt", "pagewarp", "wavemirror"];') &&
+  script.includes("Object.keys(S.fx4).forEach(k => S.fx4[k] = false);") &&
+  script.includes("syncFXUI(); syncFX2UI(); syncFX3UI(); syncFX4UI();"));
+
+ok("Auto-VJ's nSafe pick logic uses the new 4-way split (0.25/0.5/0.75), not the old 3-way one",
+  script.includes("if (pick < 0.25) S.fx[safe1[Math.floor(R() * safe1.length)]] = true;") &&
+  script.includes("else if (pick < 0.5) S.fx2[safe2[Math.floor(R() * safe2.length)]] = true;") &&
+  script.includes("else if (pick < 0.75) S.fx3[safe3[Math.floor(R() * safe3.length)]] = true;") &&
+  script.includes("else S.fx4[safe4[Math.floor(R() * safe4.length)]] = true;"));
+
+ok("silenceFxForCover clears S.fx4 and calls syncFX4UI (assembled, post-build.js script)", (() => {
+  const idx = script.indexOf("function silenceFxForCover()");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 500);
+  return body.includes("Object.keys(S.fx4).forEach(k => { S.fx4[k] = false; });") &&
+    body.includes('if (typeof syncFX4UI === "function") syncFX4UI();');
+})());
+
+ok("each of the 5 warp effects references its documented audio signal and calls snapshot(W, H)", (() => {
+  const idx = script.indexOf("function applyPostFX4(W, H, dt) {");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 4000);
+  const checks = [
+    ["fx.ripple", "S.beat"], ["fx.fisheye", "S.beat"], ["fx.melt", "S.bass"],
+    ["fx.pagewarp", "S.mids"], ["fx.wavemirror", "S.bass"]
+  ];
+  return checks.every(([flag, sig]) => {
+    const flagIdx = body.indexOf("if (" + flag + ")");
+    if (flagIdx < 0) return false;
+    const block = body.slice(flagIdx, flagIdx + 700);
+    return block.includes(sig) && block.includes("snapshot(W, H);");
+  });
 })());
 
 /* ---------------- summary ---------------- */

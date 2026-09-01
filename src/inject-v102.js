@@ -12,9 +12,11 @@ function silenceFxForCover() {
   Object.keys(S.fx).forEach(k => { S.fx[k] = false; });
   Object.keys(S.fx2).forEach(k => { S.fx2[k] = false; });
   Object.keys(S.fx3).forEach(k => { S.fx3[k] = false; });
+  Object.keys(S.fx4).forEach(k => { S.fx4[k] = false; });
   if (typeof syncFXUI === "function") syncFXUI();
   if (typeof syncFX2UI === "function") syncFX2UI();
   if (typeof syncFX3UI === "function") syncFX3UI();
+  if (typeof syncFX4UI === "function") syncFX4UI();
 }
 
 function applyCoverImageSettings() {
