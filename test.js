@@ -251,7 +251,7 @@ ok("v62 portrait pro hint", script.includes("function initPortraitProHint") && s
 ok("v63 phase A", script.includes("function isAudioFile") && script.includes("function initPhaseA"));
 ok("v63 creator aspect class", script.includes("creator-aspect-portrait"));
 ok("v64 phase B export", script.includes("function syncExportGates") && script.includes("exportShaderCap"));
-ok("v64 shader uses S.time", script.includes("gl.uniform1f(L.time, S.time)"));
+ok("v64 shader uses S.time", script.includes("gl.uniform1f(L.time, S.time * (SH.speed != null ? SH.speed : 1));"));
 ok("v64 stereo timeline", script.includes("const stereo = new Float32Array(frames)"));
 ok("v65 phase C UX", script.includes("function initPhaseC") && script.includes("proPortraitSheet"));
 ok("v65 swipe mode", script.includes("swipeLookMode") && script.includes("lookLockBtn"));
@@ -3518,14 +3518,14 @@ ok("main() applies the color-bias saturation lift to col before the existing vig
 ok("initGL's GL.loc gains scale/colorBias uniform locations", (() => {
   const idx = script.indexOf("GL.loc = {");
   if (idx < 0) return false;
-  const block = script.slice(idx, idx + 500);
+  const block = script.slice(idx, idx + 700);
   return block.includes('gl.getUniformLocation(prog, "uScale")') && block.includes('gl.getUniformLocation(prog, "uColorBias")');
 })());
 
 ok("renderShader scales the uTime uniform by SH.speed and sets the new uScale/uColorBias uniforms", (() => {
   const idx = script.indexOf("function renderShader(W, H, hue){");
   if (idx < 0) return false;
-  const body = script.slice(idx, idx + 1600);
+  const body = script.slice(idx, idx + 2000);
   return body.includes("gl.uniform1f(L.time, S.time * (SH.speed != null ? SH.speed : 1));")
     && body.includes("gl.uniform1f(L.scale, SH.scale != null ? SH.scale : 1);")
     && body.includes("gl.uniform1f(L.colorBias, SH.colorBias != null ? SH.colorBias : 0);");
