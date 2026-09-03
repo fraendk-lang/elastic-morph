@@ -3919,8 +3919,8 @@ vec3 warpTunnelStyle(vec2 uv){
 }
 
 void main(){
-  vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);
-  uv *= uScale;                                             // global Speed/Scale/Color Bias controls
+  vec2 uv0 = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);
+  vec2 uv = uv0 * uScale;                                   // global Speed/Scale/Color Bias controls
   uv *= 1.0 - uBeat*0.10;                                  // beat zoom-in punch
   float rot = uTime*0.02 + uBass*0.18;                     // slow drift + bass-driven rotation
   uv = mat2(cos(rot), -sin(rot), sin(rot), cos(rot)) * uv;
@@ -3943,9 +3943,9 @@ void main(){
   else if(uStyle < 15.5) col = cosmicDriftStyle(uv);
   else                   col = warpTunnelStyle(uv);
   float lum = dot(col, vec3(0.299, 0.587, 0.114));
-  col = mix(vec3(lum), col, 1.0 + uColorBias);
+  col = max(mix(vec3(lum), col, 1.0 + uColorBias), 0.0);
   // gentle vignette + filmic-ish tone
-  float vig = 1.0 - dot(uv,uv)*0.35;
+  float vig = 1.0 - dot(uv0,uv0)*0.35;
   col *= clamp(vig,0.0,1.0);
   col = col/(col+vec3(0.7));            // reinhard-ish for richer light
   col = pow(col, vec3(0.85));
@@ -15909,7 +15909,7 @@ const DEMO_SHOWCASE = {
     colorDrift: 0.48, camDrift: 0.42, zoom: 0.52, mutation: 0.38,
     gravity: 0.32, organic: 0.5
   },
-  shader: { on: true, style: "laser", intensity: 0.84, opacity: 0.58, blend: "lighter" },
+  shader: { on: true, style: "laser", intensity: 0.84, opacity: 0.58, blend: "lighter", speed: 1, scale: 1, colorBias: 0 },
   fx: ["strobe", "shake"],
   mix: { bass: 1.18, mid: 1.1, high: 1.05, autoLevel: true, beatThresh: 0.028 }
 };

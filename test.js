@@ -3500,8 +3500,8 @@ ok("main() applies uScale to uv right after computing it, before the existing be
   const mainIdx = frag.lastIndexOf("void main(){");
   if (mainIdx < 0) return false;
   const mainBody = frag.slice(mainIdx, mainIdx + 400);
-  const uvIdx = mainBody.indexOf("vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);");
-  const scaleIdx = mainBody.indexOf("uv *= uScale;");
+  const uvIdx = mainBody.indexOf("vec2 uv0 = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);");
+  const scaleIdx = mainBody.indexOf("vec2 uv = uv0 * uScale;");
   const punchIdx = mainBody.indexOf("uv *= 1.0 - uBeat*0.10;");
   return uvIdx >= 0 && scaleIdx > uvIdx && punchIdx > scaleIdx;
 })());
@@ -3510,8 +3510,8 @@ ok("main() applies the color-bias saturation lift to col before the existing vig
   const mainIdx = frag.lastIndexOf("void main(){");
   if (mainIdx < 0) return false;
   const mainBody = frag.slice(mainIdx);
-  const biasIdx = mainBody.indexOf("col = mix(vec3(lum), col, 1.0 + uColorBias);");
-  const vigIdx = mainBody.indexOf("float vig = 1.0 - dot(uv,uv)*0.35;");
+  const biasIdx = mainBody.indexOf("col = max(mix(vec3(lum), col, 1.0 + uColorBias), 0.0);");
+  const vigIdx = mainBody.indexOf("float vig = 1.0 - dot(uv0,uv0)*0.35;");
   return biasIdx >= 0 && vigIdx > biasIdx;
 })());
 
@@ -3553,6 +3553,16 @@ ok("syncShaderUI() pushes S.shader.speed/scale/colorBias into the 3 new sliders"
   const idx = script.lastIndexOf("function syncShaderUI() {");
   if (idx < 0) return false;
   const body = script.slice(idx, idx + 900);
+  return body.includes('$("shSpeed").value = Math.round(S.shader.speed * 100); $("shSpeedVal").textContent = Math.round(S.shader.speed * 100);')
+    && body.includes('$("shScale").value = Math.round(S.shader.scale * 100); $("shScaleVal").textContent = Math.round(S.shader.scale * 100);')
+    && body.includes('$("shColorBias").value = Math.round(S.shader.colorBias * 100); $("shColorBiasVal").textContent = Math.round(S.shader.colorBias * 100);');
+})());
+
+ok("syncShaderUI's Speed/Scale/Color Bias sync also exists in its true source file (src/inject-v93.js), not only in the generated elastic-morph.html mirror", (() => {
+  const src = injectSrc("inject-v93.js");
+  const idx = src.indexOf("function syncShaderUI() {");
+  if (idx < 0) return false;
+  const body = src.slice(idx, idx + 900);
   return body.includes('$("shSpeed").value = Math.round(S.shader.speed * 100); $("shSpeedVal").textContent = Math.round(S.shader.speed * 100);')
     && body.includes('$("shScale").value = Math.round(S.shader.scale * 100); $("shScaleVal").textContent = Math.round(S.shader.scale * 100);')
     && body.includes('$("shColorBias").value = Math.round(S.shader.colorBias * 100); $("shColorBiasVal").textContent = Math.round(S.shader.colorBias * 100);');

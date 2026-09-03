@@ -10,7 +10,7 @@ const DEMO_SHOWCASE = {
     colorDrift: 0.48, camDrift: 0.42, zoom: 0.52, mutation: 0.38,
     gravity: 0.32, organic: 0.5
   },
-  shader: { on: true, style: "laser", intensity: 0.84, opacity: 0.58, blend: "lighter" },
+  shader: { on: true, style: "laser", intensity: 0.84, opacity: 0.58, blend: "lighter", speed: 1, scale: 1, colorBias: 0 },
   fx: ["strobe", "shake"],
   mix: { bass: 1.18, mid: 1.1, high: 1.05, autoLevel: true, beatThresh: 0.028 }
 };
