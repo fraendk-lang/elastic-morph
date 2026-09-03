@@ -3531,6 +3531,43 @@ ok("renderShader scales the uTime uniform by SH.speed and sets the new uScale/uC
     && body.includes("gl.uniform1f(L.colorBias, SH.colorBias != null ? SH.colorBias : 0);");
 })());
 
+ok("Shader Engine panel gained the Speed/Scale/Color Bias slider rows with correct ranges/defaults", (() => {
+  const panelIdx = html.indexOf('<select id="shStyle"');
+  if (panelIdx < 0) return false;
+  const block = html.slice(panelIdx, panelIdx + 2650);
+  return block.includes('<input type="range" id="shSpeed" min="20" max="300" value="100">')
+    && block.includes('<input type="range" id="shScale" min="50" max="250" value="100">')
+    && block.includes('<input type="range" id="shColorBias" min="-80" max="80" value="0">');
+})());
+
+ok("buildShader() wires the 3 new sliders to S.shader.speed/scale/colorBias", (() => {
+  const idx = script.indexOf("function buildShader() {");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 1000);
+  return body.includes('S.shader.speed = e.target.value / 100; $("shSpeedVal").textContent = e.target.value;')
+    && body.includes('S.shader.scale = e.target.value / 100; $("shScaleVal").textContent = e.target.value;')
+    && body.includes('S.shader.colorBias = e.target.value / 100; $("shColorBiasVal").textContent = e.target.value;');
+})());
+
+ok("syncShaderUI() pushes S.shader.speed/scale/colorBias into the 3 new sliders", (() => {
+  const idx = script.lastIndexOf("function syncShaderUI() {");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 900);
+  return body.includes('$("shSpeed").value = Math.round(S.shader.speed * 100); $("shSpeedVal").textContent = Math.round(S.shader.speed * 100);')
+    && body.includes('$("shScale").value = Math.round(S.shader.scale * 100); $("shScaleVal").textContent = Math.round(S.shader.scale * 100);')
+    && body.includes('$("shColorBias").value = Math.round(S.shader.colorBias * 100); $("shColorBiasVal").textContent = Math.round(S.shader.colorBias * 100);');
+})());
+
+ok("project load clamps speed/scale/colorBias with fbClamp and syncs the 3 new sliders (old saves without these fields fall back to defaults, not undefined)", (() => {
+  const idx = script.indexOf("if (o.shader) {");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 1200);
+  return body.includes("S.shader.speed = fbClamp(S.shader.speed, 0.2, 3.0, 1);")
+    && body.includes("S.shader.scale = fbClamp(S.shader.scale, 0.5, 2.5, 1);")
+    && body.includes("S.shader.colorBias = fbClamp(S.shader.colorBias, -0.8, 0.8, 0);")
+    && body.includes('$("shSpeed").value = Math.round(S.shader.speed * 100); $("shSpeedVal").textContent = Math.round(S.shader.speed * 100);');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

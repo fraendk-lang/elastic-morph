@@ -28,6 +28,9 @@ function syncShaderUI() {
   const o = Math.round(S.shader.opacity * 100);
   $("shInt").value = i; $("shIntVal").textContent = i;
   $("shOp").value = o; $("shOpVal").textContent = o;
+  $("shSpeed").value = Math.round(S.shader.speed * 100); $("shSpeedVal").textContent = Math.round(S.shader.speed * 100);
+  $("shScale").value = Math.round(S.shader.scale * 100); $("shScaleVal").textContent = Math.round(S.shader.scale * 100);
+  $("shColorBias").value = Math.round(S.shader.colorBias * 100); $("shColorBiasVal").textContent = Math.round(S.shader.colorBias * 100);
   if (S.shader.on && typeof initGL === "function") initGL();
 }
 

@@ -1678,6 +1678,18 @@
       <label>Opacity <span class="val" id="shOpVal">85</span></label>
       <input type="range" id="shOp" min="0" max="100" value="85">
     </div>
+    <div class="slider-row">
+      <label>Speed <span class="val" id="shSpeedVal">100</span></label>
+      <input type="range" id="shSpeed" min="20" max="300" value="100">
+    </div>
+    <div class="slider-row">
+      <label>Scale <span class="val" id="shScaleVal">100</span></label>
+      <input type="range" id="shScale" min="50" max="250" value="100">
+    </div>
+    <div class="slider-row">
+      <label>Color Bias <span class="val" id="shColorBiasVal">0</span></label>
+      <input type="range" id="shColorBias" min="-80" max="80" value="0">
+    </div>
     <div class="divider"></div>
     <h3>DNA Control</h3>
     <select id="dnaBlend" class="pm-select" style="margin-bottom:10px">
@@ -8917,11 +8929,17 @@ function applyProject(o, fromScene) {
     Object.assign(S.shader, o.shader);
     S.shader.opacity = clamp01(S.shader.opacity);
     S.shader.intensity = clamp01(S.shader.intensity);
+    S.shader.speed = fbClamp(S.shader.speed, 0.2, 3.0, 1);
+    S.shader.scale = fbClamp(S.shader.scale, 0.5, 2.5, 1);
+    S.shader.colorBias = fbClamp(S.shader.colorBias, -0.8, 0.8, 0);
     if (!SHADER_STYLE_ID.hasOwnProperty(S.shader.style)) S.shader.style = "fluid";
     $("shOn").checked = !!S.shader.on;
     $("shStyle").value = S.shader.style; $("shBlend").value = S.shader.blend;
     $("shInt").value = Math.round(S.shader.intensity * 100); $("shIntVal").textContent = Math.round(S.shader.intensity * 100);
     $("shOp").value = Math.round(S.shader.opacity * 100); $("shOpVal").textContent = Math.round(S.shader.opacity * 100);
+    $("shSpeed").value = Math.round(S.shader.speed * 100); $("shSpeedVal").textContent = Math.round(S.shader.speed * 100);
+    $("shScale").value = Math.round(S.shader.scale * 100); $("shScaleVal").textContent = Math.round(S.shader.scale * 100);
+    $("shColorBias").value = Math.round(S.shader.colorBias * 100); $("shColorBiasVal").textContent = Math.round(S.shader.colorBias * 100);
     if (S.shader.on) initGL();
   }
   S.dnaBlend = ["lighter", "screen", "source-over", "multiply", "overlay", "difference", "color-dodge", "hard-light", "hue"].includes(o.dnaBlend) ? o.dnaBlend : "screen";
@@ -9056,6 +9074,9 @@ function buildShader() {
   $("shBlend").addEventListener("change", e => S.shader.blend = e.target.value);
   $("shInt").addEventListener("input", e => { S.shader.intensity = e.target.value / 100; $("shIntVal").textContent = e.target.value; });
   $("shOp").addEventListener("input", e => { S.shader.opacity = e.target.value / 100; $("shOpVal").textContent = e.target.value; });
+  $("shSpeed").addEventListener("input", e => { S.shader.speed = e.target.value / 100; $("shSpeedVal").textContent = e.target.value; });
+  $("shScale").addEventListener("input", e => { S.shader.scale = e.target.value / 100; $("shScaleVal").textContent = e.target.value; });
+  $("shColorBias").addEventListener("input", e => { S.shader.colorBias = e.target.value / 100; $("shColorBiasVal").textContent = e.target.value; });
 }
 
 function buildLyrics() {
@@ -15906,6 +15927,9 @@ function syncShaderUI() {
   const o = Math.round(S.shader.opacity * 100);
   $("shInt").value = i; $("shIntVal").textContent = i;
   $("shOp").value = o; $("shOpVal").textContent = o;
+  $("shSpeed").value = Math.round(S.shader.speed * 100); $("shSpeedVal").textContent = Math.round(S.shader.speed * 100);
+  $("shScale").value = Math.round(S.shader.scale * 100); $("shScaleVal").textContent = Math.round(S.shader.scale * 100);
+  $("shColorBias").value = Math.round(S.shader.colorBias * 100); $("shColorBiasVal").textContent = Math.round(S.shader.colorBias * 100);
   if (S.shader.on && typeof initGL === "function") initGL();
 }
 
