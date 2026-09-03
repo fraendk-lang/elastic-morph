@@ -3485,6 +3485,52 @@ section("Bugfix — Scene Bank Shift+1-8 recall no longer collides with FX Rack 
 ok("Scene Bank recall requires bare Shift (no Ctrl/Meta/Alt), so it no longer double-fires alongside Ctrl+Shift+digit (FX Rack IV), Ctrl+digit (FX Rack II), or Alt+digit (FX Rack III)",
   script.includes('if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && /^Digit[1-8]$/.test(e.code)) { e.preventDefault(); recallScene((activeSceneBank - 1) * 8 + (+e.code.slice(5) - 1)); }'));
 
+section("Shader Engine — Speed / Scale / Color Bias (global controls)");
+
+ok("S.shader default object gained speed/scale/colorBias defaults (1, 1, 0)", (() => {
+  const m = script.match(/shader:\s*\{[^}]*\}/);
+  if (!m) return false;
+  const body = m[0];
+  return /speed:\s*1\b/.test(body) && /scale:\s*1\b/.test(body) && /colorBias:\s*0\b/.test(body);
+})());
+
+ok("SHADER_FRAG declares the new uScale/uColorBias uniforms", frag.includes("uniform float uScale;") && frag.includes("uniform float uColorBias;"));
+
+ok("main() applies uScale to uv right after computing it, before the existing beat zoom-punch", (() => {
+  const mainIdx = frag.lastIndexOf("void main(){");
+  if (mainIdx < 0) return false;
+  const mainBody = frag.slice(mainIdx, mainIdx + 400);
+  const uvIdx = mainBody.indexOf("vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);");
+  const scaleIdx = mainBody.indexOf("uv *= uScale;");
+  const punchIdx = mainBody.indexOf("uv *= 1.0 - uBeat*0.10;");
+  return uvIdx >= 0 && scaleIdx > uvIdx && punchIdx > scaleIdx;
+})());
+
+ok("main() applies the color-bias saturation lift to col before the existing vignette", (() => {
+  const mainIdx = frag.lastIndexOf("void main(){");
+  if (mainIdx < 0) return false;
+  const mainBody = frag.slice(mainIdx);
+  const biasIdx = mainBody.indexOf("col = mix(vec3(lum), col, 1.0 + uColorBias);");
+  const vigIdx = mainBody.indexOf("float vig = 1.0 - dot(uv,uv)*0.35;");
+  return biasIdx >= 0 && vigIdx > biasIdx;
+})());
+
+ok("initGL's GL.loc gains scale/colorBias uniform locations", (() => {
+  const idx = script.indexOf("GL.loc = {");
+  if (idx < 0) return false;
+  const block = script.slice(idx, idx + 500);
+  return block.includes('gl.getUniformLocation(prog, "uScale")') && block.includes('gl.getUniformLocation(prog, "uColorBias")');
+})());
+
+ok("renderShader scales the uTime uniform by SH.speed and sets the new uScale/uColorBias uniforms", (() => {
+  const idx = script.indexOf("function renderShader(W, H, hue){");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 1600);
+  return body.includes("gl.uniform1f(L.time, S.time * (SH.speed != null ? SH.speed : 1));")
+    && body.includes("gl.uniform1f(L.scale, SH.scale != null ? SH.scale : 1);")
+    && body.includes("gl.uniform1f(L.colorBias, SH.colorBias != null ? SH.colorBias : 0);");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

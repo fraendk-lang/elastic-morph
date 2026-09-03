@@ -2967,7 +2967,7 @@ const S = {
   exportCancel: false,             // v29.2: cancel-requested flag for HQ export
   autoVJ: { on: false, intensity: 0.5, t: 0 },
   // v17: WebGL shader engine (fluid / metaballs / tunnel)
-  shader: { on: false, style: "fluid", intensity: 0.7, opacity: 0.85, blend: "lighter", warp: false },
+  shader: { on: false, style: "fluid", intensity: 0.7, opacity: 0.85, blend: "lighter", warp: false, speed: 1, scale: 1, colorBias: 0 },
   // v114: blend mode for the central DNA organism (all engines share one composite op)
   dnaBlend: "screen"
 };
@@ -3497,6 +3497,8 @@ uniform float uBass, uMids, uHighs, uBeat, uLoud;
 uniform float uHue;        // 0..1 base hue
 uniform float uStyle;      // 0 fluid, 1 metaballs/plasma, 2 tunnel/kaleido
 uniform float uIntensity;  // 0..1
+uniform float uScale;      // global zoom multiplier, default 1.0
+uniform float uColorBias;  // global saturation/contrast lift, -0.8..0.8, default 0
 uniform float uPalOn;      // 1 when a Named Gradient palette is active
 uniform vec3 uPalA;       // Named Gradient anchor colour A
 uniform vec3 uPalB;       // Named Gradient anchor colour B
@@ -3906,6 +3908,7 @@ vec3 warpTunnelStyle(vec2 uv){
 
 void main(){
   vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);
+  uv *= uScale;                                             // global Speed/Scale/Color Bias controls
   uv *= 1.0 - uBeat*0.10;                                  // beat zoom-in punch
   float rot = uTime*0.02 + uBass*0.18;                     // slow drift + bass-driven rotation
   uv = mat2(cos(rot), -sin(rot), sin(rot), cos(rot)) * uv;
@@ -3927,6 +3930,8 @@ void main(){
   else if(uStyle < 14.5) col = hypercubeStyle(uv);
   else if(uStyle < 15.5) col = cosmicDriftStyle(uv);
   else                   col = warpTunnelStyle(uv);
+  float lum = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(lum), col, 1.0 + uColorBias);
   // gentle vignette + filmic-ish tone
   float vig = 1.0 - dot(uv,uv)*0.35;
   col *= clamp(vig,0.0,1.0);
@@ -3982,6 +3987,8 @@ function initGL(){
       hue: gl.getUniformLocation(prog, "uHue"),
       style: gl.getUniformLocation(prog, "uStyle"),
       intensity: gl.getUniformLocation(prog, "uIntensity"),
+      scale: gl.getUniformLocation(prog, "uScale"),
+      colorBias: gl.getUniformLocation(prog, "uColorBias"),
       palOn: gl.getUniformLocation(prog, "uPalOn"),
       palA: gl.getUniformLocation(prog, "uPalA"),
       palB: gl.getUniformLocation(prog, "uPalB")
@@ -4019,7 +4026,7 @@ function renderShader(W, H, hue){
   }
   const L = GL.loc;
   gl.uniform2f(L.res, gw, gh);
-  gl.uniform1f(L.time, S.time);
+  gl.uniform1f(L.time, S.time * (SH.speed != null ? SH.speed : 1));
   gl.uniform1f(L.bass, Math.min(1.8, S.bass * S.gain * (0.85 + liveMul("pulse") * 0.35)));
   gl.uniform1f(L.mids, Math.min(1.8, S.mids * S.gain * (0.85 + liveMul("pulse") * 0.25)));
   gl.uniform1f(L.highs, Math.min(1.8, S.highs * S.gain * (0.85 + liveMul("pulse") * 0.2)));
@@ -4028,6 +4035,8 @@ function renderShader(W, H, hue){
   gl.uniform1f(L.hue, ((hue % 360) + 360) % 360 / 360);
   gl.uniform1f(L.style, SHADER_STYLE_ID[SH.style] ?? 0);
   gl.uniform1f(L.intensity, SH.intensity);
+  gl.uniform1f(L.scale, SH.scale != null ? SH.scale : 1);
+  gl.uniform1f(L.colorBias, SH.colorBias != null ? SH.colorBias : 0);
   const namedActive = S.palette.on && S.palette.mode === "named";
   const pal = namedActive ? NAMED_PALETTES.find(p => p.id === S.palette.namedId) : null;
   gl.uniform1f(L.palOn, pal ? 1 : 0);
