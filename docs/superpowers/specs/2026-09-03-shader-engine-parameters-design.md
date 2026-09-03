@@ -53,11 +53,17 @@ side (see §2): the value fed into the existing `uTime` uniform is
 drives the DNA organism, particles, etc., and must keep ticking at real time.
 
 Trade-off, accepted deliberately: because `S.time * SH.speed` is what's sent
-every frame, changing the Speed slider mid-playback causes a small phase jump in
-the pattern (the accumulated "effective shader time" isn't continuous across a
-speed change). Fixing this would require maintaining a separately-integrated
-shader clock — unnecessary complexity for v1. This is a known, accepted
-characteristic, not a bug to chase later.
+every frame, changing the Speed slider mid-playback causes a phase jump in the
+pattern (the accumulated "effective shader time" isn't continuous across a
+speed change). **Correction (post-final-review):** this is not small — at a
+typical mid-track `S.time` of ~250–350, a single slider step can jump the
+effective shader time by several full units, reading as a hard cut in the
+pattern rather than a subtle shift. Frank reviewed this magnitude explicitly
+(2026-09-03, post-launch) and confirmed the trade-off stands: Speed is meant
+as a set-once-then-leave-it control, not something to ride live mid-set, so
+the jump is acceptable. Fixing it would require maintaining a
+separately-integrated shader clock — deliberately not built, not a bug to
+chase later.
 
 **Scale** is a new uniform `uScale`, applied once right after the existing `uv`
 computation at the top of `main()`:
