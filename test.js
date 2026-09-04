@@ -3632,6 +3632,29 @@ ok("every drawClip/drawGlitchClip call site in drawBgVideoTimeline passes its ow
   return calls.every(c => fn.includes(c));
 })());
 
+ok("renderBgVidTLPanel's per-clip panel gains a Filter select with all 8 options (Global + the 7 BG_VID_FILTERS presets)", (() => {
+  const fn = extractFn("renderBgVidTLPanel");
+  if (!fn) return false;
+  const opts = ['value="">— Global —', 'value="none">Kein Filter', 'value="cinematic">Cinematic', 'value="bw">Schwarzweiß',
+    'value="duotone">Duotone (DNA)', 'value="vintage">Vintage', 'value="dreamy">Dreamy', 'value="neon">Neon Glow'];
+  return fn.includes('id="bgVidClipFilter"') && opts.every(o => fn.includes(o));
+})());
+
+ok("renderBgVidTLPanel's per-clip panel gains a Fit select with Global/Cover/Contain options", (() => {
+  const fn = extractFn("renderBgVidTLPanel");
+  return !!fn
+    && fn.includes('<label>Fit <select id="bgVidClipFit"><option value="">— Global —</option><option value="cover">Cover (Bild füllen)</option><option value="contain">Contain (Bild einpassen)</option></select></label>');
+})());
+
+ok("renderBgVidTLPanel syncs the Filter/Fit selects to the cue's current override (empty string when null, i.e. \"— Global —\") and wires changes back with the e.target.value || null fallback", (() => {
+  const fn = extractFn("renderBgVidTLPanel");
+  return !!fn
+    && fn.includes('$("bgVidClipFilter").value = cue.filter || "";')
+    && fn.includes('$("bgVidClipFilter").addEventListener("change", e => cue.filter = e.target.value || null);')
+    && fn.includes('$("bgVidClipFit").value = cue.fit || "";')
+    && fn.includes('$("bgVidClipFit").addEventListener("change", e => cue.fit = e.target.value || null);');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
