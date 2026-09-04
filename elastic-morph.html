@@ -5424,11 +5424,13 @@ function updateBgVideoTimeline(t) {
     const p = syncClipTime(cue.el, t - cue.t, cue.kind);
     if (p) pending.push(p);
     S.bgVid.el = cue.el; S.bgVid.src = cue.src; S.bgVid.on = true; S.bgVid._active = true;
+    S.bgVid._cue = cue;
   } else {
     // Only the transient render flag goes false here — S.bgVid.on is the persisted #bgVidOn
     // checkbox setting (serialized into presets/share links); writing false to it directly
     // during a mid-playback gap would silently bake "video off" into whatever gets saved next.
     S.bgVid._active = false;
+    S.bgVid._cue = null;
   }
 
   let fadeAlpha = 1;
@@ -5477,14 +5479,16 @@ function drawBgVideoTimeline(W, H) {
   if (!S.bgVidCues.length) { drawBgVideo(W, H); return; }
   const v = S.bgVid;
   if (!v.on || v._active === false) return;
-  const drawClip = (el, alpha, xOff, yOff = 0, scale = 1) => {
+  const drawClip = (el, alpha, xOff, yOff = 0, scale = 1, cue = null) => {
     const dim = clipElReady(el); if (!dim) return; const vw = dim.w, vh = dim.h;
-    const s = v.cover ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
+    const effFit = cue && cue.fit != null ? cue.fit : (v.cover ? "cover" : "contain");
+    const effFilter = cue && cue.filter != null ? cue.filter : v.filter;
+    const s = effFit === "cover" ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
     const dw = vw * scale * s, dh = vh * scale * s, dx = (W - dw) / 2 + xOff, dy = (H - dh) / 2 + yOff;
     ctx.save();
     ctx.globalAlpha = v.opacity * alpha;
     ctx.globalCompositeOperation = v.blend;
-    const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS(v) : "none";
+    const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS({ filter: effFilter }) : "none";
     if (filt === "none") {
       try { ctx.drawImage(el, dx, dy, dw, dh); } catch (e) { }
     } else {
@@ -5503,16 +5507,18 @@ function drawBgVideoTimeline(W, H) {
     }
     ctx.restore();
   };
-  const drawGlitchClip = (el, alpha, envelope) => {
-    if (!el || envelope <= 0.02) { drawClip(el, alpha, 0); return; }
+  const drawGlitchClip = (el, alpha, envelope, cue = null) => {
+    if (!el || envelope <= 0.02) { drawClip(el, alpha, 0, 0, 1, cue); return; }
     const dim = clipElReady(el); if (!dim) return; const vw = dim.w, vh = dim.h;
     const hw = Math.max(1, Math.round(W / 2)), hh = Math.max(1, Math.round(H / 2));
     // Half-res working area: the RGB-split/slice passes below are ~16 full-canvas raster ops
     // per clip, and the glitch look is deliberately low-fi, so a small scratch canvas (like the
     // FX Rack's Pixelate effect) costs far less without any visible quality loss.
-    const s = v.cover ? Math.max(hw / vw, hh / vh) : Math.min(hw / vw, hh / vh);
+    const effFit = cue && cue.fit != null ? cue.fit : (v.cover ? "cover" : "contain");
+    const effFilter = cue && cue.filter != null ? cue.filter : v.filter;
+    const s = effFit === "cover" ? Math.max(hw / vw, hh / vh) : Math.min(hw / vw, hh / vh);
     const dw = vw * s, dh = vh * s, dx = (hw - dw) / 2, dy = (hh - dh) / 2;
-    const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS(v) : "none";
+    const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS({ filter: effFilter }) : "none";
     fxctx.clearRect(0, 0, hw, hh);
     fxctx.globalAlpha = 1; fxctx.globalCompositeOperation = "source-over";
     try {
@@ -5562,7 +5568,7 @@ function drawBgVideoTimeline(W, H) {
     ctx.restore();
   };
   if (!S.bgVidTrans) {
-    drawClip(v.el, 1, 0);
+    drawClip(v.el, 1, 0, 0, 1, S.bgVid._cue);
     const fa = v._fadeAlpha;
     if (fa !== undefined && fa < 1) {
       ctx.save();
@@ -5575,36 +5581,36 @@ function drawBgVideoTimeline(W, H) {
   }
   const { from, to, p, type } = S.bgVidTrans;
   if (type === "dissolve") {
-    drawClip(from.el, 1 - p, 0);
-    drawClip(to.el, p, 0);
+    drawClip(from.el, 1 - p, 0, 0, 1, from);
+    drawClip(to.el, p, 0, 0, 1, to);
   } else if (type === "wipe") {
-    drawClip(from.el, 1, 0);
+    drawClip(from.el, 1, 0, 0, 1, from);
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W * p, H); ctx.clip();
-    drawClip(to.el, 1, 0);
+    drawClip(to.el, 1, 0, 0, 1, to);
     ctx.restore();
   } else if (type === "slide") {
-    drawClip(from.el, 1, -W * p);
-    drawClip(to.el, 1, W * (1 - p));
+    drawClip(from.el, 1, -W * p, 0, 1, from);
+    drawClip(to.el, 1, W * (1 - p), 0, 1, to);
   } else if (type === "iris") {
-    drawClip(from.el, 1, 0);
+    drawClip(from.el, 1, 0, 0, 1, from);
     ctx.save(); ctx.beginPath();
     ctx.arc(W / 2, H / 2, Math.max(1, Math.hypot(W, H) / 2 * p), 0, Math.PI * 2);
     ctx.clip();
-    drawClip(to.el, 1, 0);
+    drawClip(to.el, 1, 0, 0, 1, to);
     ctx.restore();
   } else if (type === "zoom") {
-    drawClip(from.el, 1 - p, 0);
-    drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p);
+    drawClip(from.el, 1 - p, 0, 0, 1, from);
+    drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p, to);
   } else if (type === "slide-v") {
-    drawClip(from.el, 1, 0, -H * p);
-    drawClip(to.el, 1, 0, H * (1 - p));
+    drawClip(from.el, 1, 0, -H * p, 1, from);
+    drawClip(to.el, 1, 0, H * (1 - p), 1, to);
   } else if (type === "slide-d") {
-    drawClip(from.el, 1, -W * p, -H * p);
-    drawClip(to.el, 1, W * (1 - p), H * (1 - p));
+    drawClip(from.el, 1, -W * p, -H * p, 1, from);
+    drawClip(to.el, 1, W * (1 - p), H * (1 - p), 1, to);
   } else if (type === "glitch") {
     const envelope = Math.sin(p * Math.PI);
-    drawGlitchClip(from.el, 1 - p, envelope);
-    drawGlitchClip(to.el, p, envelope);
+    drawGlitchClip(from.el, 1 - p, envelope, from);
+    drawGlitchClip(to.el, p, envelope, to);
   }
 }
 /* v41: intro cover card — 1 during the hold, easing to 0 across the fade */
@@ -11075,7 +11081,7 @@ function addBgVidClipAt(t, file) {
     dur = 8;
   }
   t = Math.max(0, Math.min(bgVidTLDuration(), t));
-  const cue = { t, dur, fadeIn: 0, fadeOut: 0, name: file.name.replace(/\.[^.]+$/, ""), src: url, el, kind: isImage ? "image" : "video", transType: S.bgVidTransDefault.type, transDur: S.bgVidTransDefault.dur };
+  const cue = { t, dur, fadeIn: 0, fadeOut: 0, filter: null, fit: null, name: file.name.replace(/\.[^.]+$/, ""), src: url, el, kind: isImage ? "image" : "video", transType: S.bgVidTransDefault.type, transDur: S.bgVidTransDefault.dur };
   S.bgVidCues.push(cue); sortBgVidCues();
   S.bgVidTLSel = S.bgVidCues.indexOf(cue);
   S.bgVid.on = true; $("bgVidOn").checked = true;

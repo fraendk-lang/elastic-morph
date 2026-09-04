@@ -1452,14 +1452,14 @@ section("Video Timeline — more transition types");
 ok("dissolve/wipe/slide branches are unchanged from before this round", (() => {
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn
-    && fn.includes('type === "dissolve") {\n    drawClip(from.el, 1 - p, 0);\n    drawClip(to.el, p, 0);')
-    && fn.includes('type === "wipe") {\n    drawClip(from.el, 1, 0);\n    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W * p, H); ctx.clip();\n    drawClip(to.el, 1, 0);\n    ctx.restore();')
-    && fn.includes('type === "slide") {\n    drawClip(from.el, 1, -W * p);\n    drawClip(to.el, 1, W * (1 - p));');
+    && fn.includes('type === "dissolve") {\n    drawClip(from.el, 1 - p, 0, 0, 1, from);\n    drawClip(to.el, p, 0, 0, 1, to);')
+    && fn.includes('type === "wipe") {\n    drawClip(from.el, 1, 0, 0, 1, from);\n    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W * p, H); ctx.clip();\n    drawClip(to.el, 1, 0, 0, 1, to);\n    ctx.restore();')
+    && fn.includes('type === "slide") {\n    drawClip(from.el, 1, -W * p, 0, 1, from);\n    drawClip(to.el, 1, W * (1 - p), 0, 1, to);');
 })());
 
 ok("drawClip accepts optional yOff and scale params with backward-compatible defaults", (() => {
   const fn = extractFn("drawBgVideoTimeline");
-  return !!fn && fn.includes("const drawClip = (el, alpha, xOff, yOff = 0, scale = 1)");
+  return !!fn && fn.includes("const drawClip = (el, alpha, xOff, yOff = 0, scale = 1, cue = null)");
 })());
 
 ok("drawClip applies yOff to dy and scale to dw/dh before centering", (() => {
@@ -1480,24 +1480,24 @@ ok("iris branch clips a growing circle centered on screen for the incoming clip"
 ok("zoom branch scales the incoming clip from 0.3 to 1.0 while the outgoing clip fades at full scale", (() => {
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn
-    && fn.includes('type === "zoom") {\n    drawClip(from.el, 1 - p, 0);')
-    && fn.includes("drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p)");
+    && fn.includes('type === "zoom") {\n    drawClip(from.el, 1 - p, 0, 0, 1, from);')
+    && fn.includes("drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p, to)");
 })());
 
 ok("slide-v branch pushes vertically using yOff, xOff left at 0", (() => {
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn
     && fn.includes('type === "slide-v"')
-    && fn.includes("drawClip(from.el, 1, 0, -H * p)")
-    && fn.includes("drawClip(to.el, 1, 0, H * (1 - p))");
+    && fn.includes("drawClip(from.el, 1, 0, -H * p, 1, from)")
+    && fn.includes("drawClip(to.el, 1, 0, H * (1 - p), 1, to)");
 })());
 
 ok("slide-d branch pushes both axes together for a diagonal push", (() => {
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn
     && fn.includes('type === "slide-d"')
-    && fn.includes("drawClip(from.el, 1, -W * p, -H * p)")
-    && fn.includes("drawClip(to.el, 1, W * (1 - p), H * (1 - p))");
+    && fn.includes("drawClip(from.el, 1, -W * p, -H * p, 1, from)")
+    && fn.includes("drawClip(to.el, 1, W * (1 - p), H * (1 - p), 1, to)");
 })());
 
 ok("glitch branch draws each clip cover-fit into fxctx, then channel-isolates via chC with an envelope peaking at p=0.5", (() => {
@@ -1505,15 +1505,15 @@ ok("glitch branch draws each clip cover-fit into fxctx, then channel-isolates vi
   return !!fn
     && fn.includes('type === "glitch"')
     && fn.includes("const envelope = Math.sin(p * Math.PI)")
-    && fn.includes("drawGlitchClip(from.el, 1 - p, envelope)")
-    && fn.includes("drawGlitchClip(to.el, p, envelope)")
+    && fn.includes("drawGlitchClip(from.el, 1 - p, envelope, from)")
+    && fn.includes("drawGlitchClip(to.el, p, envelope, to)")
     && fn.includes('chctx.globalCompositeOperation = "multiply"')
     && fn.includes('chctx.globalCompositeOperation = "destination-in"');
 })());
 
 ok("drawGlitchClip falls back to a plain drawClip call when the envelope is negligible", (() => {
   const fn = extractFn("drawBgVideoTimeline");
-  return !!fn && fn.includes("if (!el || envelope <= 0.02) { drawClip(el, alpha, 0); return; }");
+  return !!fn && fn.includes("if (!el || envelope <= 0.02) { drawClip(el, alpha, 0, 0, 1, cue); return; }");
 })());
 
 /* ---------------- Video Timeline: transition-window follow-up fixes ---------------- */
@@ -1522,7 +1522,7 @@ section("Video Timeline — filter/blend/perf fixes for transitions");
 ok("drawClip applies the background-video filter via the scratch-canvas technique (not raw drawImage on the video)", (() => {
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn
-    && fn.includes('const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS(v) : "none";')
+    && fn.includes('const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS({ filter: effFilter }) : "none";')
     && fn.includes("const scratch = bgVidScratchCanvas(sw, sh);")
     && fn.includes("ctx.filter = filt;")
     && fn.includes('ctx.filter = "none";');
@@ -1959,7 +1959,7 @@ ok("drawBgVideoTimeline only falls back to the legacy drawBgVideo() when there a
 
 ok("drawBgVideoTimeline draws the active cue via drawClip (kind-aware) when there's no active transition, instead of falling through to drawBgVideo", (() => {
   const fn = extractFn("drawBgVideoTimeline");
-  return !!fn && fn.includes("if (!S.bgVidTrans) {") && fn.includes("drawClip(v.el, 1, 0);") && fn.includes("return;");
+  return !!fn && fn.includes("if (!S.bgVidTrans) {") && fn.includes("drawClip(v.el, 1, 0, 0, 1, S.bgVid._cue);") && fn.includes("return;");
 })());
 
 ok("drawBgVideoTimeline's guard also checks the transient S.bgVid._active flag, not just the persisted .on setting", (() => {
@@ -2017,7 +2017,7 @@ ok("drawBgVideoTimeline's no-transition branch composites a black overlay scaled
   const fn = extractFn("drawBgVideoTimeline");
   return !!fn
     && fn.includes("if (!S.bgVidTrans) {")
-    && fn.includes("drawClip(v.el, 1, 0);")
+    && fn.includes("drawClip(v.el, 1, 0, 0, 1, S.bgVid._cue);")
     && fn.includes("const fa = v._fadeAlpha;")
     && fn.includes("if (fa !== undefined && fa < 1) {")
     && fn.includes("ctx.globalAlpha = 1 - fa;")
@@ -3576,6 +3576,60 @@ ok("project load clamps speed/scale/colorBias with fbClamp and syncs the 3 new s
     && body.includes("S.shader.scale = fbClamp(S.shader.scale, 0.5, 2.5, 1);")
     && body.includes("S.shader.colorBias = fbClamp(S.shader.colorBias, -0.8, 0.8, 0);")
     && body.includes('$("shSpeed").value = Math.round(S.shader.speed * 100); $("shSpeedVal").textContent = Math.round(S.shader.speed * 100);');
+})());
+
+section("Video Timeline — per-clip Filter/Fit overrides");
+
+ok("addBgVidClipAt's cue gains filter/fit defaulting to null (inherit global)", (() => {
+  const fn = extractFn("addBgVidClipAt");
+  return !!fn && fn.includes("fadeIn: 0, fadeOut: 0, filter: null, fit: null, name:");
+})());
+
+ok("updateBgVideoTimeline mirrors the active cue onto S.bgVid._cue, and clears it when there's no active cue", (() => {
+  const fn = extractFn("updateBgVideoTimeline");
+  return !!fn
+    && fn.includes("S.bgVid.el = cue.el; S.bgVid.src = cue.src; S.bgVid.on = true; S.bgVid._active = true;\n    S.bgVid._cue = cue;")
+    && fn.includes("S.bgVid._active = false;\n    S.bgVid._cue = null;");
+})());
+
+ok("drawClip accepts an optional cue param and computes effFit/effFilter from it, falling back to the global v.cover/v.filter when the cue has no override", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  return !!fn
+    && fn.includes("const drawClip = (el, alpha, xOff, yOff = 0, scale = 1, cue = null) => {")
+    && fn.includes('const effFit = cue && cue.fit != null ? cue.fit : (v.cover ? "cover" : "contain");')
+    && fn.includes("const effFilter = cue && cue.filter != null ? cue.filter : v.filter;")
+    && fn.includes('const s = effFit === "cover" ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);')
+    && fn.includes('const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS({ filter: effFilter }) : "none";');
+})());
+
+ok("drawGlitchClip accepts an optional cue param, forwards it to its own drawClip fallback call, and computes effFit/effFilter the same way as drawClip", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  const idx = fn ? fn.indexOf("const drawGlitchClip = ") : -1;
+  if (idx < 0) return false;
+  const body = fn.slice(idx, idx + 1200);
+  return body.includes("const drawGlitchClip = (el, alpha, envelope, cue = null) => {")
+    && body.includes("drawClip(el, alpha, 0, 0, 1, cue); return;")
+    && body.includes('const effFit = cue && cue.fit != null ? cue.fit : (v.cover ? "cover" : "contain");')
+    && body.includes("const effFilter = cue && cue.filter != null ? cue.filter : v.filter;")
+    && body.includes('const s = effFit === "cover" ? Math.max(hw / vw, hh / vh) : Math.min(hw / vw, hh / vh);')
+    && body.includes('const filt = typeof bgVidFilterCSS === "function" ? bgVidFilterCSS({ filter: effFilter }) : "none";');
+})());
+
+ok("every drawClip/drawGlitchClip call site in drawBgVideoTimeline passes its own cue (S.bgVid._cue for steady-state, from/to for every transition branch, matching which element it draws)", (() => {
+  const fn = extractFn("drawBgVideoTimeline");
+  if (!fn) return false;
+  const calls = [
+    "drawClip(v.el, 1, 0, 0, 1, S.bgVid._cue);",
+    "drawClip(from.el, 1 - p, 0, 0, 1, from);\n    drawClip(to.el, p, 0, 0, 1, to);",
+    "drawClip(from.el, 1, 0, 0, 1, from);\n    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W * p, H); ctx.clip();\n    drawClip(to.el, 1, 0, 0, 1, to);",
+    "drawClip(from.el, 1, -W * p, 0, 1, from);\n    drawClip(to.el, 1, W * (1 - p), 0, 1, to);",
+    "drawClip(from.el, 1, 0, 0, 1, from);\n    ctx.save(); ctx.beginPath();\n    ctx.arc(W / 2, H / 2, Math.max(1, Math.hypot(W, H) / 2 * p), 0, Math.PI * 2);\n    ctx.clip();\n    drawClip(to.el, 1, 0, 0, 1, to);",
+    "drawClip(from.el, 1 - p, 0, 0, 1, from);\n    drawClip(to.el, p, 0, 0, 0.3 + 0.7 * p, to);",
+    "drawClip(from.el, 1, 0, -H * p, 1, from);\n    drawClip(to.el, 1, 0, H * (1 - p), 1, to);",
+    "drawClip(from.el, 1, -W * p, -H * p, 1, from);\n    drawClip(to.el, 1, W * (1 - p), H * (1 - p), 1, to);",
+    "drawGlitchClip(from.el, 1 - p, envelope, from);\n    drawGlitchClip(to.el, p, envelope, to);",
+  ];
+  return calls.every(c => fn.includes(c));
 })());
 
 /* ---------------- summary ---------------- */
