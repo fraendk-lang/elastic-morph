@@ -495,6 +495,12 @@ execution) — verify visually once both tasks are done:
    Filter/Fit overrides. Scrub through the transition — confirm both clips
    keep their own look throughout the cross-fade (neither one borrows the
    other's filter or fit).
-7. Save a project, reload the page, load that project back — confirm the
-   per-clip Filter/Fit overrides you set are still there (not reset to
-   "— Global —").
+7. **Correction (post-final-review):** the Video Timeline's clips
+   (`S.bgVidCues`) are never serialized anywhere in the app — pre-existing,
+   by design, since a cue holds a live `<video>`/`<img>` element plus a blob
+   URL, neither of which survives a reload. This step as originally written
+   ("save a project, reload, confirm overrides persist") cannot pass and is
+   not this branch's regression to fix. What *is* worth confirming: within a
+   single session, per-clip Filter/Fit overrides survive switching away from
+   and back to a clip in the panel (reselect it, confirm the override is
+   still shown) — session-only persistence, which this branch does provide.

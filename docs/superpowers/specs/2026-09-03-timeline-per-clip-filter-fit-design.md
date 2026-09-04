@@ -24,6 +24,14 @@ that spec covers the Shader Engine only, this one covers the timeline.
   not a one-time snapshot: changing the global Filter/Fit control still
   affects every clip that hasn't been explicitly overridden.
 - Old saved projects (cues without these fields) keep working unchanged.
+  **Correction (post-final-review):** `S.bgVidCues` itself is never
+  serialized anywhere in the app — pre-existing, by design, since a cue
+  holds a live media element plus a blob URL. So this goal is vacuously
+  true (there are no saved cues to encounter) rather than a real
+  backward-compat scenario this branch had to handle. The `!= null`
+  inheritance convention (see Design §1) is still the right defensive
+  choice regardless, so no design or code change follows from this — only
+  the framing here was overstated.
 
 ## Non-Goals
 
@@ -31,9 +39,15 @@ that spec covers the Shader Engine only, this one covers the timeline.
   + Fit ("Farbe und Format") — Opacity/Blend affect the composition with the
   DNA visual as a whole, not the individual clip's own look, and stay global.
 - **A visual override indicator on the timeline's mini clip blocks** (e.g. an
-  icon showing "this clip has a custom filter"). The per-clip panel already
-  shows the current effective value when a clip is selected; a timeline-block
-  indicator is a nice-to-have, not requested, and out of scope for v1.
+  icon showing "this clip has a custom filter"). **Correction
+  (post-final-review):** the per-clip panel shows "— Global —" for an
+  unoverridden clip, not the resolved effective value — the original
+  justification here overstated what the panel already surfaces. The
+  non-goal itself still stands (arguably "— Global —" is the better
+  affordance, since it makes the inherit state explicit rather than hiding
+  it behind a value that looks identical to a real override); a
+  timeline-block indicator remains a nice-to-have, not requested, and out
+  of scope for v1.
 - **Per-clip aspect ratio / crop position.** The app's canvas aspect ratio is
   chosen once at the export level (16:9/9:16/1:1), not per clip; "Format" here
   means the existing Fit toggle, which the app's own UI already labels that

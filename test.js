@@ -1984,17 +1984,23 @@ ok("drawBgVideoTimeline's guard also checks the transient S.bgVid._active flag, 
     updateBgVideoTimeline(3);
     ok("updateBgVideoTimeline activates a cue while t is within its own [t, t+dur) window",
       global.S.bgVid.on === true && global.S.bgVid._active === true && global.S.bgVid.el.id === "A");
+    ok("updateBgVideoTimeline mirrors the active cue itself onto S.bgVid._cue (not just .el/.src), for the per-clip Filter/Fit override lookup",
+      global.S.bgVid._cue && global.S.bgVid._cue.el.id === "A");
 
     updateBgVideoTimeline(10);
     ok("updateBgVideoTimeline deactivates a cue once t passes its own t+dur (Bug 2 — a shrunk clip must actually stop) via the transient _active flag only, WITHOUT clobbering the persisted S.bgVid.on setting (the serialization-leak fix — .on stays whatever it was, still true from the previous call)",
       global.S.bgVid._active === false && global.S.bgVid.on === true);
+    ok("updateBgVideoTimeline clears S.bgVid._cue to null once there's no active cue (a gap), matching _active going false",
+      global.S.bgVid._cue === null);
 
     updateBgVideoTimeline(31);
     ok("updateBgVideoTimeline picks up the next cue once its own t arrives, after a gap",
       global.S.bgVid.on === true && global.S.bgVid._active === true && global.S.bgVid.el.id === "B");
   } catch (e) {
     ok("updateBgVideoTimeline activates a cue while t is within its own [t, t+dur) window", false, e.message);
+    ok("updateBgVideoTimeline mirrors the active cue itself onto S.bgVid._cue (not just .el/.src), for the per-clip Filter/Fit override lookup", false);
     ok("updateBgVideoTimeline deactivates a cue once t passes its own t+dur (Bug 2 — a shrunk clip must actually stop) via the transient _active flag only, WITHOUT clobbering the persisted S.bgVid.on setting (the serialization-leak fix — .on stays whatever it was, still true from the previous call)", false);
+    ok("updateBgVideoTimeline clears S.bgVid._cue to null once there's no active cue (a gap), matching _active going false", false);
     ok("updateBgVideoTimeline picks up the next cue once its own t arrives, after a gap", false);
   } finally {
     delete global.S; delete global.syncClipTime;
