@@ -31,3 +31,7 @@ Neues Cover.png
 
 # Brainstorming visual-companion session files (superpowers plugin)
 .superpowers/
+
+# Local editor/tool scratch, not part of the app repo (has been swept in by
+# broad `git add -A`/`git add .` sessions before -- keep it explicitly ignored)
+.composer-pull/
