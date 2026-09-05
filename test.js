@@ -3853,6 +3853,48 @@ ok("analyzeTrack's success path checks for a resumable job matching the freshly-
     && fn.includes("pollStemJobLoop(saved.jobId, saved.trackHash);");
 })());
 
+/* ---------------- Task 4: Settings UI (Audio-Analyse section + syncStemUI implementation) ---------------- */
+section("Task 4 — Settings UI");
+
+ok('Settings panel gains an "Audio-Analyse" section with the Simple/Advanced radio toggle, inserted between Audio Mixer and MIDI Control', (() => {
+  const idx = html.indexOf("<h3>Audio-Analyse</h3>");
+  if (idx < 0) return false;
+  const block = html.slice(idx, idx + 700);
+  return block.includes('<input type="radio" name="stemMode" id="stemModeSimple" checked> Einfach')
+    && block.includes('<input type="radio" name="stemMode" id="stemModeAdvanced"> Advanced (Stems)')
+    && block.includes('<p class="note" id="stemStatus">');
+})());
+
+ok("selecting Simple sets S.stemMode and re-syncs the UI, without starting a job", (() => {
+  const idx = script.indexOf('$("stemModeSimple").addEventListener');
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 200);
+  return body.includes('S.stemMode = "simple"; syncStemUI();') && !body.includes("startStemSeparation()");
+})());
+
+ok("selecting Advanced sets S.stemMode and calls startStemSeparation", (() => {
+  const idx = script.indexOf('$("stemModeAdvanced").addEventListener');
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 200);
+  return body.includes('S.stemMode = "advanced"; startStemSeparation();');
+})());
+
+ok("syncStemUI shows Ready/error/progress text matching S.stemJob.status, and keeps the two radios in sync with S.stemMode", (() => {
+  const fn = extractFn("syncStemUI");
+  return !!fn
+    && fn.includes('$("stemModeSimple").checked = S.stemMode === "simple";')
+    && fn.includes('$("stemModeAdvanced").checked = S.stemMode === "advanced";')
+    && fn.includes('if (S.stemJob.status === "ready") s.textContent = "Bereit ✓";')
+    && fn.includes('else if (S.stemJob.status === "error") s.textContent = "Fehler: " + S.stemJob.error;')
+    && fn.includes('else s.textContent = "Stems werden getrennt… " + (S.stemJob.progress || "wird gestartet");');
+})());
+
+ok("the real syncStemUI (not the Task 3 stub) is the one defined in the script — only one function declaration for it exists", (() => {
+  const first = script.indexOf("function syncStemUI()");
+  const last = script.lastIndexOf("function syncStemUI()");
+  return first >= 0 && first === last;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

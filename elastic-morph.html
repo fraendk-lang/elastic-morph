@@ -1609,6 +1609,14 @@
         </div>
       </div>
 
+      <h3>Audio-Analyse</h3>
+      <p class="note" id="stemNote">Advanced trennt den Track in Vocals, Drums, Bass und Melodie — kann ein bis zwei Minuten dauern. Läuft über unseren Trennungs-Dienst.</p>
+      <div class="blend-row" style="max-width:420px">
+        <label class="check"><input type="radio" name="stemMode" id="stemModeSimple" checked> Einfach</label>
+        <label class="check"><input type="radio" name="stemMode" id="stemModeAdvanced"> Advanced (Stems)</label>
+      </div>
+      <p class="note" id="stemStatus"></p>
+
       <h3>MIDI Control</h3>
       <p class="note" id="midiStatus">Not connected. Connect a controller, then map hardware knobs to any DNA control.</p>
       <button class="btn primary" id="midiBtn" style="margin-top:6px">Connect MIDI</button>
@@ -3228,7 +3236,20 @@ async function resolveAudioFileForStemJob() {
 
 const STEM_JOB_LS = "elasticMorph.stemJob";
 
-function syncStemUI() { /* replaced in Task 4 with the real UI sync */ }
+function syncStemUI() {
+  const s = $("stemStatus"); if (!s) return;
+  $("stemModeSimple").checked = S.stemMode === "simple";
+  $("stemModeAdvanced").checked = S.stemMode === "advanced";
+  if (!S.stemJob) { s.textContent = ""; return; }
+  if (S.stemJob.status === "ready") s.textContent = "Bereit ✓";
+  else if (S.stemJob.status === "error") s.textContent = "Fehler: " + S.stemJob.error;
+  else s.textContent = "Stems werden getrennt… " + (S.stemJob.progress || "wird gestartet");
+}
+
+$("stemModeSimple").addEventListener("change", e => { if (e.target.checked) { S.stemMode = "simple"; syncStemUI(); } });
+$("stemModeAdvanced").addEventListener("change", e => {
+  if (e.target.checked) { S.stemMode = "advanced"; startStemSeparation(); syncStemUI(); }
+});
 
 async function startStemSeparation() {
   const trackHash = S.fpHash;
