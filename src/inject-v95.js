@@ -114,6 +114,7 @@ function loadDemoStream(url, name) {
 }
 
 async function analyzeTrackFromUrl(url, name) {
+  S.currentAudioFile = null; S.currentDemoUrl = url; S.currentDemoName = name;
   const fake = {
     name,
     arrayBuffer: () => fetchDemoBytes(url)

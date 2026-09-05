@@ -2881,6 +2881,12 @@ const S = {
   manualMemory: null,     // {snap, until} via timeline click
   energyCurve: null,      // v18: normalized 0..1 energy envelope for the timeline waveform
   audioBuffer: null,      // v26: decoded AudioBuffer kept for offline export feature analysis
+  stemMode: "simple",     // "simple" | "advanced" — Advanced needs a completed stem-separation job for the current track
+  stemJob: null,          // { id, status, progress, error, trackHash } | null
+  stemCurves: null,       // null | { bass, drums, vocals, other } — each a Float32Array(240), same shape as energyCurve
+  currentAudioFile: null, // the real uploaded File, when the track came from loadFile()
+  currentDemoUrl: null,   // the bundled demo track's URL, when the track came from analyzeTrackFromUrl() (no real File exists for it)
+  currentDemoName: null,  // the bundled demo track's display name, for building a File from it later if needed
   loopAB: { a: null, b: null, on: false },   // v19: A–B loop region (fractions)
   // v22: Set Editor — timed cues that recall a scene (+ optional FX override) deterministically
   cues: [], lastCueApplied: -2, setActive: true, setSel: -1,
@@ -3210,10 +3216,21 @@ async function downloadStem(jobId, stemName) {
   return res.arrayBuffer();
 }
 
+async function resolveAudioFileForStemJob() {
+  if (S.currentAudioFile) return S.currentAudioFile;
+  if (S.currentDemoUrl) {
+    const ab = await fetchDemoBytes(S.currentDemoUrl);
+    if (!ab) throw new Error("Demo-Track konnte nicht geladen werden.");
+    return new File([ab], S.currentDemoName || "demo.mp3", { type: "audio/mpeg" });
+  }
+  throw new Error("Kein Track geladen.");
+}
+
 async function analyzeTrack(file) {
   const label = $("trackName");
   S.analyzeState = "analyzing";
   S.analyzeError = null;
+  S.stemMode = "simple"; S.stemJob = null; S.stemCurves = null;   // a new track invalidates any prior stem job/result
   if (typeof syncExportGates === "function") syncExportGates();
   label.textContent = "Analyzing track…";
   label.classList.add("analyzing");
@@ -9304,6 +9321,7 @@ function loadFile(file) {
   updateBadge();
   S.snapshots = []; S.lastSnapTime = -10; S.memoryBlend = null; S.manualMemory = null;
   S.time = 0; S.growth = 0.15; S.songMap = null; S.bpm = 0; S.fpHue = 0; S.energyCurve = null; S.audioBuffer = null;
+  S.currentAudioFile = file; S.currentDemoUrl = null;
   S.analyzeState = "analyzing"; S.analyzeError = null;
   if (typeof syncExportGates === "function") syncExportGates();
   S.loopAB = { a: null, b: null, on: false };   // clear stale A–B region for the new track
@@ -16167,6 +16185,7 @@ function loadDemoStream(url, name) {
 }
 
 async function analyzeTrackFromUrl(url, name) {
+  S.currentAudioFile = null; S.currentDemoUrl = url; S.currentDemoName = name;
   const fake = {
     name,
     arrayBuffer: () => fetchDemoBytes(url)

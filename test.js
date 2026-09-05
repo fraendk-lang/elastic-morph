@@ -3744,6 +3744,47 @@ ok("downloadStem GETs /download/{job_id}/{stem}?format=wav and returns an ArrayB
     && fn.includes("return res.arrayBuffer();");
 })());
 
+ok("S gains stemMode/stemJob/stemCurves defaults", (() => {
+  return script.includes('stemMode: "simple",') && script.includes("stemJob: null,") && script.includes("stemCurves: null,");
+})());
+
+ok("S gains currentAudioFile/currentDemoUrl/currentDemoName defaults for resolving which File to send to the stem API later", (() => {
+  return script.includes("currentAudioFile: null,") && script.includes("currentDemoUrl: null,") && script.includes("currentDemoName: null,");
+})());
+
+ok("analyzeTrack resets stem state at the start of every new track analysis (a stale job/curve from the previous track must not leak into the new one)", (() => {
+  const fn = extractFn("analyzeTrack");
+  return !!fn && fn.includes('S.stemMode = "simple"; S.stemJob = null; S.stemCurves = null;');
+})());
+
+ok("loadFile records the real uploaded File on S.currentAudioFile and clears the demo-url fields", (() => {
+  const fn = extractFn("loadFile");
+  return !!fn && fn.includes("S.currentAudioFile = file; S.currentDemoUrl = null;");
+})());
+
+ok("analyzeTrackFromUrl records the demo track's url/name (no real File exists for the bundled demo track) and clears currentAudioFile", (() => {
+  const fn = extractFn("analyzeTrackFromUrl");
+  return !!fn && fn.includes("S.currentAudioFile = null; S.currentDemoUrl = url; S.currentDemoName = name;");
+})());
+
+ok("resolveAudioFileForStemJob returns S.currentAudioFile directly when it's set", (() => {
+  const fn = extractFn("resolveAudioFileForStemJob");
+  return !!fn && fn.includes("if (S.currentAudioFile) return S.currentAudioFile;");
+})());
+
+ok("resolveAudioFileForStemJob builds a real File from fetchDemoBytes(S.currentDemoUrl) when there's no currentAudioFile, and throws if fetchDemoBytes returns null", (() => {
+  const fn = extractFn("resolveAudioFileForStemJob");
+  return !!fn
+    && fn.includes("const ab = await fetchDemoBytes(S.currentDemoUrl);")
+    && fn.includes('if (!ab) throw new Error("Demo-Track konnte nicht geladen werden.");')
+    && fn.includes('new File([ab], S.currentDemoName || "demo.mp3", { type: "audio/mpeg" });');
+})());
+
+ok("resolveAudioFileForStemJob throws when no track is loaded at all", (() => {
+  const fn = extractFn("resolveAudioFileForStemJob");
+  return !!fn && fn.includes('throw new Error("Kein Track geladen.");');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
