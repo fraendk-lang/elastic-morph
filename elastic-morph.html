@@ -9117,9 +9117,9 @@ function applyProject(o, fromScene) {
 /* ============================================================
    SYNCED LYRICS / TIMED TEXT — LRC import + tap-sync
    ============================================================ */
-function playPos() { return S.micMode ? S.virtualT : (audioEl.src ? audioEl.currentTime : S.virtualT); }
+function playPos() { return (S.micMode || S.tabAudioMode) ? S.virtualT : (audioEl.src ? audioEl.currentTime : S.virtualT); }
 function seekSeconds(t) {
-  if (S.micMode || !audioEl.src) S.virtualT = Math.max(0, t);
+  if (S.micMode || S.tabAudioMode || !audioEl.src) S.virtualT = Math.max(0, t);
   else if (audioEl.duration) audioEl.currentTime = Math.max(0, Math.min(audioEl.duration - 0.05, t));
   S.lyrics.index = -1; S.lastDropHit = null;
 }
@@ -9509,12 +9509,12 @@ audioEl.addEventListener("ended", () => {
 function seekFraction(f) {
   f = Math.max(0, Math.min(1, f));
   S.lastDropHit = null;   // allow drops to re-fire after a seek
-  if (S.micMode) { S.virtualT = f * 240; return; }
+  if (S.micMode || S.tabAudioMode) { S.virtualT = f * 240; return; }
   if (!audioEl.src) { S.virtualT = f * 180; return; }
   if (audioEl.duration) audioEl.currentTime = f * audioEl.duration;
 }
 function skip(sec) {
-  if (S.micMode || !audioEl.src) { S.virtualT = Math.max(0, S.virtualT + sec); return; }
+  if (S.micMode || S.tabAudioMode || !audioEl.src) { S.virtualT = Math.max(0, S.virtualT + sec); return; }
   if (audioEl.duration) audioEl.currentTime = Math.max(0, Math.min(audioEl.duration - 0.05, audioEl.currentTime + sec));
 }
 /* jump to the very start and replay the dramaturgy cleanly */
@@ -11001,10 +11001,10 @@ showWelcome();   // first visit only
    counterpart; cues are the curated one.)
    ============================================================ */
 function curTimeSec() {
-  return S.micMode ? S.virtualT : (audioEl.src ? (audioEl.currentTime || 0) : S.virtualT);
+  return (S.micMode || S.tabAudioMode) ? S.virtualT : (audioEl.src ? (audioEl.currentTime || 0) : S.virtualT);
 }
 function setDuration() {
-  if (S.micMode) return 240;
+  if (S.micMode || S.tabAudioMode) return 240;
   if (audioEl.src && isFinite(audioEl.duration) && audioEl.duration > 0) return audioEl.duration;
   return 180;
 }

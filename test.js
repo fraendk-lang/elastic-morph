@@ -4121,6 +4121,38 @@ ok("resetDemoTrackState() (true source: src/inject-v95.js) also exits tab-audio 
     && fn.includes('if (S.tabAudioMode && typeof toggleTabAudio === "function") toggleTabAudio();');
 })());
 
+section("Tab-/System-Audio transport parity");
+
+ok("playPos treats tab-audio like mic mode when choosing between virtualT and audioEl.currentTime", (() => {
+  const fn = extractFn("playPos");
+  return !!fn && fn.includes("function playPos() { return (S.micMode || S.tabAudioMode) ? S.virtualT : (audioEl.src ? audioEl.currentTime : S.virtualT); }");
+})());
+
+ok("seekSeconds treats tab-audio like mic mode", (() => {
+  const fn = extractFn("seekSeconds");
+  return !!fn && fn.includes("if (S.micMode || S.tabAudioMode || !audioEl.src) S.virtualT = Math.max(0, t);");
+})());
+
+ok("seekFraction treats tab-audio like mic mode (240s virtual cycle)", (() => {
+  const fn = extractFn("seekFraction");
+  return !!fn && fn.includes("if (S.micMode || S.tabAudioMode) { S.virtualT = f * 240; return; }");
+})());
+
+ok("skip treats tab-audio like mic mode", (() => {
+  const fn = extractFn("skip");
+  return !!fn && fn.includes("if (S.micMode || S.tabAudioMode || !audioEl.src) { S.virtualT = Math.max(0, S.virtualT + sec); return; }");
+})());
+
+ok("curTimeSec treats tab-audio like mic mode", (() => {
+  const fn = extractFn("curTimeSec");
+  return !!fn && fn.includes("return (S.micMode || S.tabAudioMode) ? S.virtualT : (audioEl.src ? (audioEl.currentTime || 0) : S.virtualT);");
+})());
+
+ok("setDuration treats tab-audio like mic mode, returning the same 240s virtual-cycle length", (() => {
+  const fn = extractFn("setDuration");
+  return !!fn && fn.includes("if (S.micMode || S.tabAudioMode) return 240;");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
