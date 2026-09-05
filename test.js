@@ -3946,6 +3946,58 @@ ok("applyPostFX's Shake amplitude formula adds a drums-driven term on top of the
     && fn.includes('const amp = (S.transient * 0.7 + S.beat * 0.5 + sampleStemLive("drums") * 0.6) * W * 0.025;');
 })());
 
+section("Tab-/System-Audio input source");
+
+ok("S.tabAudioMode defaults to false", (() => {
+  return script.includes("tabAudioMode: false,");
+})());
+
+ok("toggleTabAudio checks for getDisplayMedia support before attempting capture, with a Chrome/Edge-specific error message", (() => {
+  const fn = extractFn("toggleTabAudio");
+  return !!fn
+    && fn.includes("if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {")
+    && fn.includes("bitte Chrome oder Edge verwenden");
+})());
+
+ok("toggleTabAudio requests both video and audio (getDisplayMedia often requires video to unlock audio sharing), then immediately stops the video track since only audio is needed", (() => {
+  const fn = extractFn("toggleTabAudio");
+  return !!fn
+    && fn.includes("await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });")
+    && fn.includes("tabAudioStream.getVideoTracks().forEach(t => t.stop());");
+})());
+
+ok("toggleTabAudio rejects a share with no audio track, stopping all its tracks and showing a specific message instead of silently visualizing nothing", (() => {
+  const fn = extractFn("toggleTabAudio");
+  return !!fn
+    && fn.includes("const audioTracks = tabAudioStream.getAudioTracks();")
+    && fn.includes("if (!audioTracks.length) {")
+    && fn.includes("tabAudioStream.getTracks().forEach(t => t.stop());")
+    && fn.includes('bitte "Audio teilen" aktivieren');
+})());
+
+ok("toggleTabAudio's teardown branch (own button OR browser's native Stop-sharing control) disconnects/stops/nulls the stream and reconnects the analyser to the destination", (() => {
+  const fn = extractFn("toggleTabAudio");
+  return !!fn
+    && fn.includes("if (S.tabAudioMode) {")
+    && fn.includes("if (tabAudioSrc) tabAudioSrc.disconnect();")
+    && fn.includes("if (tabAudioStream) tabAudioStream.getTracks().forEach(t => t.stop());")
+    && fn.includes("tabAudioStream = null; tabAudioSrc = null;")
+    && fn.includes("analyser.connect(audioCtx.destination);")
+    && fn.includes("S.tabAudioMode = false;");
+})());
+
+ok("toggleTabAudio wires the audio track's onended handler to call itself again, so the browser's native Stop-sharing control runs the exact same teardown path as the app's own button", (() => {
+  const fn = extractFn("toggleTabAudio");
+  return !!fn && fn.includes("audioTracks[0].onended = () => { if (S.tabAudioMode) toggleTabAudio(); };");
+})());
+
+ok('the new #tabAudioBtn button exists with a Chrome/Edge-mentioning tooltip and is wired to toggleTabAudio', (() => {
+  const idx = html.indexOf('id="tabAudioBtn"');
+  if (idx < 0) return false;
+  const tag = html.slice(Math.max(0, idx - 60), idx + 150);
+  return tag.includes("Chrome/Edge") && script.includes('$("tabAudioBtn").addEventListener("click", toggleTabAudio);');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

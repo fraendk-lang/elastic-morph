@@ -1031,6 +1031,7 @@
     <div class="spacer"></div>
     <span id="trackName">No track loaded</span>
     <button class="btn" id="micBtn" title="Visualize microphone / line-in — no file needed">🎤 Live Input</button>
+    <button class="btn" id="tabAudioBtn" title="Tab-/System-Audio visualisieren (Chrome/Edge empfohlen)">🖥️ Tab-/System-Audio</button>
     <button class="btn" id="uiModeBtn" title="Creator-Modus: Track → Look → Export">Pro-Modus →</button>
     <button class="btn" id="uploadBtn">Upload Audio</button>
     <input type="file" id="fileInput" accept="audio/*" hidden>
@@ -2943,6 +2944,7 @@ const S = {
   textEndingScale: 1.4,
   // v3: live input, demo, quality
   micMode: false,
+  tabAudioMode: false,   // true while capturing tab/system audio via getDisplayMedia
   virtualT: 0,        // virtual track time in mic/demo mode
   quality: 1,
   exportRes: null,    // [w,h] while recording at true resolution
@@ -10289,6 +10291,7 @@ document.addEventListener("keydown", e => {
              mic:   micSrc  -> analyser   (output muted — no feedback)
    ============================================================ */
 let micStream = null, micSrc = null;
+let tabAudioStream = null, tabAudioSrc = null;
 async function toggleMic() {
   if (S.micMode) {
     // back to file mode
@@ -10331,6 +10334,59 @@ async function toggleMic() {
   }
 }
 $("micBtn").addEventListener("click", toggleMic);
+
+async function toggleTabAudio() {
+  if (S.tabAudioMode) {
+    if (tabAudioSrc) tabAudioSrc.disconnect();
+    if (tabAudioStream) tabAudioStream.getTracks().forEach(t => t.stop());
+    tabAudioStream = null; tabAudioSrc = null;
+    analyser.connect(audioCtx.destination);
+    S.tabAudioMode = false;
+    $("tabAudioBtn").classList.remove("miclive");
+    $("tabAudioBtn").textContent = "🖥️ Tab-/System-Audio";
+    $("trackName").textContent = audioEl.src ? $("trackName").textContent : "No track loaded";
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    alert("Tab-/System-Audio wird von diesem Browser nicht unterstützt — bitte Chrome oder Edge verwenden.");
+    return;
+  }
+  try {
+    initAudio();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    tabAudioStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const audioTracks = tabAudioStream.getAudioTracks();
+    if (!audioTracks.length) {
+      tabAudioStream.getTracks().forEach(t => t.stop());
+      tabAudioStream = null;
+      alert('Keine Audiospur geteilt — beim Freigeben bitte "Audio teilen" aktivieren.');
+      return;
+    }
+    tabAudioStream.getVideoTracks().forEach(t => t.stop());   // video not needed, drop it immediately
+    pause();
+    analyser.disconnect();
+    tabAudioSrc = audioCtx.createMediaStreamSource(tabAudioStream);
+    tabAudioSrc.connect(analyser);
+    if (splitter) tabAudioSrc.connect(splitter);
+    audioTracks[0].onended = () => { if (S.tabAudioMode) toggleTabAudio(); };
+    S.tabAudioMode = true;
+    S.virtualT = 0;
+    S.snapshots = []; S.lastSnapTime = -10; S.memoryBlend = null; S.manualMemory = null;
+    S.songMap = null; S.bpm = 0;
+    renderSongMap();
+    $("bpmLabel").innerHTML = "BPM: <b>live</b>";
+    $("tabAudioBtn").classList.add("miclive");
+    $("tabAudioBtn").textContent = "■ Stop Tab-/System-Audio";
+    $("trackName").textContent = "Tab-/System-Audio";
+    $("dropHint").style.display = "none";
+    $("phaseBadge").style.display = "block";
+    $("presetBadge").style.display = "block";
+    updateBadge();
+  } catch (err) {
+    alert("Tab-/System-Audio-Freigabe fehlgeschlagen: " + err.message);
+  }
+}
+$("tabAudioBtn").addEventListener("click", toggleTabAudio);
 
 /* ============================================================
    v3: MIDI CONTROL (Web MIDI, CC learn mapping)
