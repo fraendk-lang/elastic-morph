@@ -3785,6 +3785,74 @@ ok("resolveAudioFileForStemJob throws when no track is loaded at all", (() => {
   return !!fn && fn.includes('throw new Error("Kein Track geladen.");');
 })());
 
+ok('STEM_JOB_LS follows the existing elasticMorph.* localStorage naming convention', (() => {
+  return script.includes('const STEM_JOB_LS = "elasticMorph.stemJob";');
+})());
+
+ok("startStemSeparation skips re-submitting when a job for the current track is already running or done, but allows retrying after a prior error", (() => {
+  const fn = extractFn("startStemSeparation");
+  return !!fn && fn.includes('if (S.stemJob && S.stemJob.trackHash === trackHash && S.stemJob.status !== "error") return;');
+})());
+
+ok("startStemSeparation resolves the file, submits the job, and persists {trackHash, jobId, submittedAt} to localStorage before polling", (() => {
+  const fn = extractFn("startStemSeparation");
+  return !!fn
+    && fn.includes("const file = await resolveAudioFileForStemJob();")
+    && fn.includes("const { job_id } = await submitStemJob(file);")
+    && fn.includes("localStorage.setItem(STEM_JOB_LS, JSON.stringify({ trackHash, jobId: job_id, submittedAt: Date.now() }));")
+    && fn.includes("pollStemJobLoop(job_id, trackHash);");
+})());
+
+ok("startStemSeparation routes any failure (resolving the file or submitting the job) through failStemJob", (() => {
+  const fn = extractFn("startStemSeparation");
+  return !!fn && fn.includes("} catch (err) {\n    failStemJob(trackHash, err.message);\n  }");
+})());
+
+ok("pollStemJobLoop drops its result silently once the track has changed (S.stemJob.trackHash no longer matches the job it was polling for)", (() => {
+  const fn = extractFn("pollStemJobLoop");
+  return !!fn && fn.includes("if (!S.stemJob || S.stemJob.trackHash !== trackHash) return;");
+})());
+
+ok("pollStemJobLoop polls every 4 seconds via setTimeout, moves to downloadAndAnalyzeStems on completion, and re-schedules itself otherwise", (() => {
+  const fn = extractFn("pollStemJobLoop");
+  return !!fn
+    && fn.includes("setTimeout(async () => {")
+    && fn.includes("}, 4000);")
+    && fn.includes('if (st.status === "completed") {')
+    && fn.includes("await downloadAndAnalyzeStems(jobId, trackHash, st.stems);")
+    && fn.includes("pollStemJobLoop(jobId, trackHash);");
+})());
+
+ok("downloadAndAnalyzeStems downloads and decodes every stem, runs computeEnergyCurve on each, and also drops its result silently if the track changed mid-download", (() => {
+  const fn = extractFn("downloadAndAnalyzeStems");
+  return !!fn
+    && fn.includes("const ab = await downloadStem(jobId, name);")
+    && fn.includes("const buf = await audioCtx.decodeAudioData(ab);")
+    && fn.includes("curves[name] = computeEnergyCurve(buf.getChannelData(0));")
+    && fn.includes("if (!S.stemJob || S.stemJob.trackHash !== trackHash) return;")
+    && fn.includes("S.stemCurves = curves;")
+    && fn.includes('S.stemJob.status = "ready";')
+    && fn.includes("localStorage.removeItem(STEM_JOB_LS);");
+})());
+
+ok("failStemJob records the error on a still-current job, reverts to Simple mode, clears the persisted job, and toasts the user", (() => {
+  const fn = extractFn("failStemJob");
+  return !!fn
+    && fn.includes('S.stemJob.status = "error"; S.stemJob.error = message;')
+    && fn.includes('S.stemMode = "simple";')
+    && fn.includes("localStorage.removeItem(STEM_JOB_LS);")
+    && fn.includes('showAppToast("Stem-Trennung fehlgeschlagen: " + message, 5000);');
+})());
+
+ok("analyzeTrack's success path checks for a resumable job matching the freshly-analyzed track's fpHash and resumes polling instead of leaving it orphaned", (() => {
+  const fn = extractFn("analyzeTrack");
+  return !!fn
+    && fn.includes("JSON.parse(localStorage.getItem(STEM_JOB_LS) || \"null\")")
+    && fn.includes("saved.trackHash === S.fpHash")
+    && fn.includes('S.stemJob = { id: saved.jobId, status: "processing", progress: "", error: null, trackHash: saved.trackHash };')
+    && fn.includes("pollStemJobLoop(saved.jobId, saved.trackHash);");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

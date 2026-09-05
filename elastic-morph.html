@@ -3226,6 +3226,70 @@ async function resolveAudioFileForStemJob() {
   throw new Error("Kein Track geladen.");
 }
 
+const STEM_JOB_LS = "elasticMorph.stemJob";
+
+function syncStemUI() { /* replaced in Task 4 with the real UI sync */ }
+
+async function startStemSeparation() {
+  const trackHash = S.fpHash;
+  if (S.stemJob && S.stemJob.trackHash === trackHash && S.stemJob.status !== "error") return;
+  S.stemJob = { id: null, status: "submitting", progress: "", error: null, trackHash };
+  syncStemUI();
+  try {
+    const file = await resolveAudioFileForStemJob();
+    const { job_id } = await submitStemJob(file);
+    S.stemJob.id = job_id;
+    S.stemJob.status = "processing";
+    try { localStorage.setItem(STEM_JOB_LS, JSON.stringify({ trackHash, jobId: job_id, submittedAt: Date.now() })); } catch (e) { }
+    syncStemUI();
+    pollStemJobLoop(job_id, trackHash);
+  } catch (err) {
+    failStemJob(trackHash, err.message);
+  }
+}
+
+function pollStemJobLoop(jobId, trackHash) {
+  setTimeout(async () => {
+    if (!S.stemJob || S.stemJob.trackHash !== trackHash) return;
+    try {
+      const st = await pollStemJobStatus(jobId);
+      if (st.status === "completed") {
+        S.stemJob.status = "downloading"; syncStemUI();
+        await downloadAndAnalyzeStems(jobId, trackHash, st.stems);
+      } else {
+        S.stemJob.progress = st.progress || ""; syncStemUI();
+        pollStemJobLoop(jobId, trackHash);
+      }
+    } catch (err) {
+      failStemJob(trackHash, err.message);
+    }
+  }, 4000);
+}
+
+async function downloadAndAnalyzeStems(jobId, trackHash, stemNames) {
+  const curves = {};
+  for (const name of stemNames) {
+    const ab = await downloadStem(jobId, name);
+    const buf = await audioCtx.decodeAudioData(ab);
+    curves[name] = computeEnergyCurve(buf.getChannelData(0));
+  }
+  if (!S.stemJob || S.stemJob.trackHash !== trackHash) return;
+  S.stemCurves = curves;
+  S.stemJob.status = "ready";
+  try { localStorage.removeItem(STEM_JOB_LS); } catch (e) { }
+  syncStemUI();
+}
+
+function failStemJob(trackHash, message) {
+  if (S.stemJob && S.stemJob.trackHash === trackHash) {
+    S.stemJob.status = "error"; S.stemJob.error = message;
+  }
+  S.stemMode = "simple";
+  try { localStorage.removeItem(STEM_JOB_LS); } catch (e) { }
+  syncStemUI();
+  if (typeof showAppToast === "function") showAppToast("Stem-Trennung fehlgeschlagen: " + message, 5000);
+}
+
 async function analyzeTrack(file) {
   const label = $("trackName");
   S.analyzeState = "analyzing";
@@ -3267,6 +3331,15 @@ async function analyzeTrack(file) {
     renderSmartLooks();
     drawDnaFingerprintPreview();
     applyFirstSmartLook();
+    try {
+      const saved = JSON.parse(localStorage.getItem(STEM_JOB_LS) || "null");
+      if (saved && saved.trackHash === S.fpHash) {
+        S.stemJob = { id: saved.jobId, status: "processing", progress: "", error: null, trackHash: saved.trackHash };
+        pollStemJobLoop(saved.jobId, saved.trackHash);
+      } else if (saved) {
+        localStorage.removeItem(STEM_JOB_LS);
+      }
+    } catch (e) { }
     S.analyzeState = "done";
     S.analyzeError = null;
     updateCreatorDock();
