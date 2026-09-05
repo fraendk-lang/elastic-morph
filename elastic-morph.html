@@ -3252,6 +3252,12 @@ $("stemModeAdvanced").addEventListener("change", e => {
 });
 
 async function startStemSeparation() {
+  if (S.analyzeState !== "done") {
+    if (typeof showAppToast === "function") showAppToast("Track wird noch analysiert…", 3000);
+    S.stemMode = "simple";
+    syncStemUI();
+    return;
+  }
   const trackHash = S.fpHash;
   if (S.stemJob && S.stemJob.trackHash === trackHash && S.stemJob.status !== "error") return;
   S.stemJob = { id: null, status: "submitting", progress: "", error: null, trackHash };
@@ -3269,7 +3275,7 @@ async function startStemSeparation() {
   }
 }
 
-function pollStemJobLoop(jobId, trackHash) {
+function pollStemJobLoop(jobId, trackHash, errCount = 0) {
   setTimeout(async () => {
     if (!S.stemJob || S.stemJob.trackHash !== trackHash) return;
     try {
@@ -3279,10 +3285,14 @@ function pollStemJobLoop(jobId, trackHash) {
         await downloadAndAnalyzeStems(jobId, trackHash, st.stems);
       } else {
         S.stemJob.progress = st.progress || ""; syncStemUI();
-        pollStemJobLoop(jobId, trackHash);
+        pollStemJobLoop(jobId, trackHash, 0);
       }
     } catch (err) {
-      failStemJob(trackHash, err.message);
+      if (errCount + 1 >= 3) {
+        failStemJob(trackHash, err.message);
+      } else {
+        pollStemJobLoop(jobId, trackHash, errCount + 1);
+      }
     }
   }, 4000);
 }
@@ -3302,9 +3312,8 @@ async function downloadAndAnalyzeStems(jobId, trackHash, stemNames) {
 }
 
 function failStemJob(trackHash, message) {
-  if (S.stemJob && S.stemJob.trackHash === trackHash) {
-    S.stemJob.status = "error"; S.stemJob.error = message;
-  }
+  if (!S.stemJob || S.stemJob.trackHash !== trackHash) return;
+  S.stemJob.status = "error"; S.stemJob.error = message;
   S.stemMode = "simple";
   try { localStorage.removeItem(STEM_JOB_LS); } catch (e) { }
   syncStemUI();

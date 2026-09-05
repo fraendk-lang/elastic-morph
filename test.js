@@ -3789,6 +3789,14 @@ ok('STEM_JOB_LS follows the existing elasticMorph.* localStorage naming conventi
   return script.includes('const STEM_JOB_LS = "elasticMorph.stemJob";');
 })());
 
+ok("startStemSeparation refuses to start while the current track hasn't finished analyzing, reverting to Simple mode instead of keying a job under a stale S.fpHash (regression guard: analyzeTrack's catch path never resets S.fpHash, so a mid-analysis or failed-analysis click used to submit a job for the WRONG track's hash)", (() => {
+  const fn = extractFn("startStemSeparation");
+  return !!fn
+    && fn.includes('if (S.analyzeState !== "done") {')
+    && fn.includes('S.stemMode = "simple";')
+    && fn.includes("return;");
+})());
+
 ok("startStemSeparation skips re-submitting when a job for the current track is already running or done, but allows retrying after a prior error", (() => {
   const fn = extractFn("startStemSeparation");
   return !!fn && fn.includes('if (S.stemJob && S.stemJob.trackHash === trackHash && S.stemJob.status !== "error") return;');
@@ -3820,7 +3828,16 @@ ok("pollStemJobLoop polls every 4 seconds via setTimeout, moves to downloadAndAn
     && fn.includes("}, 4000);")
     && fn.includes('if (st.status === "completed") {')
     && fn.includes("await downloadAndAnalyzeStems(jobId, trackHash, st.stems);")
-    && fn.includes("pollStemJobLoop(jobId, trackHash);");
+    && fn.includes("pollStemJobLoop(jobId, trackHash, 0);");
+})());
+
+ok("pollStemJobLoop tolerates transient poll failures, only calling failStemJob after 3 consecutive errors (regression guard: a single Railway 502/cold-start/wifi blip used to kill an otherwise-healthy, still-running job)", (() => {
+  const fn = extractFn("pollStemJobLoop");
+  return !!fn
+    && fn.includes("function pollStemJobLoop(jobId, trackHash, errCount = 0)")
+    && fn.includes("if (errCount + 1 >= 3) {")
+    && fn.includes("failStemJob(trackHash, err.message);")
+    && fn.includes("pollStemJobLoop(jobId, trackHash, errCount + 1);");
 })());
 
 ok("downloadAndAnalyzeStems downloads and decodes every stem, runs computeEnergyCurve on each, and also drops its result silently if the track changed mid-download", (() => {
@@ -3842,6 +3859,11 @@ ok("failStemJob records the error on a still-current job, reverts to Simple mode
     && fn.includes('S.stemMode = "simple";')
     && fn.includes("localStorage.removeItem(STEM_JOB_LS);")
     && fn.includes('showAppToast("Stem-Trennung fehlgeschlagen: " + message, 5000);');
+})());
+
+ok("failStemJob is a full no-op for a job that's no longer current (regression guard: it used to unconditionally reset S.stemMode/localStorage/UI even for a stale/superseded track's failure, corrupting whatever track the user had since switched to)", (() => {
+  const fn = extractFn("failStemJob");
+  return !!fn && fn.includes("if (!S.stemJob || S.stemJob.trackHash !== trackHash) return;");
 })());
 
 ok("analyzeTrack's success path checks for a resumable job matching the freshly-analyzed track's fpHash and resumes polling instead of leaving it orphaned", (() => {
