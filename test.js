@@ -3688,6 +3688,55 @@ ok("DEMO_SHOWCASE.presetId/ctrl/mix are unchanged -- the wash was fully explaine
     && body.includes("mix: { bass: 1.18, mid: 1.1, high: 1.05, autoLevel: true, beatThresh: 0.028 }");
 })());
 
+section("Stem Separation — shared energy-curve helper + API client");
+
+ok("computeEnergyCurve is a standalone function with the documented signature", (() => {
+  return script.includes("function computeEnergyCurve(channelData, N = 240)");
+})());
+
+ok("analyzeTrack calls computeEnergyCurve instead of containing its own inline RMS/smoothing loop (regression guard for the extraction)", (() => {
+  const fn = extractFn("analyzeTrack");
+  return !!fn
+    && fn.includes("S.energyCurve = computeEnergyCurve(ch);")
+    && !fn.includes("let curve = new Float32Array(N);");
+})());
+
+ok("computeEnergyCurve reproduces the exact original windowing/smoothing constants (N=240 default, stride 16, smoothing radius 4, normalized by max)", (() => {
+  const idx = script.indexOf("function computeEnergyCurve(channelData, N = 240)");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 700);
+  return body.includes("for (let j = 0; j < win; j += 16)")
+    && body.includes("for (let k = -4; k <= 4; k++)")
+    && body.includes("const mx = Math.max(...sm) || 1;");
+})());
+
+ok("STEM_API_BASE points at the verified production Elastic Split API", (() => {
+  return script.includes('const STEM_API_BASE = "https://elastic-split-api-production.up.railway.app";');
+})());
+
+ok("submitStemJob posts multipart form data with file + mode=4stems to /split", (() => {
+  const fn = extractFn("submitStemJob");
+  return !!fn
+    && fn.includes('fd.append("file", file);')
+    && fn.includes('fd.append("mode", "4stems");')
+    && fn.includes("`${STEM_API_BASE}/split`")
+    && fn.includes('method: "POST"');
+})());
+
+ok("pollStemJobStatus GETs /status/{job_id} and throws on a non-OK response", (() => {
+  const fn = extractFn("pollStemJobStatus");
+  return !!fn
+    && fn.includes("`${STEM_API_BASE}/status/${jobId}`")
+    && fn.includes("if (!res.ok) throw new Error(");
+})());
+
+ok("downloadStem GETs /download/{job_id}/{stem}?format=wav and returns an ArrayBuffer", (() => {
+  const fn = extractFn("downloadStem");
+  return !!fn
+    && fn.includes("`${STEM_API_BASE}/download/${jobId}/${stemName}?format=wav`")
+    && fn.includes("return res.arrayBuffer();");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

@@ -3167,6 +3167,49 @@ function updateAudioFeatures(dt) {
    OFFLINE TRACK ANALYSIS
    energy curve -> song structure, fingerprint, BPM
    ============================================================ */
+function computeEnergyCurve(channelData, N = 240) {
+  const win = Math.max(1, Math.floor(channelData.length / N));
+  let curve = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    let s = 0, c = 0;
+    const o = i * win;
+    for (let j = 0; j < win; j += 16) { const v = channelData[o + j] || 0; s += v * v; c++; }
+    curve[i] = Math.sqrt(s / c);
+  }
+  const sm = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    let s = 0, c = 0;
+    for (let k = -4; k <= 4; k++) { const idx = i + k; if (idx >= 0 && idx < N) { s += curve[idx]; c++; } }
+    sm[i] = s / c;
+  }
+  const mx = Math.max(...sm) || 1;
+  for (let i = 0; i < N; i++) sm[i] /= mx;
+  return sm;
+}
+
+const STEM_API_BASE = "https://elastic-split-api-production.up.railway.app";
+
+async function submitStemJob(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("mode", "4stems");
+  const res = await fetch(`${STEM_API_BASE}/split`, { method: "POST", body: fd });
+  if (!res.ok) throw new Error("Stem-Trennung: Server antwortete mit " + res.status);
+  return res.json();
+}
+
+async function pollStemJobStatus(jobId) {
+  const res = await fetch(`${STEM_API_BASE}/status/${jobId}`);
+  if (!res.ok) throw new Error("Job nicht gefunden oder abgelaufen.");
+  return res.json();
+}
+
+async function downloadStem(jobId, stemName) {
+  const res = await fetch(`${STEM_API_BASE}/download/${jobId}/${stemName}?format=wav`);
+  if (!res.ok) throw new Error("Download fehlgeschlagen: " + stemName);
+  return res.arrayBuffer();
+}
+
 async function analyzeTrack(file) {
   const label = $("trackName");
   S.analyzeState = "analyzing";
@@ -3181,25 +3224,7 @@ async function analyzeTrack(file) {
     const sr = buf.sampleRate;
 
     /* --- 1) coarse energy curve (240 windows over the track) --- */
-    const N = 240;
-    const win = Math.max(1, Math.floor(ch.length / N));
-    let curve = new Float32Array(N);
-    for (let i = 0; i < N; i++) {
-      let s = 0, c = 0;
-      const o = i * win;
-      for (let j = 0; j < win; j += 16) { const v = ch[o + j] || 0; s += v * v; c++; }
-      curve[i] = Math.sqrt(s / c);
-    }
-    // smooth (moving average, radius 4)
-    const sm = new Float32Array(N);
-    for (let i = 0; i < N; i++) {
-      let s = 0, c = 0;
-      for (let k = -4; k <= 4; k++) { const idx = i + k; if (idx >= 0 && idx < N) { s += curve[idx]; c++; } }
-      sm[i] = s / c;
-    }
-    const mx = Math.max(...sm) || 1;
-    for (let i = 0; i < N; i++) sm[i] /= mx;
-    S.energyCurve = sm;   // v18: keep the envelope for the timeline waveform
+    const sm = S.energyCurve = computeEnergyCurve(ch);   // v18: keep the envelope for the timeline waveform
     S.audioBuffer = buf;  // v26: keep the decoded buffer for offline (deterministic) export
 
     /* --- 2) fingerprint: deterministic identity per track (FNV-1a) --- */
