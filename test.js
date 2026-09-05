@@ -3697,8 +3697,15 @@ ok("computeEnergyCurve is a standalone function with the documented signature", 
 ok("analyzeTrack calls computeEnergyCurve instead of containing its own inline RMS/smoothing loop (regression guard for the extraction)", (() => {
   const fn = extractFn("analyzeTrack");
   return !!fn
-    && fn.includes("S.energyCurve = computeEnergyCurve(ch);")
+    && fn.includes("const sm = computeEnergyCurve(ch);")
+    && fn.includes("S.energyCurve = sm;")
     && !fn.includes("let curve = new Float32Array(N);");
+})());
+
+ok("analyzeTrack's fingerprint loop sizes itself off sm.length, not a bare N (regression guard: N was a local removed by the computeEnergyCurve extraction, and a lingering reference to it threw ReferenceError on every analyzeTrack call)", (() => {
+  const fn = extractFn("analyzeTrack");
+  return !!fn
+    && fn.includes("for (let i = 0; i < sm.length; i++) { h ^= Math.round(sm[i] * 255); h = Math.imul(h, 16777619); }");
 })());
 
 ok("computeEnergyCurve reproduces the exact original windowing/smoothing constants (N=240 default, stride 16, smoothing radius 4, normalized by max)", (() => {

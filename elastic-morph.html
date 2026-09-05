@@ -3224,12 +3224,13 @@ async function analyzeTrack(file) {
     const sr = buf.sampleRate;
 
     /* --- 1) coarse energy curve (240 windows over the track) --- */
-    const sm = S.energyCurve = computeEnergyCurve(ch);   // v18: keep the envelope for the timeline waveform
+    const sm = computeEnergyCurve(ch);
+    S.energyCurve = sm;   // v18: keep the envelope for the timeline waveform
     S.audioBuffer = buf;  // v26: keep the decoded buffer for offline (deterministic) export
 
     /* --- 2) fingerprint: deterministic identity per track (FNV-1a) --- */
     let h = 2166136261;
-    for (let i = 0; i < N; i++) { h ^= Math.round(sm[i] * 255); h = Math.imul(h, 16777619); }
+    for (let i = 0; i < sm.length; i++) { h ^= Math.round(sm[i] * 255); h = Math.imul(h, 16777619); }
     h = Math.abs(h ^ Math.round(buf.duration * 1000));
     S.seed = (h % 100000) / 100;          // same track => same organism
     S.fpHue = (h >>> 8) % 40 - 20;        // subtle per-track hue identity
