@@ -4015,6 +4015,112 @@ ok("startStemSeparation's live-input guard runs after the analyzeState guard and
   return analyzeGuardIdx >= 0 && liveGuardIdx > analyzeGuardIdx && trackHashIdx > liveGuardIdx;
 })());
 
+section("Final-review fix — S.tabAudioMode wired into live-input predicate everywhere S.micMode was (Critical regression)");
+
+ok("updateAudioFeatures computes `live` as S.playing || S.micMode || S.tabAudioMode (not just the old two-term version) — core regression guard: without this, tab-audio capture is never analyzed at all", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  return !!fn && fn.includes("const live = S.playing || S.micMode || S.tabAudioMode;");
+})());
+
+ok("updateAudioFeatures' live-mode virtual-time driver runs on S.micMode || S.tabAudioMode, not S.micMode alone", (() => {
+  const fn = extractFn("updateAudioFeatures");
+  return !!fn && fn.includes("if (S.micMode || S.tabAudioMode) {\n      // live input has no duration");
+})());
+
+ok("maybeSnapshot also takes snapshots while S.tabAudioMode is active", (() => {
+  const fn = extractFn("maybeSnapshot");
+  return !!fn && fn.includes("if (!S.playing && !S.micMode && !S.tabAudioMode) return;");
+})());
+
+ok("drawScene's dnaLive const also considers S.tabAudioMode live", (() => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes("const dnaLive = !!(S.playing || S.micMode || S.tabAudioMode || audioEl.src);");
+})());
+
+ok("drawScene's waveform-ring gate also fires during S.tabAudioMode", (() => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes('if (P.waveRing && timeData && (S.playing || S.micMode || S.tabAudioMode) && !S.exporting) {');
+})());
+
+ok("drawScene's memory-ring gate also fires during S.tabAudioMode", (() => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes("if (S.memoryBlend && (S.playing || S.micMode || S.tabAudioMode)) {");
+})());
+
+ok("specAt reads live analyser data during S.tabAudioMode too", (() => {
+  const fn = extractFn("specAt");
+  return !!fn && fn.includes("if (analyser && (S.playing || S.micMode || S.tabAudioMode) && !S.exporting) {");
+})());
+
+ok("drawLayerB's two timeData-driven gates both also fire during S.tabAudioMode (appears twice in the same function)", (() => {
+  const fn = extractFn("drawLayerB");
+  if (!fn) return false;
+  const needle = "(S.playing || S.micMode || S.tabAudioMode) && !S.exporting";
+  let count = 0, idx = -1;
+  while ((idx = fn.indexOf(needle, idx + 1)) >= 0) count++;
+  return count === 2;
+})());
+
+ok("dnaIsLive() (true source: src/inject-v80.js) returns based on S.playing || S.micMode || S.tabAudioMode || audioEl.src", (() => {
+  const src = injectSrc("inject-v80.js");
+  const fn = extractFn("dnaIsLive", src);
+  return !!fn && fn.includes("return !!(S.playing || S.micMode || S.tabAudioMode || audioEl.src);");
+})());
+
+section("Final-review fix — mic/tab-audio mutual exclusion (Important safety bug: shared analyser feedback loop)");
+
+ok("toggleMic() calls toggleTabAudio() to exit tab-audio mode before starting its own capture", (() => {
+  const fn = extractFn("toggleMic");
+  if (!fn) return false;
+  const tabExitIdx = fn.indexOf("if (S.tabAudioMode) toggleTabAudio();");
+  const tryIdx = fn.indexOf("try {\n    initAudio();");
+  return tabExitIdx >= 0 && tryIdx > tabExitIdx;
+})());
+
+ok("toggleTabAudio() calls toggleMic() to exit mic mode before starting its own capture", (() => {
+  const fn = extractFn("toggleTabAudio");
+  if (!fn) return false;
+  const micExitIdx = fn.indexOf("if (S.micMode) toggleMic();");
+  const tryIdx = fn.indexOf("try {\n    initAudio();");
+  return micExitIdx >= 0 && tryIdx > micExitIdx;
+})());
+
+section("Final-review fix — loading/playing a file also exits tab-audio mode (alongside existing mic-mode exit)");
+
+ok("loadFile() exits tab-audio mode alongside its existing mic-mode exit", (() => {
+  const fn = extractFn("loadFile");
+  return !!fn
+    && fn.includes("if (S.micMode) toggleMic();   // leave live input mode")
+    && fn.includes("if (S.tabAudioMode) toggleTabAudio();   // leave live input mode");
+})());
+
+ok("play() exits tab-audio mode alongside its existing mic-mode exit", (() => {
+  const fn = extractFn("play");
+  return !!fn
+    && fn.includes("if (S.micMode) toggleMic();   // leave live input mode")
+    && fn.includes("if (S.tabAudioMode) toggleTabAudio();   // leave live input mode");
+})());
+
+ok("startFilePlayback() (true source: src/inject-v88.js) also refuses to run during S.tabAudioMode", (() => {
+  const src = injectSrc("inject-v88.js");
+  const fn = extractFn("startFilePlayback", src);
+  return !!fn && fn.includes("if (!audioEl.src || S.micMode || S.tabAudioMode) return;");
+})());
+
+ok("patchAudioLoadFix()'s wrapped play (true source: src/inject-v88.js) also defers to the raw _play() during S.tabAudioMode", (() => {
+  const src = injectSrc("inject-v88.js");
+  const fn = extractFn("patchAudioLoadFix", src);
+  return !!fn && fn.includes("if (S.micMode || S.tabAudioMode) return _play();");
+})());
+
+ok("resetDemoTrackState() (true source: src/inject-v95.js) also exits tab-audio mode", (() => {
+  const src = injectSrc("inject-v95.js");
+  const fn = extractFn("resetDemoTrackState", src);
+  return !!fn
+    && fn.includes('if (S.micMode && typeof toggleMic === "function") toggleMic();')
+    && fn.includes('if (S.tabAudioMode && typeof toggleTabAudio === "function") toggleTabAudio();');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

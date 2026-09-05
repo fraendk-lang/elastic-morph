@@ -11,7 +11,7 @@ function resumeAudioCtx() {
 }
 
 function startFilePlayback() {
-  if (!audioEl.src || S.micMode) return;
+  if (!audioEl.src || S.micMode || S.tabAudioMode) return;
   resumeAudioCtx().then(() => {
     const p = audioEl.play();
     if (p && typeof p.then === "function") {
@@ -34,7 +34,7 @@ function patchAudioLoadFix() {
   const _play = play;
   play = function () {
     if (!audioEl.src) return;
-    if (S.micMode) return _play();
+    if (S.micMode || S.tabAudioMode) return _play();
     startFilePlayback();
   };
 

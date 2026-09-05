@@ -18,6 +18,7 @@ async function demoUrlReachable(url) {
 
 function resetDemoTrackState() {
   if (S.micMode && typeof toggleMic === "function") toggleMic();
+  if (S.tabAudioMode && typeof toggleTabAudio === "function") toggleTabAudio();
   initAudio();
   if (audioEl.src && audioEl.src.startsWith("blob:")) URL.revokeObjectURL(audioEl.src);
   S.snapshots = [];

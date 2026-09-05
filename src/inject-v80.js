@@ -3,7 +3,7 @@
    ============================================================ */
 
 function dnaIsLive() {
-  return !!(S.playing || S.micMode || audioEl.src);
+  return !!(S.playing || S.micMode || S.tabAudioMode || audioEl.src);
 }
 
 function patchDnaVisibility() {

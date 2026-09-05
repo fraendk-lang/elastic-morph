@@ -1031,7 +1031,7 @@
     <div class="spacer"></div>
     <span id="trackName">No track loaded</span>
     <button class="btn" id="micBtn" title="Visualize microphone / line-in — no file needed">🎤 Live Input</button>
-    <button class="btn" id="tabAudioBtn" title="Tab-/System-Audio visualisieren (Chrome/Edge empfohlen)">🖥️ Tab-/System-Audio</button>
+    <button class="btn" id="tabAudioBtn" title="Tab-/System-Audio visualisieren (nur Chrome/Edge)">🖥️ Tab-/System-Audio</button>
     <button class="btn" id="uiModeBtn" title="Creator-Modus: Track → Look → Export">Pro-Modus →</button>
     <button class="btn" id="uploadBtn">Upload Audio</button>
     <input type="file" id="fileInput" accept="audio/*" hidden>
@@ -3093,7 +3093,7 @@ function drawBandMeters() {
 
 let prevLoud = 0, prevKick = 0, prevSnare = 0;
 function updateAudioFeatures(dt) {
-  const live = S.playing || S.micMode;
+  const live = S.playing || S.micMode || S.tabAudioMode;
 
   if (analyser && live) {
     /* --- real analysis: file playback or live input --- */
@@ -3139,7 +3139,7 @@ function updateAudioFeatures(dt) {
       S.stereo += (bal - S.stereo) * 0.08;
     }
 
-    if (S.micMode) {
+    if (S.micMode || S.tabAudioMode) {
       // live input has no duration — a slow 4-minute virtual cycle drives evolution
       S.virtualT += dt;
       S.progress = (S.virtualT / 240) % 1;
@@ -3498,7 +3498,7 @@ function detectBPM(ch, sr) {
    MORPH MEMORY
    ============================================================ */
 function maybeSnapshot() {
-  if (!S.playing && !S.micMode) return;
+  if (!S.playing && !S.micMode && !S.tabAudioMode) return;
   if (S.time - S.lastSnapTime < 5) return;
   if (S.progress > 0.65) return;
   S.lastSnapTime = S.time;
@@ -5888,7 +5888,7 @@ function drawLogo(W, H) {
 function drawScene(dt) {
   const W = canvas.width, H = canvas.height;
   const P = currentDNA();
-  const dnaLive = !!(S.playing || S.micMode || audioEl.src);
+  const dnaLive = !!(S.playing || S.micMode || S.tabAudioMode || audioEl.src);
   const heroOpen = typeof heroScreenActive === "function" ? heroScreenActive() : false;
   const dnaBoost = dnaLive ? 1 : (heroOpen ? 0.56 : 0.62);
 
@@ -6179,7 +6179,7 @@ function drawScene(dt) {
   }
 
   /* --- waveform ring: the raw signal as a living oscilloscope circle --- */
-  if (P.waveRing && timeData && (S.playing || S.micMode) && !S.exporting) {
+  if (P.waveRing && timeData && (S.playing || S.micMode || S.tabAudioMode) && !S.exporting) {
     const R = base * growthF * 1.35 * energySize;
     ctx.beginPath();
     for (let i = 0; i <= 180; i++) {
@@ -6250,7 +6250,7 @@ function drawScene(dt) {
   drawCueTransitionOverlay(W, H);
 
   /* --- memory ring indicator --- */
-  if (S.memoryBlend && (S.playing || S.micMode)) {
+  if (S.memoryBlend && (S.playing || S.micMode || S.tabAudioMode)) {
     ctx.strokeStyle = `hsla(${hue}, 60%, 70%, 0.05)`;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -6696,7 +6696,7 @@ function initConst() {
 let lbRings = [], lbRingT = 0, lbRingLast = 0;
 // per-bar spectrum value; uses real FFT when playing, else an animated synth
 function specAt(i, n) {
-  if (analyser && (S.playing || S.micMode) && !S.exporting) {
+  if (analyser && (S.playing || S.micMode || S.tabAudioMode) && !S.exporting) {
     const idx = Math.floor(Math.pow(i / n, 1.5) * (freqData.length * 0.55));
     return freqData[idx] / 255;
   }
@@ -6827,7 +6827,7 @@ function drawLayerB(W, H, hue, dt) {
     case "waveform": {
       ctx.strokeStyle = colr(0.5, 0.55 + S.highs * 0.4);
       ctx.beginPath();
-      if (timeData && (S.playing || S.micMode) && !S.exporting) {
+      if (timeData && (S.playing || S.micMode || S.tabAudioMode) && !S.exporting) {
         const N = timeData.length;
         for (let i = 0; i < N; i += 2) {
           const x = i / N * W, s = (timeData[i] - 128) / 128;
@@ -6953,7 +6953,7 @@ function drawLayerB(W, H, hue, dt) {
       for (let i = 0; i <= n; i++) {
         const a = i / n * Math.PI * 2 - Math.PI / 2;
         let s;
-        if (timeData && (S.playing || S.micMode) && !S.exporting) { const idx = Math.floor(i / n * timeData.length) % timeData.length; s = (timeData[idx] - 128) / 128; }
+        if (timeData && (S.playing || S.micMode || S.tabAudioMode) && !S.exporting) { const idx = Math.floor(i / n * timeData.length) % timeData.length; s = (timeData[idx] - 128) / 128; }
         else s = Math.sin(i * 0.3 + S.time * 3) * (0.2 + S.loudness * 0.6);
         const rr = R + s * mn * 0.13 * (0.6 + ctrl.pulse) + S.bass * mn * 0.03;
         const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
@@ -9431,6 +9431,7 @@ function loadFile(file) {
     return;
   }
   if (S.micMode) toggleMic();   // leave live input mode
+  if (S.tabAudioMode) toggleTabAudio();   // leave live input mode
   initAudio();
   if (audioEl.src && audioEl.src.startsWith("blob:")) URL.revokeObjectURL(audioEl.src);  // free previous track
   audioEl.src = URL.createObjectURL(file);
@@ -9477,6 +9478,7 @@ area.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
 function play() {
   if (!audioEl.src) return;
   if (S.micMode) toggleMic();   // leave live input mode
+  if (S.tabAudioMode) toggleTabAudio();   // leave live input mode
   initAudio();
   if (audioCtx.state === "suspended") audioCtx.resume();
   audioEl.play();
@@ -10311,6 +10313,7 @@ async function toggleMic() {
     $("trackName").textContent = audioEl.src ? $("trackName").textContent : "No track loaded";
     return;
   }
+  if (S.tabAudioMode) toggleTabAudio();
   try {
     initAudio();
     if (audioCtx.state === "suspended") audioCtx.resume();
@@ -10357,6 +10360,7 @@ async function toggleTabAudio() {
     alert("Tab-/System-Audio wird von diesem Browser nicht unterstützt — bitte Chrome oder Edge verwenden.");
     return;
   }
+  if (S.micMode) toggleMic();
   try {
     initAudio();
     if (audioCtx.state === "suspended") audioCtx.resume();
@@ -14769,7 +14773,7 @@ function initWhiteoutFix() {
    ============================================================ */
 
 function dnaIsLive() {
-  return !!(S.playing || S.micMode || audioEl.src);
+  return !!(S.playing || S.micMode || S.tabAudioMode || audioEl.src);
 }
 
 function patchDnaVisibility() {
@@ -15672,7 +15676,7 @@ function resumeAudioCtx() {
 }
 
 function startFilePlayback() {
-  if (!audioEl.src || S.micMode) return;
+  if (!audioEl.src || S.micMode || S.tabAudioMode) return;
   resumeAudioCtx().then(() => {
     const p = audioEl.play();
     if (p && typeof p.then === "function") {
@@ -15695,7 +15699,7 @@ function patchAudioLoadFix() {
   const _play = play;
   play = function () {
     if (!audioEl.src) return;
-    if (S.micMode) return _play();
+    if (S.micMode || S.tabAudioMode) return _play();
     startFilePlayback();
   };
 
@@ -16262,6 +16266,7 @@ async function demoUrlReachable(url) {
 
 function resetDemoTrackState() {
   if (S.micMode && typeof toggleMic === "function") toggleMic();
+  if (S.tabAudioMode && typeof toggleTabAudio === "function") toggleTabAudio();
   initAudio();
   if (audioEl.src && audioEl.src.startsWith("blob:")) URL.revokeObjectURL(audioEl.src);
   S.snapshots = [];
