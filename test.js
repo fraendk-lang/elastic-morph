@@ -3917,6 +3917,35 @@ ok("the real syncStemUI (not the Task 3 stub) is the one defined in the script �
   return first >= 0 && first === last;
 })());
 
+section("Stem Separation Part B — visual routing (vocals→color, drums→camera)");
+
+ok("sampleStemLive is a standalone function with the documented guard conditions", (() => {
+  const fn = extractFn("sampleStemLive");
+  return !!fn
+    && fn.includes('if (S.stemMode !== "advanced" || !S.stemJob || S.stemJob.status !== "ready" || !S.stemCurves) return 0;')
+    && fn.includes("if (!curve || !curve.length) return 0;");
+})());
+
+ok("sampleStemLive indexes the requested stem's curve at the current live playback position (S.progress), clamped to valid bounds", (() => {
+  const fn = extractFn("sampleStemLive");
+  return !!fn
+    && fn.includes("const curve = S.stemCurves[stemName];")
+    && fn.includes("const idx = Math.min(curve.length - 1, Math.max(0, Math.floor(S.progress * (curve.length - 1))));")
+    && fn.includes("return curve[idx];");
+})());
+
+ok("drawScene's hue-drift formula adds a vocals-driven term on top of the pre-existing colorDrift formula (regression guard: the original formula must survive unchanged, not be replaced)", (() => {
+  const fn = extractFn("drawScene");
+  return !!fn
+    && fn.includes("S.hueShift = S.progress * driftRange * ctrl.colorDrift * 2 + sampleStemLive(\"vocals\") * 30;");
+})());
+
+ok("applyPostFX's Shake amplitude formula adds a drums-driven term on top of the pre-existing transient/beat formula (regression guard: the original formula must survive unchanged, not be replaced)", (() => {
+  const fn = extractFn("applyPostFX");
+  return !!fn
+    && fn.includes('const amp = (S.transient * 0.7 + S.beat * 0.5 + sampleStemLive("drums") * 0.6) * W * 0.025;');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

@@ -3320,6 +3320,14 @@ function failStemJob(trackHash, message) {
   if (typeof showAppToast === "function") showAppToast("Stem-Trennung fehlgeschlagen: " + message, 5000);
 }
 
+function sampleStemLive(stemName) {
+  if (S.stemMode !== "advanced" || !S.stemJob || S.stemJob.status !== "ready" || !S.stemCurves) return 0;
+  const curve = S.stemCurves[stemName];
+  if (!curve || !curve.length) return 0;
+  const idx = Math.min(curve.length - 1, Math.max(0, Math.floor(S.progress * (curve.length - 1))));
+  return curve[idx];
+}
+
 async function analyzeTrack(file) {
   const label = $("trackName");
   S.analyzeState = "analyzing";
@@ -5922,7 +5930,7 @@ function drawScene(dt) {
   }
 
   const driftRange = (P.hueEnd - P.hue) * (1 - ctrl.identity * 0.6);
-  S.hueShift = S.progress * driftRange * ctrl.colorDrift * 2;
+  S.hueShift = S.progress * driftRange * ctrl.colorDrift * 2 + sampleStemLive("vocals") * 30;
 
   let seed = S.seed, hue = P.hue + S.fpHue + S.hueShift, growthF = S.growth;
   if (S.memoryBlend) {
@@ -7277,7 +7285,7 @@ function applyPostFX(W, H) {
 
   /* --- Shake: whole-frame camera shake on hits (overscanned to hide edges) --- */
   if (fx.shake) {
-    const amp = (S.transient * 0.7 + S.beat * 0.5) * W * 0.025;
+    const amp = (S.transient * 0.7 + S.beat * 0.5 + sampleStemLive("drums") * 0.6) * W * 0.025;
     if (amp > 0.5) {
       snapshot(W, H);
       const dx = (Math.random() - 0.5) * amp, dy = (Math.random() - 0.5) * amp;
