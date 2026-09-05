@@ -3661,6 +3661,33 @@ ok("renderBgVidTLPanel syncs the Filter/Fit selects to the cue's current overrid
     && fn.includes('$("bgVidClipFit").addEventListener("change", e => cue.fit = e.target.value || null);');
 })());
 
+section("Demo Showcase — wash-out fix (overlay blend, no strobe/shake FX)");
+
+ok("DEMO_SHOWCASE.shader uses overlay blend at reduced intensity/opacity (was lighter/0.84/0.58 -- purely-additive blend against clubStrobe's low bgFade washed the demo to flat gray within seconds, confirmed live against production)", (() => {
+  const idx = script.indexOf("const DEMO_SHOWCASE = {");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 700);
+  return body.includes('shader: { on: true, style: "laser", intensity: 0.7, opacity: 0.5, blend: "overlay", speed: 1, scale: 1, colorBias: 0 },');
+})());
+
+ok("DEMO_SHOWCASE.fx no longer auto-enables strobe/shake (both were independently additive-composited and independently contributed to the same wash-out, verified live)", (() => {
+  const idx = script.indexOf("const DEMO_SHOWCASE = {");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 700);
+  return body.includes("fx: [],");
+})());
+
+ok("DEMO_SHOWCASE.presetId/ctrl/mix are unchanged -- the wash was fully explained by shader.blend + fx, not these", (() => {
+  const idx = script.indexOf("const DEMO_SHOWCASE = {");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 700);
+  return body.includes('presetId: "clubStrobe",')
+    && body.includes("pulse: 0.82, morph: 0.62, density: 0.72, memory: 0.28,")
+    && body.includes("colorDrift: 0.48, camDrift: 0.42, zoom: 0.52, mutation: 0.38,")
+    && body.includes("gravity: 0.32, organic: 0.5")
+    && body.includes("mix: { bass: 1.18, mid: 1.1, high: 1.05, autoLevel: true, beatThresh: 0.028 }");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
