@@ -3998,6 +3998,23 @@ ok('the new #tabAudioBtn button exists with a Chrome/Edge-mentioning tooltip and
   return tag.includes("Chrome/Edge") && script.includes('$("tabAudioBtn").addEventListener("click", toggleTabAudio);');
 })());
 
+ok("startStemSeparation refuses to start during either live-input mode (mic or tab-audio), reverting to Simple mode instead of submitting a stale previously-loaded file (regression guard: this was a known, previously-deferred gap for mic mode, and applies identically to the new tab-audio mode)", (() => {
+  const fn = extractFn("startStemSeparation");
+  return !!fn
+    && fn.includes("if (S.micMode || S.tabAudioMode) {")
+    && fn.includes('showAppToast("Advanced ist bei Live-Eingabe nicht verfügbar.", 3000);')
+    && fn.includes('S.stemMode = "simple";\n    syncStemUI();\n    return;');
+})());
+
+ok("startStemSeparation's live-input guard runs after the analyzeState guard and before trackHash is read (so a live-input track never reaches the code that would key a job under S.fpHash)", (() => {
+  const fn = extractFn("startStemSeparation");
+  if (!fn) return false;
+  const analyzeGuardIdx = fn.indexOf('if (S.analyzeState !== "done")');
+  const liveGuardIdx = fn.indexOf("if (S.micMode || S.tabAudioMode)");
+  const trackHashIdx = fn.indexOf("const trackHash = S.fpHash;");
+  return analyzeGuardIdx >= 0 && liveGuardIdx > analyzeGuardIdx && trackHashIdx > liveGuardIdx;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

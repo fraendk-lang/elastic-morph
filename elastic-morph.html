@@ -3260,6 +3260,12 @@ async function startStemSeparation() {
     syncStemUI();
     return;
   }
+  if (S.micMode || S.tabAudioMode) {
+    if (typeof showAppToast === "function") showAppToast("Advanced ist bei Live-Eingabe nicht verfügbar.", 3000);
+    S.stemMode = "simple";
+    syncStemUI();
+    return;
+  }
   const trackHash = S.fpHash;
   if (S.stemJob && S.stemJob.trackHash === trackHash && S.stemJob.status !== "error") return;
   S.stemJob = { id: null, status: "submitting", progress: "", error: null, trackHash };
