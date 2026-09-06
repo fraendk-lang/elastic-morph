@@ -6413,7 +6413,7 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
     const zoom = 1 + energy * 0.12 * ctrl.pulse + beat * 0.05 + Math.sin(S.time * 0.1) * 0.02;
     const cx = W / 2, cy = H / 2;
     ctx.translate(cx, cy); ctx.scale(zoom, zoom); ctx.translate(-cx, -cy);
-    if (ctrl.colorDrift > 0.02) ctx.filter = `hue-rotate(${(S.hueShift * 2) | 0}deg) saturate(${1 + beat * 0.5})`;
+    if (IM.filter === "none" && ctrl.colorDrift > 0.02) ctx.filter = `hue-rotate(${(S.hueShift * 2) | 0}deg) saturate(${1 + beat * 0.5})`;
     ctx.drawImage(IM.img, oX, oY, dW, dH);
     ctx.filter = "none";
     ctx.restore();
@@ -6431,7 +6431,7 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
     ctx.translate(cx, cy);
     ctx.rotate(IM.spinAng);
     ctx.scale(fill * zoom, fill * zoom);
-    if (ctrl.colorDrift > 0.02) ctx.filter = `hue-rotate(${(S.hueShift * 2) | 0}deg) saturate(${1 + beat * 0.4})`;
+    if (IM.filter === "none" && ctrl.colorDrift > 0.02) ctx.filter = `hue-rotate(${(S.hueShift * 2) | 0}deg) saturate(${1 + beat * 0.4})`;
     ctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
     ctx.filter = "none";
     ctx.restore();

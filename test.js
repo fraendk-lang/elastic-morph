@@ -4407,6 +4407,18 @@ ok("all 8 fixed modes still reset sctx's alpha/compositing after clearRect (Task
   return resetCount(classic) === 2 && resetCount(v67) === 3 && resetCount(v99) === 3;
 })());
 
+section("Backdrop/Spin colorDrift filter-clobber fix");
+
+ok("backdrop mode only applies its automatic colorDrift tint when no Image Layer filter is selected", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes('if (IM.filter === "none" && ctrl.colorDrift > 0.02) ctx.filter = `hue-rotate(${(S.hueShift * 2) | 0}deg) saturate(${1 + beat * 0.5})`;');
+})());
+
+ok("spin mode only applies its automatic colorDrift tint when no Image Layer filter is selected", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes('if (IM.filter === "none" && ctrl.colorDrift > 0.02) ctx.filter = `hue-rotate(${(S.hueShift * 2) | 0}deg) saturate(${1 + beat * 0.4})`;');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
