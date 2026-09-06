@@ -6370,6 +6370,21 @@ function coverRect(W, H, IM) {
   if (dH < H) { dH = H; dW = H / ar; }
   return { dW, dH, oX: (W - dW) / 2, oY: (H - dH) / 2 };
 }
+
+// One shared scratch canvas for every Image Layer mode that draws IM.img many
+// times per frame. Draw all of a mode's sub-images onto this (unfiltered —
+// it's a separate context, so ctx.filter never touches it), then blit it
+// through the real, already-filtered ctx exactly once. Fixes ctx.filter being
+// recomputed per drawImage call in loop-heavy modes (Chrome: slow; Safari:
+// filter invisible) — same fix as bgVidScratchCanvas (elastic-morph.html
+// v112, background video).
+function imageLayerScratchCanvas(w, h) {
+  if (!S._imgLayerScratch) S._imgLayerScratch = document.createElement("canvas");
+  const c = S._imgLayerScratch;
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  return c;
+}
+
 function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
   if (!IM.on || !IM.img) return;
   const energy = S.loudness, beat = S.beat, maxR = Math.hypot(W, H);
@@ -6422,13 +6437,18 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
     const { dW, dH, oX, oY } = coverRect(W, H, IM);
     const bands = 70, bh = dH / bands;
     const amp = dW * 0.05 * IM.amount;
-    ctx.globalCompositeOperation = "source-over";
+    const scratch = imageLayerScratchCanvas(W, H);
+    const sctx = scratch.getContext("2d");
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, W, H);
+    sctx.globalCompositeOperation = "source-over";
     for (let bI = 0; bI < bands; bI++) {
       const sy = (bI / bands) * IM.img.height;
       const sh = IM.img.height / bands;
       const wav = Math.sin(S.time * 2.2 + bI * 0.38) * amp * (S.bass * 1.3 + S.mids * 0.6 + 0.05);
-      ctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav, oY + bI * bh, dW, bh + 1);
+      sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav, oY + bI * bh, dW, bh + 1);
     }
+    ctx.drawImage(scratch, 0, 0);
     ctx.restore();
     return;
   }
@@ -6455,18 +6475,23 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
     const qw = dW / cols2, qh = dH / rows2;
     const ex = (beat * 0.6 + S.transient * 0.6) * IM.amount;
     const cx0 = W / 2, cy0 = H / 2, push = ex * 180 * (H / 720);
+    const scratch = imageLayerScratchCanvas(W, H);
+    const sctx = scratch.getContext("2d");
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, W, H);
     for (let j = 0; j < rows2; j++) for (let i = 0; i < cols2; i++) {
       const sx = i / cols2 * IM.img.width, sy = j / rows2 * IM.img.height;
       const sw = IM.img.width / cols2, sh = IM.img.height / rows2;
       const qx = oX + (i + 0.5) * qw, qy = oY + (j + 0.5) * qh;
       const dx = qx - cx0, dy = qy - cy0, d = Math.hypot(dx, dy) || 1;
       const rot = Math.sin(i * 12.9 + j * 7.3) * ex * 0.6;
-      ctx.save();
-      ctx.translate(qx + dx / d * push, qy + dy / d * push);
-      ctx.rotate(rot);
-      ctx.drawImage(IM.img, sx, sy, sw, sh, -qw / 2 - 0.5, -qh / 2 - 0.5, qw + 1, qh + 1);
-      ctx.restore();
+      sctx.save();
+      sctx.translate(qx + dx / d * push, qy + dy / d * push);
+      sctx.rotate(rot);
+      sctx.drawImage(IM.img, sx, sy, sw, sh, -qw / 2 - 0.5, -qh / 2 - 0.5, qw + 1, qh + 1);
+      sctx.restore();
     }
+    ctx.drawImage(scratch, 0, 0);
     ctx.restore(); return;
   }
 

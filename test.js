@@ -4239,6 +4239,44 @@ ok("applyProject's loadSrc caps the restored image via capImageSize before stori
     && fn.includes("const capped = capImageSize(img, IMAGE_LAYER_MAX_DIM); IM.img = capped; sampleImage(capped, IM);");
 })());
 
+section("Image Layer filter performance (scratch canvas)");
+
+ok("imageLayerScratchCanvas creates and resizes a shared scratch canvas", (() => {
+  const fn = extractFn("imageLayerScratchCanvas");
+  return !!fn
+    && fn.includes('if (!S._imgLayerScratch) S._imgLayerScratch = document.createElement("canvas");')
+    && fn.includes("if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }")
+    && fn.includes("return c;");
+})());
+
+ok("displace mode draws its bands onto a scratch canvas instead of ctx directly", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn
+    && fn.includes('if (IM.mode === "displace") {')
+    && fn.includes("const scratch = imageLayerScratchCanvas(W, H);")
+    && fn.includes("const sctx = scratch.getContext(\"2d\");")
+    && fn.includes('sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav, oY + bI * bh, dW, bh + 1);');
+})());
+
+ok("displace mode blits the finished scratch composite through the real (filtered) ctx exactly once", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes("ctx.drawImage(scratch, 0, 0);\n    ctx.restore();\n    return;");
+})());
+
+ok("shards mode draws its quads onto a scratch canvas instead of ctx directly", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn
+    && fn.includes('if (IM.mode === "shards") {')
+    && fn.includes("const scratch = imageLayerScratchCanvas(W, H);")
+    && fn.includes("const sctx = scratch.getContext(\"2d\");")
+    && fn.includes("sctx.drawImage(IM.img, sx, sy, sw, sh, -qw / 2 - 0.5, -qh / 2 - 0.5, qw + 1, qh + 1);");
+})());
+
+ok("shards mode blits the finished scratch composite through the real (filtered) ctx exactly once", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes("ctx.drawImage(scratch, 0, 0);\n    ctx.restore(); return;");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
