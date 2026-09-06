@@ -4143,8 +4143,8 @@ void main(){
   else if(uStyle < 13.5) col = crystalStyle(uv);
   else if(uStyle < 14.5) col = hypercubeStyle(uv);
   else if(uStyle < 15.5) col = cosmicDriftStyle(uv);
-  else if(uStyle < 17.5) col = warpTunnelStyle(uv);
-  else if(uStyle < 18.5) col = bioluminescenceStyle(uv);
+  else if(uStyle < 16.5) col = warpTunnelStyle(uv);
+  else if(uStyle < 17.5) col = bioluminescenceStyle(uv);
   else                   col = lavaLampStyle(uv);
   float lum = dot(col, vec3(0.299, 0.587, 0.114));
   col = max(mix(vec3(lum), col, 1.0 + uColorBias), 0.0);

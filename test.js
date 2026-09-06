@@ -3138,12 +3138,12 @@ ok("segGlow's total source-text occurrence count rises above hypercube's own 33 
   return (frag.split("segGlow").length - 1) >= 37;
 })());
 
-ok("main()'s dispatch chain: cosmicDrift's bare else became an explicit uStyle<15.5 branch, followed by warpTunnel now an explicit uStyle<17.5 branch (bioluminescence/lavaLamp took over the tail)", (() => {
+ok("main()'s dispatch chain: cosmicDrift's bare else became an explicit uStyle<15.5 branch, followed by warpTunnel now an explicit uStyle<16.5 branch (bioluminescence/lavaLamp took over the tail)", (() => {
   const mainIdx = frag.lastIndexOf("void main(){");
   if (mainIdx < 0) return false;
   const mainBody = frag.slice(mainIdx);
   const cosmicIdx = mainBody.indexOf("else if(uStyle < 15.5) col = cosmicDriftStyle(uv);");
-  const warpIdx = mainBody.indexOf("else if(uStyle < 17.5) col = warpTunnelStyle(uv);");
+  const warpIdx = mainBody.indexOf("else if(uStyle < 16.5) col = warpTunnelStyle(uv);");
   return cosmicIdx >= 0 && warpIdx > cosmicIdx;
 })());
 
@@ -4179,13 +4179,11 @@ ok("SHADER_STYLE_ID includes bioluminescence:17 and lavaLamp:18", (() => {
   return script.includes("bioluminescence:17, lavaLamp:18");
 })());
 
-ok("the dispatch chain in main() routes uStyle 17 to bioluminescenceStyle and 18 to lavaLampStyle, after warpTunnelStyle", (() => {
-  const idx = script.lastIndexOf("void main(){");
-  if (idx < 0) return false;
-  const body = script.slice(idx, idx + 3000);
-  return body.includes("else if(uStyle < 17.5) col = warpTunnelStyle(uv);")
-    && body.includes("else if(uStyle < 18.5) col = bioluminescenceStyle(uv);")
-    && body.includes("else                   col = lavaLampStyle(uv);");
+ok("the dispatch chain in main() correctly routes each ID to its own style: uStyle<16.5 -> warpTunnelStyle (ID 16), uStyle<17.5 -> bioluminescenceStyle (ID 17), else -> lavaLampStyle (ID 18)", (() => {
+  return frag.includes("else if(uStyle < 16.5) col = warpTunnelStyle(uv);")
+    && frag.includes("else if(uStyle < 17.5) col = bioluminescenceStyle(uv);")
+    && frag.includes("else                   col = lavaLampStyle(uv);")
+    && script.includes("bioluminescence:17, lavaLamp:18");
 })());
 
 ok('the Shader Engine dropdown has "Style: Bioluminescence" and "Style: Lava Lamp" options', (() => {
