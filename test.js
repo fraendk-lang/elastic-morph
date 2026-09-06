@@ -4362,7 +4362,7 @@ ok("imageLayerKenBurnsPad and its constants are gone (Task 4's padding approach 
 
 ok("drawImageLayer's shared Ken Burns block excludes displace/shards (they replicate it on sctx instead)", (() => {
   const fn = extractFn("drawImageLayer");
-  return !!fn && fn.includes('if (IM.kenburns && IM.mode !== "displace" && IM.mode !== "shards") {');
+  return !!fn && fn.includes('if (IM.kenburns && IM.mode !== "displace" && IM.mode !== "shards" &&');
 })());
 
 ok("drawImageLayerV67's shared Ken Burns block excludes glitch/ripple/kaleido", (() => {
@@ -4377,10 +4377,12 @@ ok("drawImageLayerV99's shared Ken Burns block excludes parallax/datamosh/tunnel
 
 ok("displace and shards each replicate the Ken Burns transform on sctx and use the plain (unpadded) scratch/blit", (() => {
   const fn = extractFn("drawImageLayer");
+  // count is 3, not 2: the dispersion/halftone/edges shared block (fixed in a later task)
+  // replicates this exact same sctx pattern once more alongside displace and shards.
   const kbOnSctx = (fn.match(/if \(IM\.kenburns\) \{\s*\n\s*const p = S\.progress;\s*\n\s*const zoom = 1\.06 \+ 0\.16 \* p;\s*\n\s*sctx\.translate\(W \/ 2, H \/ 2\);/g) || []).length;
   const plainScratch = (fn.match(/const scratch = imageLayerScratchCanvas\(W, H\);/g) || []).length;
   const plainBlit = (fn.match(/ctx\.drawImage\(scratch, 0, 0\);/g) || []).length;
-  return !!fn && kbOnSctx === 2 && plainScratch === 2 && plainBlit === 2;
+  return !!fn && kbOnSctx === 3 && plainScratch === 3 && plainBlit === 3;
 })());
 
 ok("V67 glitch/ripple/kaleido each replicate the Ken Burns transform on sctx and use the plain (unpadded) scratch/blit", (() => {
@@ -4417,6 +4419,53 @@ ok("backdrop mode only applies its automatic colorDrift tint when no Image Layer
 ok("spin mode only applies its automatic colorDrift tint when no Image Layer filter is selected", (() => {
   const fn = extractFn("drawImageLayer");
   return !!fn && fn.includes('if (IM.filter === "none" && ctrl.colorDrift > 0.02) ctx.filter = `hue-rotate(${(S.hueShift * 2) | 0}deg) saturate(${1 + beat * 0.4})`;');
+})());
+
+section("Dispersion/Halftone/Edges filter hang fix");
+
+ok("drawImageLayer's shared Ken Burns block also excludes dispersion/halftone/edges", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes('if (IM.kenburns && IM.mode !== "displace" && IM.mode !== "shards" && IM.mode !== "dispersion" && IM.mode !== "halftone" && IM.mode !== "edges") {');
+})());
+
+ok("dispersion/halftone/edges create and clear the scratch canvas, with a null-guard", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn
+    && (fn.match(/const scratch = imageLayerScratchCanvas\(W, H\);/g) || []).length === 3
+    && fn.includes('if (!sctx) { ctx.restore(); return; }');
+})());
+
+ok("dispersion/halftone/edges set globalCompositeOperation on sctx (lighter for edges, source-over otherwise) instead of ctx", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes('sctx.globalCompositeOperation = IM.mode === "edges" ? "lighter" : "source-over";');
+})());
+
+ok("dispersion/halftone/edges replicate the Ken Burns transform on sctx", (() => {
+  const fn = extractFn("drawImageLayer");
+  const matches = fn.match(/if \(IM\.kenburns\) \{\s*\n\s*const p = S\.progress;\s*\n\s*const zoom = 1\.06 \+ 0\.16 \* p;\s*\n\s*sctx\.translate\(W \/ 2, H \/ 2\);/g) || [];
+  return !!fn && matches.length === 3;
+})());
+
+ok("edges mode draws its per-cell arcs onto sctx instead of ctx", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn
+    && fn.includes('sctx.fillStyle = cellColor(c, 0.4 + Math.min(0.55, g));')
+    && fn.includes('sctx.beginPath(); sctx.arc(x, y, s, 0, Math.PI * 2); sctx.fill();\n      continue;');
+})());
+
+ok("dispersion mode draws its scattered arcs onto sctx instead of ctx", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes('sctx.fillStyle = cellColor(c, 0.6 + S.highs * 0.4);');
+})());
+
+ok("halftone mode draws its arcs onto sctx instead of ctx", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes('sctx.fillStyle = cellColor(c, 0.85);');
+})());
+
+ok("dispersion/halftone/edges blit the finished scratch composite through the real (filtered) ctx exactly once", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn && fn.includes('ctx.drawImage(scratch, 0, 0);\n  ctx.restore();\n  ctx.globalCompositeOperation = "source-over";\n}');
 })());
 
 /* ---------------- summary ---------------- */

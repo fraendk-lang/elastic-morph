@@ -6399,7 +6399,7 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
   // the scratch's own context, at the top of that mode's block below -- keeping the scratch
   // exactly W x H (matching ctx's own raster bounds, exactly as before that fix) so its
   // clipping/overhang behavior stays pixel-identical to the original, un-refactored code.
-  if (IM.kenburns && IM.mode !== "displace" && IM.mode !== "shards") {
+  if (IM.kenburns && IM.mode !== "displace" && IM.mode !== "shards" && IM.mode !== "dispersion" && IM.mode !== "halftone" && IM.mode !== "edges") {
     const p = S.progress;
     const zoom = 1.06 + 0.16 * p;
     ctx.translate(W / 2, H / 2);
@@ -6521,7 +6521,11 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
     ctx.restore(); return;
   }
 
-  // dispersion / halftone / edges share the cell grid
+  // dispersion / halftone / edges share the cell grid -- up to 18,150 individually filled
+  // arcs per frame (110 x round(110*aspectRatio) cells from sampleImage). Composite through
+  // the shared scratch canvas (see imageLayerScratchCanvas) so a filter applies once to the
+  // finished result instead of being recomputed on every single arc -- without this, an
+  // active color filter can hang the tab outright (confirmed live).
   const { dW, dH, oX, oY } = coverRect(W, H, IM);   // use THIS layer's aspect (B differs from A)
   const cw = dW / IM.cols, ch = dH / IM.rows;
   const dotR = Math.max(cw, ch) * 0.62;
@@ -6531,8 +6535,23 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
   const cellColor = (c, a) => IM.tint
     ? `hsla(${(((baseHue + c.br * 50) % 360) + 360) % 360}, 78%, ${18 + c.br * 60}%, ${a})`
     : `rgba(${c.r},${c.g},${c.b},${a})`;
-  ctx.globalCompositeOperation = IM.mode === "edges" ? "lighter" : "source-over";
   const scatter = (beat * 0.6 + energy * 0.6 + S.transient * 0.4) * IM.amount;
+
+  const scratch = imageLayerScratchCanvas(W, H);
+  const sctx = scratch.getContext("2d");
+  if (!sctx) { ctx.restore(); return; }
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.clearRect(0, 0, W, H);
+  sctx.globalAlpha = 1;
+  sctx.globalCompositeOperation = IM.mode === "edges" ? "lighter" : "source-over";
+  if (IM.kenburns) {
+    const p = S.progress;
+    const zoom = 1.06 + 0.16 * p;
+    sctx.translate(W / 2, H / 2);
+    sctx.scale(zoom, zoom);
+    sctx.translate(-W / 2 + Math.sin(p * Math.PI + IM.kbPhase) * W * 0.05,
+                   -H / 2 + Math.cos(p * Math.PI * 0.8 + IM.kbPhase) * H * 0.045);
+  }
 
   for (const c of IM.cells) {
     let x = oX + (c.ix + 0.5) * cw;
@@ -6544,8 +6563,8 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
                            brAt(c.ix, c.iy + 1) - brAt(c.ix, c.iy - 1));
       if (g <= 0.2 - energy * 0.12) continue;
       const s = dotR * (0.4 + Math.min(1, g * 2)) * (0.6 + beat * 0.7);
-      ctx.fillStyle = cellColor(c, 0.4 + Math.min(0.55, g));
-      ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+      sctx.fillStyle = cellColor(c, 0.4 + Math.min(0.55, g));
+      sctx.beginPath(); sctx.arc(x, y, s, 0, Math.PI * 2); sctx.fill();
       continue;
     }
 
@@ -6556,15 +6575,16 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
       x += Math.cos(dir) * pushp;
       y += Math.sin(dir) * pushp + ctrl.gravity * pushp * 0.3;
       const s = dotR * (0.5 + c.br * 0.7) * (1 + beat * 0.4);
-      ctx.fillStyle = cellColor(c, 0.6 + S.highs * 0.4);
-      ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+      sctx.fillStyle = cellColor(c, 0.6 + S.highs * 0.4);
+      sctx.beginPath(); sctx.arc(x, y, s, 0, Math.PI * 2); sctx.fill();
     } else { // halftone
       const s = dotR * c.br * (0.5 + energy * 0.9 + beat * 0.5);
       if (s < 0.3) continue;
-      ctx.fillStyle = cellColor(c, 0.85);
-      ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+      sctx.fillStyle = cellColor(c, 0.85);
+      sctx.beginPath(); sctx.arc(x, y, s, 0, Math.PI * 2); sctx.fill();
     }
   }
+  ctx.drawImage(scratch, 0, 0);
   ctx.restore();
   ctx.globalCompositeOperation = "source-over";
 }
