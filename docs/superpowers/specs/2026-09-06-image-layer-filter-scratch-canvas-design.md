@@ -6,16 +6,37 @@ The final whole-branch review (after all 3 tasks shipped) found the
 scratch-canvas design was not quite pixel-identical in three specific ways.
 Resolved with Frank as follows:
 
-1. **Ken Burns edge clipping/softening — real regression, fixed.** Ken
+1. **Ken Burns edge clipping/softening — real regression, fixed (corrected
+   in a second round after the first fix was found to be a no-op).** Ken
    Burns' pan/zoom (`elastic-morph.html`'s `IM.kenburns` block, applied on
    the real `ctx` before a heavy mode's scratch composite is blitted) can
    reveal a thin strip beyond the scratch's `W`×`H` bounds at min-zoom/
    max-drift, and softens the composite slightly once magnified into that
-   gap. Fixed by padding the scratch by the worst-case Ken Burns overscan
-   (derived from the transform's own literals — see the follow-up plan)
-   whenever `IM.kenburns` is on; no padding (no cost) otherwise. See
-   `docs/superpowers/plans/2026-09-06-image-layer-filter-scratch-canvas.md`
-   Task 4 for the exact fix.
+   gap.
+   - **Round 1 (rejected on task review):** pad the scratch canvas by the
+     worst-case Ken Burns overscan and shift the coordinate origin via
+     `sctx.translate(padX, padY)` / blit at `(-padX, -padY)`. The task
+     reviewer proved this is a geometric no-op: `coverRect` (and, for
+     `kaleido`/`tunnel`, the mode's own center point) was still computed
+     from the *unpadded* `W`/`H`, so the mode's actual drawn footprint
+     never grew into the new padding — the translate and its inverse blit
+     offset exactly cancel, leaving the pad permanently empty and the
+     original clipping bug fully intact.
+   - **Round 2 (correct, shipped):** instead of trying to carve out extra
+     margin around an unpadded footprint, replicate the Ken Burns
+     transform itself onto the scratch's own context (`sctx`), inside each
+     of the 8 heavy modes, in place of applying it to the real `ctx` before
+     the mode dispatch (which the shared top-of-function block now
+     excludes these 8 modes from). The scratch stays exactly `W`×`H` —
+     matching `ctx`'s own raster bounds, exactly like the un-refactored
+     code before Tasks 1-3 — so the rasterization (buffer size, transform,
+     clipping) is byte-for-byte identical to the original, pre-scratch-
+     canvas behavior; only the physical buffer holding the pixels during
+     the per-mode loop changed (irrelevant to the final image), and the
+     filter-performance fix is untouched (the transform has no bearing on
+     where `ctx.filter` is set). See
+     `docs/superpowers/plans/2026-09-06-image-layer-filter-scratch-canvas.md`
+     Task 4 for the exact, corrected code.
 2. **`displace` now honors the Blend dropdown — kept, intentional.**
    Before this branch, `displace` set `ctx.globalCompositeOperation =
    "source-over"` on the *real* `ctx`, silently overriding whatever blend
