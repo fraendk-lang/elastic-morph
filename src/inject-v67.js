@@ -52,47 +52,62 @@ function drawImageLayerV67(IM, W, H, baseHue, dt, opMul) {
     const bands = 24 + Math.round(amt * 20);
     const bh = dH / bands;
     const glitch = (beat * 0.85 + S.transient * 0.9) * amt;
+    const scratch = imageLayerScratchCanvas(W, H);
+    const sctx = scratch.getContext("2d");
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, W, H);
     for (let b = 0; b < bands; b++) {
       const sy = (b / bands) * IM.img.height;
       const sh = IM.img.height / bands + 1;
       const jx = (Math.random() - 0.5) * dW * 0.12 * glitch;
       const dup = glitch > 0.35 && b % 7 === 0;
-      ctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx, oY + b * bh, dW, bh + 1);
+      sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx, oY + b * bh, dW, bh + 1);
       if (dup) {
-        ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha *= 0.45;
-        ctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx + 8, oY + b * bh, dW, bh + 1);
-        ctx.globalCompositeOperation = "source-over";
-        ctx.globalAlpha = IM.opacity * (opMul == null ? 1 : opMul);
+        sctx.globalCompositeOperation = "lighter";
+        sctx.globalAlpha = 0.45;
+        sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx + 8, oY + b * bh, dW, bh + 1);
+        sctx.globalCompositeOperation = "source-over";
+        sctx.globalAlpha = 1;
       }
     }
+    ctx.drawImage(scratch, 0, 0);
   } else if (IM.mode === "ripple") {
     const bands = 56;
     const bh = dH / bands;
     const amp = dW * 0.04 * amt * (0.4 + energy + beat * 0.5);
+    const scratch = imageLayerScratchCanvas(W, H);
+    const sctx = scratch.getContext("2d");
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, W, H);
     for (let b = 0; b < bands; b++) {
       const sy = (b / bands) * IM.img.height;
       const sh = IM.img.height / bands + 1;
       const cx = (b / bands - 0.5) * 2;
       const wav = Math.sin(S.time * 3 + b * 0.22 + cx * 4) * amp;
       const wav2 = Math.cos(S.time * 2.1 + b * 0.15) * amp * 0.35 * S.bass;
-      ctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav + wav2, oY + b * bh, dW, bh + 1);
+      sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav + wav2, oY + b * bh, dW, bh + 1);
     }
+    ctx.drawImage(scratch, 0, 0);
   } else if (IM.mode === "kaleido") {
     const cx = W / 2, cy = H / 2;
     const segs = 4 + Math.round(amt * 4);
     const diag = Math.hypot(W, H);
     const fill = diag / Math.min(dW, dH);
-    ctx.translate(cx, cy);
-    ctx.rotate(S.time * 0.05 * amt + beat * 0.08);
+    const scratch = imageLayerScratchCanvas(W, H);
+    const sctx = scratch.getContext("2d");
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, W, H);
+    sctx.translate(cx, cy);
+    sctx.rotate(S.time * 0.05 * amt + beat * 0.08);
     for (let s = 0; s < segs; s++) {
-      ctx.save();
-      ctx.rotate((Math.PI * 2 / segs) * s);
-      ctx.scale(s % 2 ? 1 : -1, 1);
-      ctx.scale(fill * (1 + beat * 0.04 * amt), fill * (1 + beat * 0.04 * amt));
-      ctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
-      ctx.restore();
+      sctx.save();
+      sctx.rotate((Math.PI * 2 / segs) * s);
+      sctx.scale(s % 2 ? 1 : -1, 1);
+      sctx.scale(fill * (1 + beat * 0.04 * amt), fill * (1 + beat * 0.04 * amt));
+      sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
+      sctx.restore();
     }
+    ctx.drawImage(scratch, 0, 0);
   } else if (IM.mode === "scan") {
     ctx.drawImage(IM.img, oX, oY, dW, dH);
     const lines = Math.floor(H / 3);

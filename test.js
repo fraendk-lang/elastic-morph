@@ -4277,6 +4277,42 @@ ok("shards mode blits the finished scratch composite through the real (filtered)
   return !!fn && fn.includes("ctx.drawImage(scratch, 0, 0);\n    ctx.restore(); return;");
 })());
 
+ok("V67 glitch mode draws its bands onto a scratch canvas instead of ctx directly", (() => {
+  const fn = extractFn("drawImageLayerV67");
+  // Use regex to avoid substring collision: ctx.drawImage would match inside sctx.drawImage
+  // Check that sctx version exists and ctx version doesn't (with word boundary to exclude sctx)
+  return !!fn
+    && fn.includes('if (IM.mode === "glitch") {')
+    && fn.includes("const scratch = imageLayerScratchCanvas(W, H);")
+    && fn.includes("sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx, oY + b * bh, dW, bh + 1);")
+    && !/\bctx\.drawImage\(IM\.img, 0, sy, IM\.img\.width, sh, oX \+ jx, oY \+ b \* bh, dW, bh \+ 1\);/.test(fn)
+    && fn.includes("sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx + 8, oY + b * bh, dW, bh + 1);");
+})());
+
+ok("V67 ripple mode draws its bands onto a scratch canvas instead of ctx directly", (() => {
+  const fn = extractFn("drawImageLayerV67");
+  // Use regex with word boundary to exclude sctx
+  return !!fn
+    && fn.includes('} else if (IM.mode === "ripple") {')
+    && fn.includes("sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav + wav2, oY + b * bh, dW, bh + 1);")
+    && !/\bctx\.drawImage\(IM\.img, 0, sy, IM\.img\.width, sh, oX \+ wav \+ wav2, oY \+ b \* bh, dW, bh \+ 1\);/.test(fn);
+})());
+
+ok("V67 kaleido mode draws its segments onto a scratch canvas instead of ctx directly", (() => {
+  const fn = extractFn("drawImageLayerV67");
+  return !!fn
+    && fn.includes('} else if (IM.mode === "kaleido") {')
+    && fn.includes("sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);")
+    && fn.includes("sctx.translate(cx, cy);")
+    && fn.includes("sctx.rotate(S.time * 0.05 * amt + beat * 0.08);");
+})());
+
+ok("V67 glitch/ripple/kaleido each blit their scratch composite through the real (filtered) ctx exactly once", (() => {
+  const fn = extractFn("drawImageLayerV67");
+  const count = (fn.match(/ctx\.drawImage\(scratch, 0, 0\);/g) || []).length;
+  return count === 3;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
