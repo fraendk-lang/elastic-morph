@@ -1667,6 +1667,8 @@
       <option value="hypercube">Style: Hypercube Drift</option>
       <option value="cosmicDrift">Style: Cosmic Drift</option>
       <option value="warpTunnel">Style: Warp Tunnel</option>
+      <option value="bioluminescence">Style: Bioluminescence</option>
+      <option value="lavaLamp">Style: Lava Lamp</option>
     </select>
     <select id="shBlend" class="pm-select" style="margin-top:8px">
       <option value="lighter" selected>Blend: Add</option>
@@ -4080,6 +4082,44 @@ vec3 warpTunnelStyle(vec2 uv){
   return col;
 }
 
+vec3 bioluminescenceStyle(vec2 uv){
+  float t = uTime*0.16;
+  vec3 col = vec3(0.0);
+  for(int i=0;i<8;i++){
+    float fi = float(i);
+    float ph = hash(vec2(fi, 2.0))*6.2831853;
+    float sp = 0.20 + hash(vec2(fi, 5.0))*0.18;
+    vec2 c = vec2(sin(t*sp + ph)*0.9, cos(t*sp*0.75 + ph)*0.65 + sin(t*0.09 + fi)*0.25);
+    float d = length(uv - c);
+    float flash = 0.5 + 0.5*sin(uTime*(0.6+hash(vec2(fi,7.0))*0.8) + fi*3.0);
+    float glow = (0.010 + uBass*0.010) * (0.5 + flash*0.8 + uBeat*0.6);
+    float hue = uHue + fi*0.02 + uHighs*0.08;
+    vec3 orbCol = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) : hsv2rgb(vec3(fract(hue), 0.55, 1.0));
+    col += (0.35 + uLoud*0.5) * glow / (d*d + 0.0008) * orbCol;
+  }
+  col = 1.0 - exp(-col*1.3);
+  return col;
+}
+vec3 lavaLampStyle(vec2 uv){
+  float t = uTime*0.12;
+  float m = 0.0;
+  for(int i=0;i<6;i++){
+    float fi = float(i);
+    float ph = hash(vec2(fi, 3.0))*6.2831853;
+    float xw = 0.5 + hash(vec2(fi, 9.0))*0.5;
+    float rise = fract(t*(0.15+hash(vec2(fi,4.0))*0.10) + fi/6.0);
+    vec2 c = vec2(sin(t*xw + ph)*0.55, mix(-1.3, 1.3, rise));
+    float rad = 0.16 + 0.05*sin(t*2.0+fi) + uBass*0.08 + uBeat*0.05;
+    float d = length(uv - c);
+    m += rad*rad/(d*d + 0.0012);
+  }
+  float edge = smoothstep(0.75, 1.9, m);
+  float hue = uHue + 0.02 + m*0.015 + uHighs*0.05;
+  vec3 col = uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue)) * (edge*(0.85+uLoud*0.6+uBeat*0.4)) : hsv2rgb(vec3(fract(hue), 0.9, edge*(0.85+uLoud*0.6+uBeat*0.4)));
+  col += uPalOn > 0.5 ? mix(uPalA, uPalB, fract(hue+0.08)) * smoothstep(1.6,2.8,m) : hsv2rgb(vec3(fract(hue+0.08), 0.6, smoothstep(1.6,2.8,m)));
+  return col;
+}
+
 void main(){
   vec2 uv0 = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);
   vec2 uv = uv0 * uScale;                                   // global Speed/Scale/Color Bias controls
@@ -4103,7 +4143,9 @@ void main(){
   else if(uStyle < 13.5) col = crystalStyle(uv);
   else if(uStyle < 14.5) col = hypercubeStyle(uv);
   else if(uStyle < 15.5) col = cosmicDriftStyle(uv);
-  else                   col = warpTunnelStyle(uv);
+  else if(uStyle < 17.5) col = warpTunnelStyle(uv);
+  else if(uStyle < 18.5) col = bioluminescenceStyle(uv);
+  else                   col = lavaLampStyle(uv);
   float lum = dot(col, vec3(0.299, 0.587, 0.114));
   col = max(mix(vec3(lum), col, 1.0 + uColorBias), 0.0);
   // gentle vignette + filmic-ish tone
@@ -4173,7 +4215,7 @@ function initGL(){
   }catch(e){ console.warn("WebGL init failed:", e); GL.ok = false; return false; }
 }
 
-const SHADER_STYLE_ID = { fluid:0, metaballs:1, tunnel:2, aurora:3, electric:4, chrome:5, gyroid:6, raymarch:7, feedback:8, strobe:9, warehouse:10, laser:11, portal:12, crystal:13, hypercube:14, cosmicDrift:15, warpTunnel:16 };
+const SHADER_STYLE_ID = { fluid:0, metaballs:1, tunnel:2, aurora:3, electric:4, chrome:5, gyroid:6, raymarch:7, feedback:8, strobe:9, warehouse:10, laser:11, portal:12, crystal:13, hypercube:14, cosmicDrift:15, warpTunnel:16, bioluminescence:17, lavaLamp:18 };
 
 /* render the shader to its own canvas and composite onto the 2D context */
 function renderShader(W, H, hue){

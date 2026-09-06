@@ -3138,12 +3138,12 @@ ok("segGlow's total source-text occurrence count rises above hypercube's own 33 
   return (frag.split("segGlow").length - 1) >= 37;
 })());
 
-ok("main()'s dispatch chain: cosmicDrift's bare else became an explicit uStyle<15.5 branch, followed by warpTunnel as the new bare else", (() => {
+ok("main()'s dispatch chain: cosmicDrift's bare else became an explicit uStyle<15.5 branch, followed by warpTunnel now an explicit uStyle<17.5 branch (bioluminescence/lavaLamp took over the tail)", (() => {
   const mainIdx = frag.lastIndexOf("void main(){");
   if (mainIdx < 0) return false;
   const mainBody = frag.slice(mainIdx);
   const cosmicIdx = mainBody.indexOf("else if(uStyle < 15.5) col = cosmicDriftStyle(uv);");
-  const warpIdx = mainBody.indexOf("else                   col = warpTunnelStyle(uv);");
+  const warpIdx = mainBody.indexOf("else if(uStyle < 17.5) col = warpTunnelStyle(uv);");
   return cosmicIdx >= 0 && warpIdx > cosmicIdx;
 })());
 
@@ -3540,7 +3540,7 @@ ok("renderShader scales the uTime uniform by SH.speed and sets the new uScale/uC
 ok("Shader Engine panel gained the Speed/Scale/Color Bias slider rows with correct ranges/defaults", (() => {
   const panelIdx = html.indexOf('<select id="shStyle"');
   if (panelIdx < 0) return false;
-  const block = html.slice(panelIdx, panelIdx + 2650);
+  const block = html.slice(panelIdx, panelIdx + 2800);
   return block.includes('<input type="range" id="shSpeed" min="20" max="300" value="100">')
     && block.includes('<input type="range" id="shScale" min="50" max="250" value="100">')
     && block.includes('<input type="range" id="shColorBias" min="-80" max="80" value="0">');
@@ -4151,6 +4151,53 @@ ok("curTimeSec treats tab-audio like mic mode", (() => {
 ok("setDuration treats tab-audio like mic mode, returning the same 240s virtual-cycle length", (() => {
   const fn = extractFn("setDuration");
   return !!fn && fn.includes("if (S.micMode || S.tabAudioMode) return 240;");
+})());
+
+section("Shader Engine — Bioluminescence + Lava Lamp organic styles");
+
+ok("bioluminescenceStyle exists with the documented 8-orb loop, per-orb hash-based drift/flash, and soft-exposure tonemap", (() => {
+  const idx = script.indexOf("vec3 bioluminescenceStyle(vec2 uv){");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 900);
+  return body.includes("for(int i=0;i<8;i++){")
+    && body.includes("hash(vec2(fi, 2.0))")
+    && body.includes("float flash = 0.5 + 0.5*sin(uTime*(0.6+hash(vec2(fi,7.0))*0.8) + fi*3.0);")
+    && body.includes("col = 1.0 - exp(-col*1.3);");
+})());
+
+ok("lavaLampStyle exists with the documented 6-blob loop, buoyant vertical rise cycle, and hard field-merge smoothstep", (() => {
+  const idx = script.indexOf("vec3 lavaLampStyle(vec2 uv){");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 900);
+  return body.includes("for(int i=0;i<6;i++){")
+    && body.includes("float rise = fract(t*(0.15+hash(vec2(fi,4.0))*0.10) + fi/6.0);")
+    && body.includes("vec2 c = vec2(sin(t*xw + ph)*0.55, mix(-1.3, 1.3, rise));")
+    && body.includes("float edge = smoothstep(0.75, 1.9, m);");
+})());
+
+ok("SHADER_STYLE_ID includes bioluminescence:17 and lavaLamp:18", (() => {
+  return script.includes("bioluminescence:17, lavaLamp:18");
+})());
+
+ok("the dispatch chain in main() routes uStyle 17 to bioluminescenceStyle and 18 to lavaLampStyle, after warpTunnelStyle", (() => {
+  const idx = script.lastIndexOf("void main(){");
+  if (idx < 0) return false;
+  const body = script.slice(idx, idx + 3000);
+  return body.includes("else if(uStyle < 17.5) col = warpTunnelStyle(uv);")
+    && body.includes("else if(uStyle < 18.5) col = bioluminescenceStyle(uv);")
+    && body.includes("else                   col = lavaLampStyle(uv);");
+})());
+
+ok('the Shader Engine dropdown has "Style: Bioluminescence" and "Style: Lava Lamp" options', (() => {
+  return html.includes('<option value="bioluminescence">Style: Bioluminescence</option>')
+    && html.includes('<option value="lavaLamp">Style: Lava Lamp</option>');
+})());
+
+ok("neither bioluminescence nor lavaLamp is registered in HEAVY_SHADER (pending the manual perf check — this guards against silently forgetting the decision either way)", (() => {
+  const idx = script.indexOf("const HEAVY_SHADER = new Set([");
+  if (idx < 0) return false;
+  const line = script.slice(idx, script.indexOf(";", idx) + 1);
+  return !line.includes('"bioluminescence"') && !line.includes('"lavaLamp"');
 })());
 
 /* ---------------- summary ---------------- */
