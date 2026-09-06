@@ -36,7 +36,7 @@ Resolved with Frank as follows:
      filter-performance fix is untouched (the transform has no bearing on
      where `ctx.filter` is set). See
      `docs/superpowers/plans/2026-09-06-image-layer-filter-scratch-canvas.md`
-     Task 4 for the exact, corrected code.
+     Task 5 for the exact, corrected code.
 2. **`displace` now honors the Blend dropdown — kept, intentional.**
    Before this branch, `displace` set `ctx.globalCompositeOperation =
    "source-over"` on the *real* `ctx`, silently overriding whatever blend

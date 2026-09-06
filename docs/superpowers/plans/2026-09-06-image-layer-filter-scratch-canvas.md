@@ -1643,7 +1643,7 @@ static harness) — from the design spec:
    correctly (no stretched/stale frame).
 5. Enable Ken Burns with a square or portrait cover image and one of the 8
    fixed modes active — watch the top/bottom edges through a full zoom
-   cycle, confirm no transparent strip appears (this is what Task 4 fixes).
+   cycle, confirm no transparent strip appears (this is what Task 5 fixes).
 6. Set Deckkraft (opacity) to ~50% with Kaleidoscope active — confirm the
    overlapping copies look right at that opacity (documented behavior
    change, not expected to look "wrong", just different from before this
