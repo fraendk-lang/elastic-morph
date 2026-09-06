@@ -4253,28 +4253,28 @@ ok("displace mode draws its bands onto a scratch canvas instead of ctx directly"
   const fn = extractFn("drawImageLayer");
   return !!fn
     && fn.includes('if (IM.mode === "displace") {')
-    && fn.includes("const scratch = imageLayerScratchCanvas(W, H);")
+    && fn.includes("const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);")
     && fn.includes("const sctx = scratch.getContext(\"2d\");")
     && fn.includes('sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav, oY + bI * bh, dW, bh + 1);');
 })());
 
 ok("displace mode blits the finished scratch composite through the real (filtered) ctx exactly once", (() => {
   const fn = extractFn("drawImageLayer");
-  return !!fn && fn.includes("ctx.drawImage(scratch, 0, 0);\n    ctx.restore();\n    return;");
+  return !!fn && fn.includes("ctx.drawImage(scratch, -padX, -padY);\n    ctx.restore();\n    return;");
 })());
 
 ok("shards mode draws its quads onto a scratch canvas instead of ctx directly", (() => {
   const fn = extractFn("drawImageLayer");
   return !!fn
     && fn.includes('if (IM.mode === "shards") {')
-    && fn.includes("const scratch = imageLayerScratchCanvas(W, H);")
+    && fn.includes("const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);")
     && fn.includes("const sctx = scratch.getContext(\"2d\");")
     && fn.includes("sctx.drawImage(IM.img, sx, sy, sw, sh, -qw / 2 - 0.5, -qh / 2 - 0.5, qw + 1, qh + 1);");
 })());
 
 ok("shards mode blits the finished scratch composite through the real (filtered) ctx exactly once", (() => {
   const fn = extractFn("drawImageLayer");
-  return !!fn && fn.includes("ctx.drawImage(scratch, 0, 0);\n    ctx.restore(); return;");
+  return !!fn && fn.includes("ctx.drawImage(scratch, -padX, -padY);\n    ctx.restore(); return;");
 })());
 
 ok("V67 glitch mode draws its bands onto a scratch canvas instead of ctx directly", (() => {
@@ -4283,7 +4283,7 @@ ok("V67 glitch mode draws its bands onto a scratch canvas instead of ctx directl
   // Check that sctx version exists and ctx version doesn't (with word boundary to exclude sctx)
   return !!fn
     && fn.includes('if (IM.mode === "glitch") {')
-    && fn.includes("const scratch = imageLayerScratchCanvas(W, H);")
+    && fn.includes("const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);")
     && fn.includes("sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx, oY + b * bh, dW, bh + 1);")
     && !/\bctx\.drawImage\(IM\.img, 0, sy, IM\.img\.width, sh, oX \+ jx, oY \+ b \* bh, dW, bh \+ 1\);/.test(fn)
     && fn.includes("sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx + 8, oY + b * bh, dW, bh + 1);");
@@ -4309,7 +4309,7 @@ ok("V67 kaleido mode draws its segments onto a scratch canvas instead of ctx dir
 
 ok("V67 glitch/ripple/kaleido each blit their scratch composite through the real (filtered) ctx exactly once", (() => {
   const fn = extractFn("drawImageLayerV67");
-  const count = (fn.match(/ctx\.drawImage\(scratch, 0, 0\);/g) || []).length;
+  const count = (fn.match(/ctx\.drawImage\(scratch, -padX, -padY\);/g) || []).length;
   return count === 3;
 })());
 
@@ -4317,7 +4317,7 @@ ok("V99 parallax mode draws its bands onto a scratch canvas instead of ctx direc
   const fn = extractFn("drawImageLayerV99");
   return !!fn
     && fn.includes('if (IM.mode === "parallax") {')
-    && fn.includes("const scratch = imageLayerScratchCanvas(W, H);")
+    && fn.includes("const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);")
     && fn.includes("sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + shift + drift, oY + b * bh, dW, bh + 1);")
     && !/\bctx\.drawImage\(IM\.img, 0, sy, IM\.img\.width, sh, oX \+ shift \+ drift, oY \+ b \* bh, dW, bh \+ 1\);/.test(fn);
 })());
@@ -4342,7 +4342,7 @@ ok("V99 tunnel mode draws its segments onto a scratch canvas instead of ctx dire
 
 ok("V99 parallax/datamosh/tunnel each blit their scratch composite through the real (filtered) ctx exactly once", (() => {
   const fn = extractFn("drawImageLayerV99");
-  const count = (fn.match(/ctx\.drawImage\(scratch, 0, 0\);/g) || []).length;
+  const count = (fn.match(/ctx\.drawImage\(scratch, -padX, -padY\);/g) || []).length;
   return count === 3;
 })());
 
@@ -4352,6 +4352,57 @@ ok("V99 zoompulse and flicker (not loop-heavy) are unchanged", (() => {
     && fn.includes('} else if (IM.mode === "zoompulse") {')
     && fn.includes("ctx.drawImage(IM.img, oX, oY, dW, dH);")
     && fn.includes('} else if (IM.mode === "flicker") {');
+})());
+
+ok("imageLayerKenBurnsPad returns zero padding when Ken Burns is off, else the derived overscan", (() => {
+  const fn = extractFn("imageLayerKenBurnsPad");
+  return !!fn
+    && fn.includes("if (!IM.kenburns) return { padX: 0, padY: 0 };")
+    && fn.includes("return { padX: Math.ceil(W * KB_PAD_FRAC_X), padY: Math.ceil(H * KB_PAD_FRAC_Y) };");
+})());
+
+ok("KB_PAD_FRAC_X/Y are derived from the Ken Burns transform's own literals (zoom 1.06, drift 0.05/0.045)", (() => {
+  return script.includes("const KB_PAD_FRAC_X = 0.05 - 0.5 * (1 - 1 / 1.06);")
+    && script.includes("const KB_PAD_FRAC_Y = 0.045 - 0.5 * (1 - 1 / 1.06);");
+})());
+
+ok("displace pads the scratch for Ken Burns and blits at the negative offset", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn
+    && fn.includes('if (IM.mode === "displace") {')
+    && fn.includes("const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);")
+    && fn.includes("const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);")
+    && fn.includes("sctx.translate(padX, padY);")
+    && fn.includes("ctx.drawImage(scratch, -padX, -padY);");
+})());
+
+ok("shards pads the scratch for Ken Burns and blits at the negative offset", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn
+    && fn.includes('if (IM.mode === "shards") {')
+    && (fn.match(/const \{ padX, padY \} = imageLayerKenBurnsPad\(IM, W, H\);/g) || []).length === 2;
+})());
+
+ok("V67 glitch/ripple/kaleido each pad the scratch for Ken Burns and blit at the negative offset", (() => {
+  const fn = extractFn("drawImageLayerV67");
+  return !!fn
+    && (fn.match(/const \{ padX, padY \} = imageLayerKenBurnsPad\(IM, W, H\);/g) || []).length === 3
+    && (fn.match(/ctx\.drawImage\(scratch, -padX, -padY\);/g) || []).length === 3;
+})());
+
+ok("V99 parallax/datamosh/tunnel each pad the scratch for Ken Burns and blit at the negative offset", (() => {
+  const fn = extractFn("drawImageLayerV99");
+  return !!fn
+    && (fn.match(/const \{ padX, padY \} = imageLayerKenBurnsPad\(IM, W, H\);/g) || []).length === 3
+    && (fn.match(/ctx\.drawImage\(scratch, -padX, -padY\);/g) || []).length === 3;
+})());
+
+ok("all 8 fixed modes reset sctx's alpha/compositing after clearRect (defense against shared-context state leaking between modes)", (() => {
+  const classic = extractFn("drawImageLayer");
+  const v67 = extractFn("drawImageLayerV67");
+  const v99 = extractFn("drawImageLayerV99");
+  const resetCount = (src) => (src.match(/sctx\.globalAlpha = 1;\s*\n\s*sctx\.globalCompositeOperation = "source-over";/g) || []).length;
+  return resetCount(classic) === 2 && resetCount(v67) === 3 && resetCount(v99) === 3;
 })());
 
 /* ---------------- summary ---------------- */

@@ -6385,6 +6385,20 @@ function imageLayerScratchCanvas(w, h) {
   return c;
 }
 
+// Ken Burns pan/zoom (below) is applied on the real ctx AFTER a heavy mode's scratch
+// composite is blitted through imageLayerScratchCanvas -- so when Ken Burns is active, the
+// scratch must be padded to cover the extra area its min-zoom/max-drift can reveal at the
+// frame edges, or a thin strip of whatever is behind the image layer shows through, and the
+// composite lands very slightly softer once magnified into that gap. Derived from the exact
+// literals in the Ken Burns transform itself (zoom = 1.06 + 0.16*p, drift = ±0.05*W /
+// ±0.045*H): the worst case is at p=0, where zoom is at its smallest (1.06).
+const KB_PAD_FRAC_X = 0.05 - 0.5 * (1 - 1 / 1.06);   // ≈ 0.0217
+const KB_PAD_FRAC_Y = 0.045 - 0.5 * (1 - 1 / 1.06);  // ≈ 0.0167
+function imageLayerKenBurnsPad(IM, W, H) {
+  if (!IM.kenburns) return { padX: 0, padY: 0 };
+  return { padX: Math.ceil(W * KB_PAD_FRAC_X), padY: Math.ceil(H * KB_PAD_FRAC_Y) };
+}
+
 function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
   if (!IM.on || !IM.img) return;
   const energy = S.loudness, beat = S.beat, maxR = Math.hypot(W, H);
@@ -6437,18 +6451,22 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
     const { dW, dH, oX, oY } = coverRect(W, H, IM);
     const bands = 70, bh = dH / bands;
     const amp = dW * 0.05 * IM.amount;
-    const scratch = imageLayerScratchCanvas(W, H);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
     const sctx = scratch.getContext("2d");
+    if (!sctx) { ctx.restore(); return; }
     sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, W, H);
+    sctx.clearRect(0, 0, scratch.width, scratch.height);
+    sctx.globalAlpha = 1;
     sctx.globalCompositeOperation = "source-over";
+    sctx.translate(padX, padY);
     for (let bI = 0; bI < bands; bI++) {
       const sy = (bI / bands) * IM.img.height;
       const sh = IM.img.height / bands;
       const wav = Math.sin(S.time * 2.2 + bI * 0.38) * amp * (S.bass * 1.3 + S.mids * 0.6 + 0.05);
       sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav, oY + bI * bh, dW, bh + 1);
     }
-    ctx.drawImage(scratch, 0, 0);
+    ctx.drawImage(scratch, -padX, -padY);
     ctx.restore();
     return;
   }
@@ -6475,10 +6493,15 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
     const qw = dW / cols2, qh = dH / rows2;
     const ex = (beat * 0.6 + S.transient * 0.6) * IM.amount;
     const cx0 = W / 2, cy0 = H / 2, push = ex * 180 * (H / 720);
-    const scratch = imageLayerScratchCanvas(W, H);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
     const sctx = scratch.getContext("2d");
+    if (!sctx) { ctx.restore(); return; }
     sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, W, H);
+    sctx.clearRect(0, 0, scratch.width, scratch.height);
+    sctx.globalAlpha = 1;
+    sctx.globalCompositeOperation = "source-over";
+    sctx.translate(padX, padY);
     for (let j = 0; j < rows2; j++) for (let i = 0; i < cols2; i++) {
       const sx = i / cols2 * IM.img.width, sy = j / rows2 * IM.img.height;
       const sw = IM.img.width / cols2, sh = IM.img.height / rows2;
@@ -6491,7 +6514,7 @@ function drawImageLayer(IM, W, H, baseHue, dt, opMul) {
       sctx.drawImage(IM.img, sx, sy, sw, sh, -qw / 2 - 0.5, -qh / 2 - 0.5, qw + 1, qh + 1);
       sctx.restore();
     }
-    ctx.drawImage(scratch, 0, 0);
+    ctx.drawImage(scratch, -padX, -padY);
     ctx.restore(); return;
   }
 
@@ -13136,62 +13159,80 @@ function drawImageLayerV67(IM, W, H, baseHue, dt, opMul) {
     const bands = 24 + Math.round(amt * 20);
     const bh = dH / bands;
     const glitch = (beat * 0.85 + S.transient * 0.9) * amt;
-    const scratch = imageLayerScratchCanvas(W, H);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
     const sctx = scratch.getContext("2d");
-    sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, W, H);
-    for (let b = 0; b < bands; b++) {
-      const sy = (b / bands) * IM.img.height;
-      const sh = IM.img.height / bands + 1;
-      const jx = (Math.random() - 0.5) * dW * 0.12 * glitch;
-      const dup = glitch > 0.35 && b % 7 === 0;
-      sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx, oY + b * bh, dW, bh + 1);
-      if (dup) {
-        sctx.globalCompositeOperation = "lighter";
-        sctx.globalAlpha = 0.45;
-        sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx + 8, oY + b * bh, dW, bh + 1);
-        sctx.globalCompositeOperation = "source-over";
-        sctx.globalAlpha = 1;
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      for (let b = 0; b < bands; b++) {
+        const sy = (b / bands) * IM.img.height;
+        const sh = IM.img.height / bands + 1;
+        const jx = (Math.random() - 0.5) * dW * 0.12 * glitch;
+        const dup = glitch > 0.35 && b % 7 === 0;
+        sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx, oY + b * bh, dW, bh + 1);
+        if (dup) {
+          sctx.globalCompositeOperation = "lighter";
+          sctx.globalAlpha = 0.45;
+          sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx + 8, oY + b * bh, dW, bh + 1);
+          sctx.globalCompositeOperation = "source-over";
+          sctx.globalAlpha = 1;
+        }
       }
+      ctx.drawImage(scratch, -padX, -padY);
     }
-    ctx.drawImage(scratch, 0, 0);
   } else if (IM.mode === "ripple") {
     const bands = 56;
     const bh = dH / bands;
     const amp = dW * 0.04 * amt * (0.4 + energy + beat * 0.5);
-    const scratch = imageLayerScratchCanvas(W, H);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
     const sctx = scratch.getContext("2d");
-    sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, W, H);
-    for (let b = 0; b < bands; b++) {
-      const sy = (b / bands) * IM.img.height;
-      const sh = IM.img.height / bands + 1;
-      const cx = (b / bands - 0.5) * 2;
-      const wav = Math.sin(S.time * 3 + b * 0.22 + cx * 4) * amp;
-      const wav2 = Math.cos(S.time * 2.1 + b * 0.15) * amp * 0.35 * S.bass;
-      sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav + wav2, oY + b * bh, dW, bh + 1);
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      for (let b = 0; b < bands; b++) {
+        const sy = (b / bands) * IM.img.height;
+        const sh = IM.img.height / bands + 1;
+        const cx = (b / bands - 0.5) * 2;
+        const wav = Math.sin(S.time * 3 + b * 0.22 + cx * 4) * amp;
+        const wav2 = Math.cos(S.time * 2.1 + b * 0.15) * amp * 0.35 * S.bass;
+        sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav + wav2, oY + b * bh, dW, bh + 1);
+      }
+      ctx.drawImage(scratch, -padX, -padY);
     }
-    ctx.drawImage(scratch, 0, 0);
   } else if (IM.mode === "kaleido") {
     const cx = W / 2, cy = H / 2;
     const segs = 4 + Math.round(amt * 4);
     const diag = Math.hypot(W, H);
     const fill = diag / Math.min(dW, dH);
-    const scratch = imageLayerScratchCanvas(W, H);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
     const sctx = scratch.getContext("2d");
-    sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, W, H);
-    sctx.translate(cx, cy);
-    sctx.rotate(S.time * 0.05 * amt + beat * 0.08);
-    for (let s = 0; s < segs; s++) {
-      sctx.save();
-      sctx.rotate((Math.PI * 2 / segs) * s);
-      sctx.scale(s % 2 ? 1 : -1, 1);
-      sctx.scale(fill * (1 + beat * 0.04 * amt), fill * (1 + beat * 0.04 * amt));
-      sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
-      sctx.restore();
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      sctx.translate(cx, cy);
+      sctx.rotate(S.time * 0.05 * amt + beat * 0.08);
+      for (let s = 0; s < segs; s++) {
+        sctx.save();
+        sctx.rotate((Math.PI * 2 / segs) * s);
+        sctx.scale(s % 2 ? 1 : -1, 1);
+        sctx.scale(fill * (1 + beat * 0.04 * amt), fill * (1 + beat * 0.04 * amt));
+        sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
+        sctx.restore();
+      }
+      ctx.drawImage(scratch, -padX, -padY);
     }
-    ctx.drawImage(scratch, 0, 0);
   } else if (IM.mode === "scan") {
     ctx.drawImage(IM.img, oX, oY, dW, dH);
     const lines = Math.floor(H / 3);
@@ -16796,19 +16837,25 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
   if (IM.mode === "parallax") {
     const bands = 48;
     const bh = dH / bands;
-    const scratch = imageLayerScratchCanvas(W, H);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
     const sctx = scratch.getContext("2d");
-    sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, W, H);
-    for (let b = 0; b < bands; b++) {
-      const sy = (b / bands) * IM.img.height;
-      const sh = IM.img.height / bands + 1;
-      const depth = (b / bands - 0.5) * 2;
-      const shift = depth * dW * 0.06 * amt * (0.35 + energy + beat * 0.45);
-      const drift = Math.sin(S.time * 0.8 + b * 0.11) * dW * 0.015 * amt;
-      sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + shift + drift, oY + b * bh, dW, bh + 1);
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      for (let b = 0; b < bands; b++) {
+        const sy = (b / bands) * IM.img.height;
+        const sh = IM.img.height / bands + 1;
+        const depth = (b / bands - 0.5) * 2;
+        const shift = depth * dW * 0.06 * amt * (0.35 + energy + beat * 0.45);
+        const drift = Math.sin(S.time * 0.8 + b * 0.11) * dW * 0.015 * amt;
+        sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + shift + drift, oY + b * bh, dW, bh + 1);
+      }
+      ctx.drawImage(scratch, -padX, -padY);
     }
-    ctx.drawImage(scratch, 0, 0);
   } else if (IM.mode === "zoompulse") {
     const cx = W / 2, cy = H / 2;
     const pulse = 1 + (beat * 0.14 + S.transient * 0.1 + energy * 0.06) * amt;
@@ -16820,18 +16867,24 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
     const blocks = 10 + Math.round(amt * 10);
     const bw = dW / blocks;
     const slip = (beat * 0.85 + S.transient * 0.75) * amt;
-    const scratch = imageLayerScratchCanvas(W, H);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
     const sctx = scratch.getContext("2d");
-    sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, W, H);
-    for (let i = 0; i < blocks; i++) {
-      const sx = (i / blocks) * IM.img.width;
-      const sw = IM.img.width / blocks + 1;
-      const jx = (Math.random() - 0.5) * dW * 0.18 * slip;
-      const jy = (i % 3 === 0 ? (Math.random() - 0.5) * dH * 0.04 * slip : 0);
-      sctx.drawImage(IM.img, sx, 0, sw, IM.img.height, oX + i * bw + jx, oY + jy, bw + 1, dH);
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      for (let i = 0; i < blocks; i++) {
+        const sx = (i / blocks) * IM.img.width;
+        const sw = IM.img.width / blocks + 1;
+        const jx = (Math.random() - 0.5) * dW * 0.18 * slip;
+        const jy = (i % 3 === 0 ? (Math.random() - 0.5) * dH * 0.04 * slip : 0);
+        sctx.drawImage(IM.img, sx, 0, sw, IM.img.height, oX + i * bw + jx, oY + jy, bw + 1, dH);
+      }
+      ctx.drawImage(scratch, -padX, -padY);
     }
-    ctx.drawImage(scratch, 0, 0);
   } else if (IM.mode === "flicker") {
     const gate = 0.55 + beat * 0.45 * amt + S.transient * 0.35 * amt;
     ctx.globalAlpha *= Math.max(0.12, Math.min(1, gate));
@@ -16847,22 +16900,28 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
     const segs = 16 + Math.round(amt * 8);
     const rot = S.time * 0.08 * amt + beat * 0.12;
     const pull = 1 + (beat * 0.08 + energy * 0.05) * amt;
-    const scratch = imageLayerScratchCanvas(W, H);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
     const sctx = scratch.getContext("2d");
-    sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, W, H);
-    sctx.translate(cx, cy);
-    sctx.rotate(rot);
-    for (let s = 0; s < segs; s++) {
-      const t = s / segs;
-      const sc = (0.35 + t * 0.95) * pull;
-      sctx.save();
-      sctx.scale(sc, sc);
-      sctx.globalAlpha = 0.55 + t * 0.45;
-      sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
-      sctx.restore();
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      sctx.translate(cx, cy);
+      sctx.rotate(rot);
+      for (let s = 0; s < segs; s++) {
+        const t = s / segs;
+        const sc = (0.35 + t * 0.95) * pull;
+        sctx.save();
+        sctx.scale(sc, sc);
+        sctx.globalAlpha = 0.55 + t * 0.45;
+        sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
+        sctx.restore();
+      }
+      ctx.drawImage(scratch, -padX, -padY);
     }
-    ctx.drawImage(scratch, 0, 0);
   }
 
   ctx.filter = "none";
