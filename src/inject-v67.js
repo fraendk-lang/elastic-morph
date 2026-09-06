@@ -36,7 +36,10 @@ function drawImageLayerV67(IM, W, H, baseHue, dt, opMul) {
   ctx.globalAlpha = IM.opacity * (opMul == null ? 1 : opMul);
   if (ctx.globalAlpha < 0.01) { ctx.restore(); return; }
 
-  if (IM.kenburns) {
+  // See drawImageLayer's shared Ken Burns block (elastic-morph.html) for the full rationale:
+  // glitch/ripple/kaleido composite through a scratch canvas, so this transform is instead
+  // replicated on that scratch's own context, inside each of those 3 modes below.
+  if (IM.kenburns && IM.mode !== "glitch" && IM.mode !== "ripple" && IM.mode !== "kaleido") {
     const p = S.progress;
     ctx.translate(W / 2, H / 2);
     ctx.scale(1.06 + 0.16 * p, 1.06 + 0.16 * p);
@@ -52,15 +55,20 @@ function drawImageLayerV67(IM, W, H, baseHue, dt, opMul) {
     const bands = 24 + Math.round(amt * 20);
     const bh = dH / bands;
     const glitch = (beat * 0.85 + S.transient * 0.9) * amt;
-    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
-    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const scratch = imageLayerScratchCanvas(W, H);
     const sctx = scratch.getContext("2d");
     if (sctx) {
       sctx.setTransform(1, 0, 0, 1, 0, 0);
-      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.clearRect(0, 0, W, H);
       sctx.globalAlpha = 1;
       sctx.globalCompositeOperation = "source-over";
-      sctx.translate(padX, padY);
+      if (IM.kenburns) {
+        const p = S.progress;
+        sctx.translate(W / 2, H / 2);
+        sctx.scale(1.06 + 0.16 * p, 1.06 + 0.16 * p);
+        sctx.translate(-W / 2 + Math.sin(p * Math.PI + IM.kbPhase) * W * 0.05,
+          -H / 2 + Math.cos(p * Math.PI * 0.8 + IM.kbPhase) * H * 0.045);
+      }
       for (let b = 0; b < bands; b++) {
         const sy = (b / bands) * IM.img.height;
         const sh = IM.img.height / bands + 1;
@@ -75,21 +83,26 @@ function drawImageLayerV67(IM, W, H, baseHue, dt, opMul) {
           sctx.globalAlpha = 1;
         }
       }
-      ctx.drawImage(scratch, -padX, -padY);
+      ctx.drawImage(scratch, 0, 0);
     }
   } else if (IM.mode === "ripple") {
     const bands = 56;
     const bh = dH / bands;
     const amp = dW * 0.04 * amt * (0.4 + energy + beat * 0.5);
-    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
-    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const scratch = imageLayerScratchCanvas(W, H);
     const sctx = scratch.getContext("2d");
     if (sctx) {
       sctx.setTransform(1, 0, 0, 1, 0, 0);
-      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.clearRect(0, 0, W, H);
       sctx.globalAlpha = 1;
       sctx.globalCompositeOperation = "source-over";
-      sctx.translate(padX, padY);
+      if (IM.kenburns) {
+        const p = S.progress;
+        sctx.translate(W / 2, H / 2);
+        sctx.scale(1.06 + 0.16 * p, 1.06 + 0.16 * p);
+        sctx.translate(-W / 2 + Math.sin(p * Math.PI + IM.kbPhase) * W * 0.05,
+          -H / 2 + Math.cos(p * Math.PI * 0.8 + IM.kbPhase) * H * 0.045);
+      }
       for (let b = 0; b < bands; b++) {
         const sy = (b / bands) * IM.img.height;
         const sh = IM.img.height / bands + 1;
@@ -98,22 +111,27 @@ function drawImageLayerV67(IM, W, H, baseHue, dt, opMul) {
         const wav2 = Math.cos(S.time * 2.1 + b * 0.15) * amp * 0.35 * S.bass;
         sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav + wav2, oY + b * bh, dW, bh + 1);
       }
-      ctx.drawImage(scratch, -padX, -padY);
+      ctx.drawImage(scratch, 0, 0);
     }
   } else if (IM.mode === "kaleido") {
     const cx = W / 2, cy = H / 2;
     const segs = 4 + Math.round(amt * 4);
     const diag = Math.hypot(W, H);
     const fill = diag / Math.min(dW, dH);
-    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
-    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const scratch = imageLayerScratchCanvas(W, H);
     const sctx = scratch.getContext("2d");
     if (sctx) {
       sctx.setTransform(1, 0, 0, 1, 0, 0);
-      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.clearRect(0, 0, W, H);
       sctx.globalAlpha = 1;
       sctx.globalCompositeOperation = "source-over";
-      sctx.translate(padX, padY);
+      if (IM.kenburns) {
+        const p = S.progress;
+        sctx.translate(W / 2, H / 2);
+        sctx.scale(1.06 + 0.16 * p, 1.06 + 0.16 * p);
+        sctx.translate(-W / 2 + Math.sin(p * Math.PI + IM.kbPhase) * W * 0.05,
+          -H / 2 + Math.cos(p * Math.PI * 0.8 + IM.kbPhase) * H * 0.045);
+      }
       sctx.translate(cx, cy);
       sctx.rotate(S.time * 0.05 * amt + beat * 0.08);
       for (let s = 0; s < segs; s++) {
@@ -124,7 +142,7 @@ function drawImageLayerV67(IM, W, H, baseHue, dt, opMul) {
         sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
         sctx.restore();
       }
-      ctx.drawImage(scratch, -padX, -padY);
+      ctx.drawImage(scratch, 0, 0);
     }
   } else if (IM.mode === "scan") {
     ctx.drawImage(IM.img, oX, oY, dW, dH);

@@ -62,7 +62,10 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
   ctx.globalAlpha = IM.opacity * (opMul == null ? 1 : opMul);
   if (ctx.globalAlpha < 0.01) { ctx.restore(); return; }
 
-  if (IM.kenburns) {
+  // See drawImageLayer's shared Ken Burns block (elastic-morph.html) for the full rationale:
+  // parallax/datamosh/tunnel composite through a scratch canvas, so this transform is instead
+  // replicated on that scratch's own context, inside each of those 3 modes below.
+  if (IM.kenburns && IM.mode !== "parallax" && IM.mode !== "datamosh" && IM.mode !== "tunnel") {
     const p = S.progress;
     ctx.translate(W / 2, H / 2);
     ctx.scale(1.06 + 0.16 * p, 1.06 + 0.16 * p);
@@ -77,15 +80,20 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
   if (IM.mode === "parallax") {
     const bands = 48;
     const bh = dH / bands;
-    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
-    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const scratch = imageLayerScratchCanvas(W, H);
     const sctx = scratch.getContext("2d");
     if (sctx) {
       sctx.setTransform(1, 0, 0, 1, 0, 0);
-      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.clearRect(0, 0, W, H);
       sctx.globalAlpha = 1;
       sctx.globalCompositeOperation = "source-over";
-      sctx.translate(padX, padY);
+      if (IM.kenburns) {
+        const p = S.progress;
+        sctx.translate(W / 2, H / 2);
+        sctx.scale(1.06 + 0.16 * p, 1.06 + 0.16 * p);
+        sctx.translate(-W / 2 + Math.sin(p * Math.PI + IM.kbPhase) * W * 0.05,
+          -H / 2 + Math.cos(p * Math.PI * 0.8 + IM.kbPhase) * H * 0.045);
+      }
       for (let b = 0; b < bands; b++) {
         const sy = (b / bands) * IM.img.height;
         const sh = IM.img.height / bands + 1;
@@ -94,7 +102,7 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
         const drift = Math.sin(S.time * 0.8 + b * 0.11) * dW * 0.015 * amt;
         sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + shift + drift, oY + b * bh, dW, bh + 1);
       }
-      ctx.drawImage(scratch, -padX, -padY);
+      ctx.drawImage(scratch, 0, 0);
     }
   } else if (IM.mode === "zoompulse") {
     const cx = W / 2, cy = H / 2;
@@ -107,15 +115,20 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
     const blocks = 10 + Math.round(amt * 10);
     const bw = dW / blocks;
     const slip = (beat * 0.85 + S.transient * 0.75) * amt;
-    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
-    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const scratch = imageLayerScratchCanvas(W, H);
     const sctx = scratch.getContext("2d");
     if (sctx) {
       sctx.setTransform(1, 0, 0, 1, 0, 0);
-      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.clearRect(0, 0, W, H);
       sctx.globalAlpha = 1;
       sctx.globalCompositeOperation = "source-over";
-      sctx.translate(padX, padY);
+      if (IM.kenburns) {
+        const p = S.progress;
+        sctx.translate(W / 2, H / 2);
+        sctx.scale(1.06 + 0.16 * p, 1.06 + 0.16 * p);
+        sctx.translate(-W / 2 + Math.sin(p * Math.PI + IM.kbPhase) * W * 0.05,
+          -H / 2 + Math.cos(p * Math.PI * 0.8 + IM.kbPhase) * H * 0.045);
+      }
       for (let i = 0; i < blocks; i++) {
         const sx = (i / blocks) * IM.img.width;
         const sw = IM.img.width / blocks + 1;
@@ -123,7 +136,7 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
         const jy = (i % 3 === 0 ? (Math.random() - 0.5) * dH * 0.04 * slip : 0);
         sctx.drawImage(IM.img, sx, 0, sw, IM.img.height, oX + i * bw + jx, oY + jy, bw + 1, dH);
       }
-      ctx.drawImage(scratch, -padX, -padY);
+      ctx.drawImage(scratch, 0, 0);
     }
   } else if (IM.mode === "flicker") {
     const gate = 0.55 + beat * 0.45 * amt + S.transient * 0.35 * amt;
@@ -140,15 +153,20 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
     const segs = 16 + Math.round(amt * 8);
     const rot = S.time * 0.08 * amt + beat * 0.12;
     const pull = 1 + (beat * 0.08 + energy * 0.05) * amt;
-    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
-    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const scratch = imageLayerScratchCanvas(W, H);
     const sctx = scratch.getContext("2d");
     if (sctx) {
       sctx.setTransform(1, 0, 0, 1, 0, 0);
-      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.clearRect(0, 0, W, H);
       sctx.globalAlpha = 1;
       sctx.globalCompositeOperation = "source-over";
-      sctx.translate(padX, padY);
+      if (IM.kenburns) {
+        const p = S.progress;
+        sctx.translate(W / 2, H / 2);
+        sctx.scale(1.06 + 0.16 * p, 1.06 + 0.16 * p);
+        sctx.translate(-W / 2 + Math.sin(p * Math.PI + IM.kbPhase) * W * 0.05,
+          -H / 2 + Math.cos(p * Math.PI * 0.8 + IM.kbPhase) * H * 0.045);
+      }
       sctx.translate(cx, cy);
       sctx.rotate(rot);
       for (let s = 0; s < segs; s++) {
@@ -160,7 +178,7 @@ function drawImageLayerV99(IM, W, H, baseHue, dt, opMul) {
         sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
         sctx.restore();
       }
-      ctx.drawImage(scratch, -padX, -padY);
+      ctx.drawImage(scratch, 0, 0);
     }
   }
 
