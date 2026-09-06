@@ -6332,6 +6332,16 @@ const IMG_MODES = [
   ["spin",       "Spin / Rotate"],
   ["backdrop",   "Backdrop"]
 ];
+const IMAGE_LAYER_MAX_DIM = 2048;
+function capImageSize(img, maxDim) {
+  if (img.width <= maxDim && img.height <= maxDim) return img;
+  const scale = maxDim / Math.max(img.width, img.height);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(img.width * scale));
+  c.height = Math.max(1, Math.round(img.height * scale));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
 function sampleImage(img, IM) {
   IM = IM || S.image;
   // sample the image down to a grid of colored cells
@@ -8806,9 +8816,10 @@ function loadImage(file, IM, onId) {
   reader.onload = () => {
     const img = new Image();
     img.onload = () => {
-      IM.img = img;
-      IM.src = reader.result;   // data URL — embeddable in a project file
-      sampleImage(img, IM);
+      const capped = capImageSize(img, IMAGE_LAYER_MAX_DIM);
+      IM.img = capped;
+      IM.src = capped === img ? reader.result : capped.toDataURL("image/png");   // data URL — embeddable in a project file
+      sampleImage(capped, IM);
       IM.on = true;
       $(onId).checked = true;
     };
@@ -9062,7 +9073,7 @@ function applyProject(o, fromScene) {
     if (ob && ob.src) {
       IM.src = ob.src;
       const img = new Image();
-      img.onload = () => { IM.img = img; sampleImage(img, IM); IM.on = !!ob.on; $(p + "On").checked = IM.on; };
+      img.onload = () => { const capped = capImageSize(img, IMAGE_LAYER_MAX_DIM); IM.img = capped; sampleImage(capped, IM); IM.on = !!ob.on; $(p + "On").checked = IM.on; };
       img.src = ob.src;
     } else {
       IM.on = false; IM.img = null; IM.cells = []; IM.src = null; $(p + "On").checked = false;

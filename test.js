@@ -4198,6 +4198,47 @@ ok("neither bioluminescence nor lavaLamp is registered in HEAVY_SHADER (pending 
   return !line.includes('"bioluminescence"') && !line.includes('"lavaLamp"');
 })());
 
+section("Image Layer upload downscaling");
+
+ok("IMAGE_LAYER_MAX_DIM is 2048", (() => {
+  return script.includes("const IMAGE_LAYER_MAX_DIM = 2048;");
+})());
+
+ok("capImageSize returns the original image unchanged when already within bounds", (() => {
+  const fn = extractFn("capImageSize");
+  return !!fn && fn.includes("if (img.width <= maxDim && img.height <= maxDim) return img;");
+})());
+
+ok("capImageSize scales a too-large image down to fit maxDim on its longest edge via a canvas", (() => {
+  const fn = extractFn("capImageSize");
+  return !!fn
+    && fn.includes("const scale = maxDim / Math.max(img.width, img.height);")
+    && fn.includes('const c = document.createElement("canvas");')
+    && fn.includes("c.width = Math.max(1, Math.round(img.width * scale));")
+    && fn.includes("c.height = Math.max(1, Math.round(img.height * scale));")
+    && fn.includes("c.getContext(\"2d\").drawImage(img, 0, 0, c.width, c.height);")
+    && fn.includes("return c;");
+})());
+
+ok("loadImage caps the uploaded image via capImageSize before storing it in IM.img", (() => {
+  const fn = extractFn("loadImage");
+  return !!fn
+    && fn.includes("const capped = capImageSize(img, IMAGE_LAYER_MAX_DIM);")
+    && fn.includes("IM.img = capped;")
+    && fn.includes("sampleImage(capped, IM);");
+})());
+
+ok("loadImage keeps IM.src as the original data URL when no capping happened, or re-encodes the capped canvas as PNG (preserving transparency) when it did", (() => {
+  const fn = extractFn("loadImage");
+  return !!fn && fn.includes('IM.src = capped === img ? reader.result : capped.toDataURL("image/png");');
+})());
+
+ok("applyProject's loadSrc caps the restored image via capImageSize before storing it in IM.img, without touching IM.src", (() => {
+  const fn = extractFn("applyProject");
+  return !!fn
+    && fn.includes("const capped = capImageSize(img, IMAGE_LAYER_MAX_DIM); IM.img = capped; sampleImage(capped, IM);");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
