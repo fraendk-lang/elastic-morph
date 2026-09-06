@@ -1,5 +1,55 @@
 # Image Layer Filter Performance — Scratch Canvas Fix — Design
 
+## Post-implementation amendment (final whole-branch review)
+
+The final whole-branch review (after all 3 tasks shipped) found the
+scratch-canvas design was not quite pixel-identical in three specific ways.
+Resolved with Frank as follows:
+
+1. **Ken Burns edge clipping/softening — real regression, fixed.** Ken
+   Burns' pan/zoom (`elastic-morph.html`'s `IM.kenburns` block, applied on
+   the real `ctx` before a heavy mode's scratch composite is blitted) can
+   reveal a thin strip beyond the scratch's `W`×`H` bounds at min-zoom/
+   max-drift, and softens the composite slightly once magnified into that
+   gap. Fixed by padding the scratch by the worst-case Ken Burns overscan
+   (derived from the transform's own literals — see the follow-up plan)
+   whenever `IM.kenburns` is on; no padding (no cost) otherwise. See
+   `docs/superpowers/plans/2026-09-06-image-layer-filter-scratch-canvas.md`
+   Task 4 for the exact fix.
+2. **`displace` now honors the Blend dropdown — kept, intentional.**
+   Before this branch, `displace` set `ctx.globalCompositeOperation =
+   "source-over"` on the *real* `ctx`, silently overriding whatever blend
+   mode the v68 wrapper (`elastic-morph.html:13385`) had already set —
+   `displace` was the one mode that ignored the Blend dropdown entirely.
+   Moving that same line to the *scratch* context as part of this fix means
+   the final blit now runs under the real `ctx`'s actual blend mode, so
+   `displace` behaves like the other 13 modes. This is a bugfix, not a
+   regression — kept intentionally. A saved project using `mode: "displace"`
+   with a non-default `blend` will render differently (correctly) after
+   this branch.
+3. **Kaleidoscope/Shards/Datamosh composite-then-fade vs. fade-then-stack —
+   documented, no code change.** Same category of change already accepted
+   for `glitch`'s dup-band dimming and `tunnel`'s per-segment falloff:
+   overlapping sub-draws now composite at full strength onto the scratch,
+   and `IM.opacity`/blend apply once at the final blit, instead of each
+   sub-draw individually inheriting the layer's opacity as it was drawn.
+   Most visible in `kaleido` (heaviest overlap, 4-8 full-image copies) at
+   reduced Deckkraft — the stack no longer builds toward opacity the way
+   repeated `source-over` draws at partial alpha used to. Accepted as the
+   correct combined-opacity behavior for this class of mode.
+
+**Not part of this fix — flagged as a follow-up candidate, not fixed here:**
+`dispersion`/`halftone`/`edges` (`elastic-morph.html`, ~7,000-12,000 filtered
+`ctx.arc()`/`ctx.fill()` calls/frame from `IM.cells`) and `scan`
+(`drawImageLayerV67`, 360-720 filtered `ctx.fillRect()` calls/frame) were
+excluded from the original 8-mode audit on a "loops calling
+`drawImage(IM.img,...)`" criterion — but `ctx.filter` applies to any draw
+operation, not just `drawImage`, and both of these draw far more filtered
+primitives per frame than any of the 8 modes just fixed. They likely exhibit
+the same root-cause bug, possibly worse. Left for a future round with
+"filtered draw operations per frame" (not just `drawImage` calls) as the
+audit criterion.
+
 ## Problem
 
 Live debugging (`superpowers:systematic-debugging`, following up on the

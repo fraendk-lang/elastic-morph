@@ -669,7 +669,410 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-## Manual live-check (after all 3 tasks)
+---
+
+### Task 4: Ken Burns overscan padding (post-review fix)
+
+Added after the final whole-branch review found the scratch canvas is not
+pixel-identical when `IM.kenburns` is active: Ken Burns' pan/zoom is applied
+on the real `ctx` *after* a heavy mode's scratch composite is blitted, and
+at min-zoom (`1.06`) / max-drift (`±0.05·W`, `±0.045·H`) it can reveal a
+thin strip beyond the scratch's `W`×`H` bounds, plus slightly soften the
+composite once magnified into that gap. See the design doc's "Post-
+implementation amendment" section for the full rationale and the two other
+findings resolved by documentation only (no code change).
+
+**Files:**
+- Modify: `elastic-morph.html` (new `imageLayerKenBurnsPad` helper + `displace`/`shards`)
+- Modify: `src/inject-v67.js` (`glitch`/`ripple`/`kaleido`)
+- Modify: `src/inject-v99.js` (`parallax`/`datamosh`/`tunnel`)
+- Test: `test.js`
+
+**Interfaces:**
+- Consumes: `imageLayerScratchCanvas(w, h)` from Task 1 (unchanged signature — just called with padded dimensions now).
+- Produces: `function imageLayerKenBurnsPad(IM, W, H)` → `{ padX, padY }` (both `0` when `IM.kenburns` is falsy). Every one of the 8 fixed modes calls this and applies the same recipe: pad the scratch, `sctx.translate(padX, padY)` once before the mode's existing drawing code (otherwise unchanged), blit with `ctx.drawImage(scratch, -padX, -padY)` instead of `(scratch, 0, 0)`. Also folds in two Minor findings from the final review while every site is being touched anyway: an explicit `sctx.globalAlpha = 1; sctx.globalCompositeOperation = "source-over";` reset after each `clearRect` (previously only `displace` reset compositing, implicitly, and only for itself), and a `getContext("2d")` null-guard matching `bgVidScratchCanvas`'s own pattern.
+
+- [ ] **Step 1: Write the failing tests**
+
+In `test.js`, add these assertions immediately after Task 3's last `ok(...)` call (still before `/* ---------------- summary ---------------- */`):
+
+```js
+ok("imageLayerKenBurnsPad returns zero padding when Ken Burns is off, else the derived overscan", (() => {
+  const fn = extractFn("imageLayerKenBurnsPad");
+  return !!fn
+    && fn.includes("if (!IM.kenburns) return { padX: 0, padY: 0 };")
+    && fn.includes("return { padX: Math.ceil(W * KB_PAD_FRAC_X), padY: Math.ceil(H * KB_PAD_FRAC_Y) };");
+})());
+
+ok("KB_PAD_FRAC_X/Y are derived from the Ken Burns transform's own literals (zoom 1.06, drift 0.05/0.045)", (() => {
+  return script.includes("const KB_PAD_FRAC_X = 0.05 - 0.5 * (1 - 1 / 1.06);")
+    && script.includes("const KB_PAD_FRAC_Y = 0.045 - 0.5 * (1 - 1 / 1.06);");
+})());
+
+ok("displace pads the scratch for Ken Burns and blits at the negative offset", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn
+    && fn.includes('if (IM.mode === "displace") {')
+    && fn.includes("const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);")
+    && fn.includes("const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);")
+    && fn.includes("sctx.translate(padX, padY);")
+    && fn.includes("ctx.drawImage(scratch, -padX, -padY);");
+})());
+
+ok("shards pads the scratch for Ken Burns and blits at the negative offset", (() => {
+  const fn = extractFn("drawImageLayer");
+  return !!fn
+    && fn.includes('if (IM.mode === "shards") {')
+    && (fn.match(/const \{ padX, padY \} = imageLayerKenBurnsPad\(IM, W, H\);/g) || []).length === 2;
+})());
+
+ok("V67 glitch/ripple/kaleido each pad the scratch for Ken Burns and blit at the negative offset", (() => {
+  const fn = extractFn("drawImageLayerV67");
+  return !!fn
+    && (fn.match(/const \{ padX, padY \} = imageLayerKenBurnsPad\(IM, W, H\);/g) || []).length === 3
+    && (fn.match(/ctx\.drawImage\(scratch, -padX, -padY\);/g) || []).length === 3;
+})());
+
+ok("V99 parallax/datamosh/tunnel each pad the scratch for Ken Burns and blit at the negative offset", (() => {
+  const fn = extractFn("drawImageLayerV99");
+  return !!fn
+    && (fn.match(/const \{ padX, padY \} = imageLayerKenBurnsPad\(IM, W, H\);/g) || []).length === 3
+    && (fn.match(/ctx\.drawImage\(scratch, -padX, -padY\);/g) || []).length === 3;
+})());
+
+ok("all 8 fixed modes reset sctx's alpha/compositing after clearRect (defense against shared-context state leaking between modes)", (() => {
+  const classic = extractFn("drawImageLayer");
+  const v67 = extractFn("drawImageLayerV67");
+  const v99 = extractFn("drawImageLayerV99");
+  const resetCount = (src) => (src.match(/sctx\.globalAlpha = 1;\s*\n\s*sctx\.globalCompositeOperation = "source-over";/g) || []).length;
+  return resetCount(classic) === 2 && resetCount(v67) === 3 && resetCount(v99) === 3;
+})());
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `node build.js && node test.js`
+Expected: all 7 new assertions print `✗`. Everything from Tasks 1-3 still prints `✓`.
+
+- [ ] **Step 3: Implement — `imageLayerKenBurnsPad` helper**
+
+In `elastic-morph.html`, immediately after the `imageLayerScratchCanvas` function (added in Task 1) and before `function drawImageLayer(...)`, insert:
+
+```js
+// Ken Burns pan/zoom (below) is applied on the real ctx AFTER a heavy mode's scratch
+// composite is blitted through imageLayerScratchCanvas -- so when Ken Burns is active, the
+// scratch must be padded to cover the extra area its min-zoom/max-drift can reveal at the
+// frame edges, or a thin strip of whatever is behind the image layer shows through, and the
+// composite lands very slightly softer once magnified into that gap. Derived from the exact
+// literals in the Ken Burns transform itself (zoom = 1.06 + 0.16*p, drift = ±0.05*W /
+// ±0.045*H): the worst case is at p=0, where zoom is at its smallest (1.06).
+const KB_PAD_FRAC_X = 0.05 - 0.5 * (1 - 1 / 1.06);   // ≈ 0.0217
+const KB_PAD_FRAC_Y = 0.045 - 0.5 * (1 - 1 / 1.06);  // ≈ 0.0167
+function imageLayerKenBurnsPad(IM, W, H) {
+  if (!IM.kenburns) return { padX: 0, padY: 0 };
+  return { padX: Math.ceil(W * KB_PAD_FRAC_X), padY: Math.ceil(H * KB_PAD_FRAC_Y) };
+}
+```
+
+- [ ] **Step 4: Implement — `displace` and `shards` (`elastic-morph.html`)**
+
+Replace the current `displace` block with:
+
+```js
+  if (IM.mode === "displace") {
+    const { dW, dH, oX, oY } = coverRect(W, H, IM);
+    const bands = 70, bh = dH / bands;
+    const amp = dW * 0.05 * IM.amount;
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const sctx = scratch.getContext("2d");
+    if (!sctx) { ctx.restore(); return; }
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, scratch.width, scratch.height);
+    sctx.globalAlpha = 1;
+    sctx.globalCompositeOperation = "source-over";
+    sctx.translate(padX, padY);
+    for (let bI = 0; bI < bands; bI++) {
+      const sy = (bI / bands) * IM.img.height;
+      const sh = IM.img.height / bands;
+      const wav = Math.sin(S.time * 2.2 + bI * 0.38) * amp * (S.bass * 1.3 + S.mids * 0.6 + 0.05);
+      sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav, oY + bI * bh, dW, bh + 1);
+    }
+    ctx.drawImage(scratch, -padX, -padY);
+    ctx.restore();
+    return;
+  }
+```
+
+Replace the current `shards` block with:
+
+```js
+  if (IM.mode === "shards") {
+    const { dW, dH, oX, oY } = coverRect(W, H, IM);
+    const cols2 = 10, rows2 = Math.max(1, Math.round(cols2 * dH / dW));
+    const qw = dW / cols2, qh = dH / rows2;
+    const ex = (beat * 0.6 + S.transient * 0.6) * IM.amount;
+    const cx0 = W / 2, cy0 = H / 2, push = ex * 180 * (H / 720);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const sctx = scratch.getContext("2d");
+    if (!sctx) { ctx.restore(); return; }
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, scratch.width, scratch.height);
+    sctx.globalAlpha = 1;
+    sctx.globalCompositeOperation = "source-over";
+    sctx.translate(padX, padY);
+    for (let j = 0; j < rows2; j++) for (let i = 0; i < cols2; i++) {
+      const sx = i / cols2 * IM.img.width, sy = j / rows2 * IM.img.height;
+      const sw = IM.img.width / cols2, sh = IM.img.height / rows2;
+      const qx = oX + (i + 0.5) * qw, qy = oY + (j + 0.5) * qh;
+      const dx = qx - cx0, dy = qy - cy0, d = Math.hypot(dx, dy) || 1;
+      const rot = Math.sin(i * 12.9 + j * 7.3) * ex * 0.6;
+      sctx.save();
+      sctx.translate(qx + dx / d * push, qy + dy / d * push);
+      sctx.rotate(rot);
+      sctx.drawImage(IM.img, sx, sy, sw, sh, -qw / 2 - 0.5, -qh / 2 - 0.5, qw + 1, qh + 1);
+      sctx.restore();
+    }
+    ctx.drawImage(scratch, -padX, -padY);
+    ctx.restore(); return;
+  }
+```
+
+- [ ] **Step 5: Implement — `glitch`, `ripple`, `kaleido` (`src/inject-v67.js`)**
+
+Replace the current three-mode block with:
+
+```js
+  if (IM.mode === "glitch") {
+    const bands = 24 + Math.round(amt * 20);
+    const bh = dH / bands;
+    const glitch = (beat * 0.85 + S.transient * 0.9) * amt;
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const sctx = scratch.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      for (let b = 0; b < bands; b++) {
+        const sy = (b / bands) * IM.img.height;
+        const sh = IM.img.height / bands + 1;
+        const jx = (Math.random() - 0.5) * dW * 0.12 * glitch;
+        const dup = glitch > 0.35 && b % 7 === 0;
+        sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx, oY + b * bh, dW, bh + 1);
+        if (dup) {
+          sctx.globalCompositeOperation = "lighter";
+          sctx.globalAlpha = 0.45;
+          sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + jx + 8, oY + b * bh, dW, bh + 1);
+          sctx.globalCompositeOperation = "source-over";
+          sctx.globalAlpha = 1;
+        }
+      }
+      ctx.drawImage(scratch, -padX, -padY);
+    }
+  } else if (IM.mode === "ripple") {
+    const bands = 56;
+    const bh = dH / bands;
+    const amp = dW * 0.04 * amt * (0.4 + energy + beat * 0.5);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const sctx = scratch.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      for (let b = 0; b < bands; b++) {
+        const sy = (b / bands) * IM.img.height;
+        const sh = IM.img.height / bands + 1;
+        const cx = (b / bands - 0.5) * 2;
+        const wav = Math.sin(S.time * 3 + b * 0.22 + cx * 4) * amp;
+        const wav2 = Math.cos(S.time * 2.1 + b * 0.15) * amp * 0.35 * S.bass;
+        sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + wav + wav2, oY + b * bh, dW, bh + 1);
+      }
+      ctx.drawImage(scratch, -padX, -padY);
+    }
+  } else if (IM.mode === "kaleido") {
+    const cx = W / 2, cy = H / 2;
+    const segs = 4 + Math.round(amt * 4);
+    const diag = Math.hypot(W, H);
+    const fill = diag / Math.min(dW, dH);
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const sctx = scratch.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      sctx.translate(cx, cy);
+      sctx.rotate(S.time * 0.05 * amt + beat * 0.08);
+      for (let s = 0; s < segs; s++) {
+        sctx.save();
+        sctx.rotate((Math.PI * 2 / segs) * s);
+        sctx.scale(s % 2 ? 1 : -1, 1);
+        sctx.scale(fill * (1 + beat * 0.04 * amt), fill * (1 + beat * 0.04 * amt));
+        sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
+        sctx.restore();
+      }
+      ctx.drawImage(scratch, -padX, -padY);
+    }
+  } else if (IM.mode === "scan") {
+```
+
+(Only the `if`/`else if` bodies for these 3 modes change — `scan`'s block that follows is untouched context, shown only to anchor the replacement.)
+
+- [ ] **Step 6: Implement — `parallax`, `datamosh`, `tunnel` (`src/inject-v99.js`)**
+
+Replace the current three-mode block with:
+
+```js
+  if (IM.mode === "parallax") {
+    const bands = 48;
+    const bh = dH / bands;
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const sctx = scratch.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      for (let b = 0; b < bands; b++) {
+        const sy = (b / bands) * IM.img.height;
+        const sh = IM.img.height / bands + 1;
+        const depth = (b / bands - 0.5) * 2;
+        const shift = depth * dW * 0.06 * amt * (0.35 + energy + beat * 0.45);
+        const drift = Math.sin(S.time * 0.8 + b * 0.11) * dW * 0.015 * amt;
+        sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + shift + drift, oY + b * bh, dW, bh + 1);
+      }
+      ctx.drawImage(scratch, -padX, -padY);
+    }
+  } else if (IM.mode === "zoompulse") {
+    const cx = W / 2, cy = H / 2;
+    const pulse = 1 + (beat * 0.14 + S.transient * 0.1 + energy * 0.06) * amt;
+    ctx.translate(cx, cy);
+    ctx.scale(pulse, pulse);
+    ctx.translate(-cx, -cy);
+    ctx.drawImage(IM.img, oX, oY, dW, dH);
+  } else if (IM.mode === "datamosh") {
+    const blocks = 10 + Math.round(amt * 10);
+    const bw = dW / blocks;
+    const slip = (beat * 0.85 + S.transient * 0.75) * amt;
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const sctx = scratch.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      for (let i = 0; i < blocks; i++) {
+        const sx = (i / blocks) * IM.img.width;
+        const sw = IM.img.width / blocks + 1;
+        const jx = (Math.random() - 0.5) * dW * 0.18 * slip;
+        const jy = (i % 3 === 0 ? (Math.random() - 0.5) * dH * 0.04 * slip : 0);
+        sctx.drawImage(IM.img, sx, 0, sw, IM.img.height, oX + i * bw + jx, oY + jy, bw + 1, dH);
+      }
+      ctx.drawImage(scratch, -padX, -padY);
+    }
+  } else if (IM.mode === "flicker") {
+    const gate = 0.55 + beat * 0.45 * amt + S.transient * 0.35 * amt;
+    ctx.globalAlpha *= Math.max(0.12, Math.min(1, gate));
+    ctx.drawImage(IM.img, oX, oY, dW, dH);
+    if (beat > 0.5 * amt) {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = IM.opacity * (opMul == null ? 1 : opMul) * beat * 0.22 * amt;
+      ctx.drawImage(IM.img, oX, oY, dW, dH);
+      ctx.globalCompositeOperation = "source-over";
+    }
+  } else if (IM.mode === "tunnel") {
+    const cx = W / 2, cy = H / 2;
+    const segs = 16 + Math.round(amt * 8);
+    const rot = S.time * 0.08 * amt + beat * 0.12;
+    const pull = 1 + (beat * 0.08 + energy * 0.05) * amt;
+    const { padX, padY } = imageLayerKenBurnsPad(IM, W, H);
+    const scratch = imageLayerScratchCanvas(W + padX * 2, H + padY * 2);
+    const sctx = scratch.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, scratch.width, scratch.height);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.translate(padX, padY);
+      sctx.translate(cx, cy);
+      sctx.rotate(rot);
+      for (let s = 0; s < segs; s++) {
+        const t = s / segs;
+        const sc = (0.35 + t * 0.95) * pull;
+        sctx.save();
+        sctx.scale(sc, sc);
+        sctx.globalAlpha = 0.55 + t * 0.45;
+        sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);
+        sctx.restore();
+      }
+      ctx.drawImage(scratch, -padX, -padY);
+    }
+  }
+```
+
+(`zoompulse` and `flicker` are shown only as unchanged context to anchor the replacement — do not modify them.)
+
+- [ ] **Step 7: Run the tests to verify they pass**
+
+Run: `node build.js && node test.js`
+Expected: all assertions print `✓`, including the 7 new ones. Final line: `<N> passed, 0 failed`.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add elastic-morph.html src/inject-v67.js src/inject-v99.js test.js
+git commit -m "fix: pad Image Layer scratch canvas for Ken Burns overscan, harden shared-context resets
+
+Found in the final whole-branch review of the scratch-canvas filter fix
+(see the design doc's 'Post-implementation amendment' section): Ken
+Burns' pan/zoom is applied on the real ctx AFTER a heavy mode's scratch
+composite is blitted, so at min-zoom (1.06x) / max-drift (+-0.05*W,
++-0.045*H) it could reveal a thin strip beyond the scratch's W x H
+bounds, plus slightly soften the composite once magnified into that
+gap -- a real, if narrow, deviation from 'pixel-identical'.
+
+New imageLayerKenBurnsPad(IM, W, H) derives the worst-case overscan
+directly from the Ken Burns transform's own literals and returns
+{padX: 0, padY: 0} when Ken Burns is off (zero cost). All 8 fixed modes
+now pad their scratch canvas accordingly, sctx.translate(padX, padY)
+once before their existing unchanged drawing code, and blit at
+(-padX, -padY) instead of (0, 0).
+
+Also folds in two Minor findings from the same review while every site
+was being touched anyway: explicit sctx.globalAlpha = 1 /
+globalCompositeOperation = \"source-over\" resets after each clearRect
+(previously only displace reset compositing, and only for itself, so a
+future 9th site reusing this shared scratch context could inherit
+dirty state from whichever mode ran before it), and a getContext(\"2d\")
+null-guard matching the existing bgVidScratchCanvas pattern this whole
+fix is modeled on.
+
+Two other review findings were resolved by documentation only, no code
+change needed (see design doc): displace now correctly honors the
+Blend dropdown as an accepted side-fix of moving its compositing reset
+onto the scratch context, and kaleido/shards/datamosh's overlap
+stacking behavior at reduced opacity is the same accepted composite-
+then-fade change already documented for glitch/tunnel.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+---
+
+## Manual live-check (after all 4 tasks)
 
 Not covered by `test.js` (no real filtered-canvas render comparison in the
 static harness) — from the design spec:
@@ -689,3 +1092,12 @@ static harness) — from the design spec:
 4. Resize the browser window (or switch to HQ export resolution) while a
    heavy mode with a filter is active — confirm the scratch canvas resizes
    correctly (no stretched/stale frame).
+5. Enable Ken Burns with a square or portrait cover image and one of the 8
+   fixed modes active — watch the top/bottom edges through a full zoom
+   cycle, confirm no transparent strip appears (this is what Task 4 fixes).
+6. Set Deckkraft (opacity) to ~50% with Kaleidoscope active — confirm the
+   overlapping copies look right at that opacity (documented behavior
+   change, not expected to look "wrong", just different from before this
+   branch — use judgment on whether it reads well).
+7. Load a saved project using `displace` with a non-default Blend mode —
+   confirm the blend is now visibly applied (documented bugfix).
