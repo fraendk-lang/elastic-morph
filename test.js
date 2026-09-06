@@ -4313,6 +4313,47 @@ ok("V67 glitch/ripple/kaleido each blit their scratch composite through the real
   return count === 3;
 })());
 
+ok("V99 parallax mode draws its bands onto a scratch canvas instead of ctx directly", (() => {
+  const fn = extractFn("drawImageLayerV99");
+  return !!fn
+    && fn.includes('if (IM.mode === "parallax") {')
+    && fn.includes("const scratch = imageLayerScratchCanvas(W, H);")
+    && fn.includes("sctx.drawImage(IM.img, 0, sy, IM.img.width, sh, oX + shift + drift, oY + b * bh, dW, bh + 1);")
+    && !/\bctx\.drawImage\(IM\.img, 0, sy, IM\.img\.width, sh, oX \+ shift \+ drift, oY \+ b \* bh, dW, bh \+ 1\);/.test(fn);
+})());
+
+ok("V99 datamosh mode draws its blocks onto a scratch canvas instead of ctx directly", (() => {
+  const fn = extractFn("drawImageLayerV99");
+  return !!fn
+    && fn.includes('} else if (IM.mode === "datamosh") {')
+    && fn.includes("sctx.drawImage(IM.img, sx, 0, sw, IM.img.height, oX + i * bw + jx, oY + jy, bw + 1, dH);")
+    && !/\bctx\.drawImage\(IM\.img, sx, 0, sw, IM\.img\.height, oX \+ i \* bw \+ jx, oY \+ jy, bw \+ 1, dH\);/.test(fn);
+})());
+
+ok("V99 tunnel mode draws its segments onto a scratch canvas instead of ctx directly", (() => {
+  const fn = extractFn("drawImageLayerV99");
+  return !!fn
+    && fn.includes('} else if (IM.mode === "tunnel") {')
+    && fn.includes("sctx.drawImage(IM.img, -dW / 2, -dH / 2, dW, dH);")
+    && fn.includes("sctx.translate(cx, cy);")
+    && fn.includes("sctx.rotate(rot);")
+    && fn.includes("sctx.globalAlpha = 0.55 + t * 0.45;");
+})());
+
+ok("V99 parallax/datamosh/tunnel each blit their scratch composite through the real (filtered) ctx exactly once", (() => {
+  const fn = extractFn("drawImageLayerV99");
+  const count = (fn.match(/ctx\.drawImage\(scratch, 0, 0\);/g) || []).length;
+  return count === 3;
+})());
+
+ok("V99 zoompulse and flicker (not loop-heavy) are unchanged", (() => {
+  const fn = extractFn("drawImageLayerV99");
+  return !!fn
+    && fn.includes('} else if (IM.mode === "zoompulse") {')
+    && fn.includes("ctx.drawImage(IM.img, oX, oY, dW, dH);")
+    && fn.includes('} else if (IM.mode === "flicker") {');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
