@@ -4562,6 +4562,43 @@ ok("updateDemoBanner hides during tab-audio (not just mic) so it doesn't distrac
   return !!fn && fn.includes("const show = S.demoMode && !audioEl.src && !S.micMode && !S.tabAudioMode;");
 })());
 
+section("Set to Gallery button (personal admin tool)");
+
+ok("gallerySlug() lowercases, strips non-alphanumerics, and is collision-safe across calls", (() => {
+  const { gallerySlug } = loadFns(["gallerySlug"]);
+  const a = gallerySlug("Neon Tunnel!!");
+  const b = gallerySlug("Neon Tunnel!!");
+  return /^neon-tunnel-\d+-[a-z0-9]{4}$/.test(a) && a !== b;
+})());
+
+ok("gallerySlug() falls back to 'look' for an empty or missing name", (() => {
+  const { gallerySlug } = loadFns(["gallerySlug"]);
+  return gallerySlug("").startsWith("look-") && gallerySlug(null).startsWith("look-");
+})());
+
+ok("Set to Gallery button exists next to Copy share link", () => {
+  return html.includes('id="galleryAddBtn"') && html.includes('id="shareBtn"');
+});
+
+ok("addToGallery() prompts for a name, defaults author to Elastic Universe, and builds the schema-correct entry", (() => {
+  const fn = extractFn("addToGallery");
+  return !!fn
+    && fn.includes("prompt(")
+    && fn.includes('author: "Elastic Universe"')
+    && fn.includes("gallerySlug(")
+    && fn.includes("thumbnail:")
+    && fn.includes("project: projectData()");
+})());
+
+ok("addToGallery() captures the canvas as a JPEG thumbnail and shows a completion toast", (() => {
+  const fn = extractFn("addToGallery");
+  return !!fn && fn.includes('canvas.toBlob(') && fn.includes('"image/jpeg"') && fn.includes("showAppToast(");
+})());
+
+ok("Set to Gallery button is wired to addToGallery()", () => {
+  return script.includes('$("galleryAddBtn").addEventListener("click", addToGallery)');
+});
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

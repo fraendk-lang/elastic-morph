@@ -1630,6 +1630,7 @@
         <button class="btn primary" id="saveProjBtn">⤓ Save Project</button>
         <button class="btn" id="loadProjBtn">⤒ Load Project</button>
         <button class="btn" id="shareBtn">🔗 Copy share link</button>
+        <button class="btn" id="galleryAddBtn" title="Personal tool: prepares a gallery.json entry + thumbnail for you to hand-add">★ Set to Gallery</button>
         <button class="btn" id="undoBtn" title="Cmd/Ctrl+Z">↶ Undo</button>
         <button class="btn" id="redoBtn" title="Cmd/Ctrl+Shift+Z">↷ Redo</button>
         <input type="file" id="projInput" accept=".json,.emorph,application/json" hidden>
@@ -10632,6 +10633,49 @@ function shareLink() {
   else prompt("Share-Link (kopieren):", url);
 }
 $("shareBtn").addEventListener("click", shareLink);
+
+/* v148: personal "Set to Gallery" tool — packages the current look into a
+   ready-to-use assets/gallery/gallery.json entry (thumbnail JPG + JSON
+   snippet), both downloaded locally. Frank still manually moves the
+   thumbnail into assets/gallery/ and pastes the JSON object into
+   gallery.json before committing — this only removes the hand-crafting
+   step, it never writes anything live (no backend exists for that). */
+function gallerySlug(name) {
+  const base = (name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "look";
+  const rand = Math.random().toString(36).slice(2, 6);
+  return base + "-" + Date.now() + "-" + rand;
+}
+
+function addToGallery() {
+  const suggested = (S.preset && S.preset.name) || "Untitled Look";
+  const name = prompt("Name für diesen Look?", suggested);
+  if (!name) return;
+  const id = gallerySlug(name);
+  const entry = {
+    id,
+    name,
+    author: "Elastic Universe",
+    date: new Date().toISOString().slice(0, 10),
+    thumbnail: "assets/gallery/" + id + ".jpg",
+    project: projectData()
+  };
+  canvas.toBlob(blob => {
+    if (!blob) { alert("Thumbnail-Erstellung fehlgeschlagen — bitte nochmal versuchen."); return; }
+    const imgUrl = URL.createObjectURL(blob);
+    const a1 = document.createElement("a");
+    a1.href = imgUrl; a1.download = id + ".jpg"; a1.click();
+    setTimeout(() => URL.revokeObjectURL(imgUrl), 10000);
+
+    const jsonBlob = new Blob([JSON.stringify(entry, null, 2)], { type: "application/json" });
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const a2 = document.createElement("a");
+    a2.href = jsonUrl; a2.download = id + ".json"; a2.click();
+    setTimeout(() => URL.revokeObjectURL(jsonUrl), 10000);
+
+    showAppToast(`Gallery-Eintrag vorbereitet: ${id}.jpg + ${id}.json — Thumbnail nach assets/gallery/ verschieben, JSON-Objekt in gallery.json einfügen.`, 6500);
+  }, "image/jpeg", 0.85);
+}
+$("galleryAddBtn").addEventListener("click", addToGallery);
 
 /* v38: Undo / Redo — coarse, snapshot-based (a light projectData() every ~900ms; image pixels excluded) */
 const HIST = { undo: [], redo: [], last: null, max: 50, busy: false };
