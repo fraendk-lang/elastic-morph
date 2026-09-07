@@ -299,7 +299,24 @@ function initImageLayerV99() {
   const _drawImageLayer = drawImageLayer;
   drawImageLayer = function (IM, W, H, baseHue, dt, opMul) {
     if (IMG_V99_MODES.has(IM.mode)) {
-      drawImageLayerV99(IM, W, H, baseHue, dt, opMul);
+      // v99 modes were dispatched here directly, bypassing the v68 wrapper's Blend +
+      // Beat-Sync handling entirely -- replicate that same logic here so these 5 modes
+      // behave like all other Image Layer modes instead of always rendering as Blend:
+      // Normal with Beat-Sync silently doing nothing.
+      const blend = IM.blend || "source-over";
+      const gate = imageBeatGate(IM, dt);
+      ctx.save();
+      ctx.globalCompositeOperation = blend;
+      if (IM.beatSync && gate < 0.12) {
+        drawImageLayerStatic(IM, W, H, baseHue, opMul);
+      } else {
+        const saved = IM.amount;
+        if (IM.beatSync) IM.amount = saved * Math.max(0.18, gate);
+        drawImageLayerV99(IM, W, H, baseHue, dt, opMul);
+        IM.amount = saved;
+      }
+      ctx.restore();
+      ctx.globalCompositeOperation = "source-over";
       return;
     }
     _drawImageLayer(IM, W, H, baseHue, dt, opMul);

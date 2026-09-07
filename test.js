@@ -4468,6 +4468,39 @@ ok("dispersion/halftone/edges blit the finished scratch composite through the re
   return !!fn && fn.includes('ctx.drawImage(scratch, 0, 0);\n  ctx.restore();\n  ctx.globalCompositeOperation = "source-over";\n}');
 })());
 
+section("V99 Blend + Beat-Sync fix");
+
+ok("initImageLayerV99 applies Blend around the V99 mode dispatch", (() => {
+  const fn = extractFn("initImageLayerV99");
+  return !!fn
+    && fn.includes('if (IMG_V99_MODES.has(IM.mode)) {')
+    && fn.includes('const blend = IM.blend || "source-over";')
+    && fn.includes('ctx.globalCompositeOperation = blend;');
+})());
+
+ok("initImageLayerV99 applies the Beat-Sync gate (static hold between beats, amount scaling otherwise) around the V99 mode dispatch", (() => {
+  const fn = extractFn("initImageLayerV99");
+  return !!fn
+    && fn.includes('const gate = imageBeatGate(IM, dt);')
+    && fn.includes('if (IM.beatSync && gate < 0.12) {')
+    && fn.includes('drawImageLayerStatic(IM, W, H, baseHue, opMul);')
+    && fn.includes('if (IM.beatSync) IM.amount = saved * Math.max(0.18, gate);');
+})());
+
+ok("initImageLayerV99 still dispatches to drawImageLayerV99 and restores IM.amount/ctx state before returning", (() => {
+  const fn = extractFn("initImageLayerV99");
+  return !!fn
+    && fn.includes('const saved = IM.amount;')
+    && fn.includes('drawImageLayerV99(IM, W, H, baseHue, dt, opMul);')
+    && fn.includes('IM.amount = saved;')
+    && fn.includes('ctx.restore();\n      ctx.globalCompositeOperation = "source-over";\n      return;');
+})());
+
+ok("initImageLayerV99 still falls through to the previous drawImageLayer for non-V99 modes", (() => {
+  const fn = extractFn("initImageLayerV99");
+  return !!fn && fn.includes('_drawImageLayer(IM, W, H, baseHue, dt, opMul);\n  };');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
