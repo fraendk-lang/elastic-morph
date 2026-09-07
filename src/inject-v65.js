@@ -25,7 +25,7 @@ function saveSwipeMode(mode) {
 }
 
 function getCreatorLookPicks() {
-  const hasTrack = !!(S.audioBuffer || audioEl.src || S.micMode);
+  const hasTrack = !!(S.audioBuffer || audioEl.src || S.micMode || S.tabAudioMode);
   if (!hasTrack) return [];
   if (S.swipeLookMode === "smart" && S.energyCurve && S.energyCurve.length) return suggestSmartLooks();
   return PRESETS.slice();
@@ -46,7 +46,7 @@ function updateLookSwipeHint() {
   if (!hint) return;
   const show = S.uiMode === "creator"
     && document.body.classList.contains("is-touch")
-    && !!(S.audioBuffer || audioEl.src || S.micMode);
+    && !!(S.audioBuffer || audioEl.src || S.micMode || S.tabAudioMode);
   hint.classList.toggle("show", show);
   if (!show) return;
   if (S.lookSwipeLocked) hint.textContent = "Look-Wischen gesperrt — 🔒 antippen zum Freigeben";
@@ -64,7 +64,7 @@ function updateDockToggleLabel() {
 function updateDemoBanner() {
   const el = $("demoBanner");
   if (!el) return;
-  const show = S.demoMode && !audioEl.src && !S.micMode;
+  const show = S.demoMode && !audioEl.src && !S.micMode && !S.tabAudioMode;
   el.classList.toggle("show", show);
 }
 

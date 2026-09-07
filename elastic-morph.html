@@ -5823,7 +5823,7 @@ function drawBgVideoTimeline(W, H) {
 }
 /* v41: intro cover card — 1 during the hold, easing to 0 across the fade */
 function introAlpha() {
-  if (!S.intro.on || !(audioEl.src || S.micMode)) return 0;
+  if (!S.intro.on || !(audioEl.src || S.micMode || S.tabAudioMode)) return 0;
   const img = S.image && S.image.img; if (!img) return 0;
   if (S.intro.hold) return 1;                       // v45: hold the cover for the whole song
   const tt = S.exporting ? (S.virtualT || 0) : playPos();
@@ -5967,7 +5967,7 @@ function drawScene(dt) {
   let charge = 0;
   {
     let dur = audioEl.duration || 0;
-    if (S.micMode) dur = 240; else if (!audioEl.src) dur = 180;
+    if (S.micMode || S.tabAudioMode) dur = 240; else if (!audioEl.src) dur = 180;
     if (dur && S.drops.length) {
       for (const d of S.drops) {
         const sec = (d - S.progress) * dur;
@@ -10282,7 +10282,7 @@ function updateUI() {
   cur.style.boxShadow = `0 0 ${6 + (S.beat + S.dropFlash) * 12}px var(--amber)`;
   drawWave();
   segEls.forEach((seg, i) => seg.classList.toggle("current", i === S.segIndex));
-  $("timeLabel").textContent = S.micMode
+  $("timeLabel").textContent = (S.micMode || S.tabAudioMode)
     ? `LIVE · ${fmtTime(S.virtualT)}`
     : `${fmtTime(audioEl.currentTime)} / ${fmtTime(audioEl.duration)}`;
   const badge = $("phaseBadge");
@@ -12853,7 +12853,7 @@ function saveSwipeMode(mode) {
 }
 
 function getCreatorLookPicks() {
-  const hasTrack = !!(S.audioBuffer || audioEl.src || S.micMode);
+  const hasTrack = !!(S.audioBuffer || audioEl.src || S.micMode || S.tabAudioMode);
   if (!hasTrack) return [];
   if (S.swipeLookMode === "smart" && S.energyCurve && S.energyCurve.length) return suggestSmartLooks();
   return PRESETS.slice();
@@ -12874,7 +12874,7 @@ function updateLookSwipeHint() {
   if (!hint) return;
   const show = S.uiMode === "creator"
     && document.body.classList.contains("is-touch")
-    && !!(S.audioBuffer || audioEl.src || S.micMode);
+    && !!(S.audioBuffer || audioEl.src || S.micMode || S.tabAudioMode);
   hint.classList.toggle("show", show);
   if (!show) return;
   if (S.lookSwipeLocked) hint.textContent = "Look-Wischen gesperrt — 🔒 antippen zum Freigeben";
@@ -12892,7 +12892,7 @@ function updateDockToggleLabel() {
 function updateDemoBanner() {
   const el = $("demoBanner");
   if (!el) return;
-  const show = S.demoMode && !audioEl.src && !S.micMode;
+  const show = S.demoMode && !audioEl.src && !S.micMode && !S.tabAudioMode;
   el.classList.toggle("show", show);
 }
 

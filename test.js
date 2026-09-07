@@ -4528,6 +4528,40 @@ ok("the DNA panel Undo/Redo buttons are wired to the existing histUndo/histRedo 
     && script.includes('$("redoBtnDna").addEventListener("click", histRedo);');
 })());
 
+section("Tab-/System-Audio cosmetic backlog (5 sites)");
+
+ok("updateUI's time label shows LIVE format during tab-audio, not just mic", (() => {
+  const fn = extractFn("updateUI");
+  return !!fn && fn.includes('$("timeLabel").textContent = (S.micMode || S.tabAudioMode)');
+})());
+
+ok("introAlpha shows the intro cover during tab-audio, not just mic", (() => {
+  const fn = extractFn("introAlpha");
+  return !!fn && fn.includes("if (!S.intro.on || !(audioEl.src || S.micMode || S.tabAudioMode)) return 0;");
+})());
+
+ok("drawScene's drop-dramaturgy cycle uses the 240s live duration during tab-audio, not just mic", (() => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes("if (S.micMode || S.tabAudioMode) dur = 240; else if (!audioEl.src) dur = 180;");
+})());
+
+ok("getCreatorLookPicks treats tab-audio as having a track, not just mic", (() => {
+  const injSrc = injectSrc("inject-v65.js");
+  const fn = extractFn("getCreatorLookPicks", injSrc);
+  return !!fn && fn.includes("const hasTrack = !!(S.audioBuffer || audioEl.src || S.micMode || S.tabAudioMode);");
+})());
+
+ok("updateLookSwipeHint shows during tab-audio, not just mic", (() => {
+  const injSrc = injectSrc("inject-v65.js");
+  const fn = extractFn("updateLookSwipeHint", injSrc);
+  return !!fn && fn.includes("&& !!(S.audioBuffer || audioEl.src || S.micMode || S.tabAudioMode);");
+})());
+
+ok("updateDemoBanner hides during tab-audio (not just mic) so it doesn't distract from live capture", (() => {
+  const fn = extractFn("updateDemoBanner");
+  return !!fn && fn.includes("const show = S.demoMode && !audioEl.src && !S.micMode && !S.tabAudioMode;");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
