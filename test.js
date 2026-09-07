@@ -4621,6 +4621,43 @@ ok("tentacle's counter-rotation still cancels+reverses baseRot regardless of the
   return !!fn && fn.includes('case "tentacle": {') && fn.includes("ctx.rotate(-2 * baseRot);");
 })());
 
+section("Layer B — phase-driven mirror automation + edge glow");
+
+ok("LAYERB_PHASE_MIRROR has the 6 confirmed phase targets, mirroring LAYERB_PHASE_ZOOM's dramaturgy shape", (() => {
+  const m = script.match(/const LAYERB_PHASE_MIRROR = \{([^}]*)\};/);
+  if (!m) return false;
+  const body = m[1];
+  return /Birth:\s*"off"/.test(body) && /Grow:\s*"h"/.test(body) && /Tension:\s*"quad"/.test(body)
+    && /Break:\s*"oct"/.test(body) && /Return:\s*"quad"/.test(body) && /Fade:\s*"off"/.test(body);
+})());
+
+ok("drawLayerB's mirror only follows the song phase when LB.mirror is left at its 'off' default — an explicit manual choice always wins", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('let mir = LB.mirror === "off" ? (LAYERB_PHASE_MIRROR[S.phase] || "off") : LB.mirror;');
+})());
+
+ok("drawLayerB's perf-scale snapshot (pf57) is computed once, before ctx.save(), and reused by both the edge glow and the mirror safety net", (() => {
+  const fn = extractFn("drawLayerB");
+  if (!fn) return false;
+  const pf57Count = (fn.match(/const pf57 = S\.exporting \? 1 : \(S\.perfScale \|\| 1\);/g) || []).length;
+  return pf57Count === 1 && fn.indexOf("const pf57") < fn.indexOf("ctx.save()");
+})());
+
+ok("drawLayerB applies a shared edge glow tied to the current hue, skipped under load (pf57 < 0.6)", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn
+    && fn.includes("ctx.shadowBlur = pf57 < 0.6 ? 0 : mn * 0.01;")
+    && fn.includes("ctx.shadowColor = `hsla(${hue}, 80%, 65%, 0.6)`;");
+})());
+
+ok("drawLayerB's mirror perf-scale safety net (the 4 pf57 checks) still runs after the phase-aware mir assignment", (() => {
+  const fn = extractFn("drawLayerB");
+  if (!fn) return false;
+  const mirIdx = fn.indexOf('let mir = LB.mirror === "off"');
+  const checksIdx = fn.indexOf('if (pf57 < 0.75 && mir === "oct") mir = "hex";');
+  return mirIdx >= 0 && checksIdx > mirIdx;
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

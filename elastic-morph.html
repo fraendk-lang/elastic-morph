@@ -6832,6 +6832,10 @@ function specAt(i, n) {
   return Math.max(0, (0.32 + 0.3 * Math.sin(S.time * 2 + i * 0.5)) * (0.3 + S.loudness * 1.6) + S.bass * 0.25 * Math.sin(i * 0.7));
 }
 const LAYERB_PHASE_ZOOM = { Birth: 0.75, Grow: 0.9, Tension: 1.15, Break: 1.35, Return: 0.95, Fade: 0.7 };
+// v149: same dramaturgy shape as LAYERB_PHASE_ZOOM — simplest at the bookends, densest at the
+// climax — but for kaleidoscope-mirror complexity instead of zoom. Only applied when Mirror is
+// left at "off" (see drawLayerB below); an explicit manual Mirror choice is never overridden.
+const LAYERB_PHASE_MIRROR = { Birth: "off", Grow: "h", Tension: "quad", Break: "oct", Return: "quad", Fade: "off" };
 function drawLayerB(W, H, hue, dt) {
   const LB = S.layerB;
   if (!LB.on) return;
@@ -6870,11 +6874,18 @@ function drawLayerB(W, H, hue, dt) {
     const h = (LB.color === "rainbow" ? (t * 300 + S.time * 30) : (hue + t * 50)) + (LB._hue || 0);
     return `hsla(${((h % 360) + 360) % 360}, 82%, 63%, ${a})`;
   };
+  // v57/v149: perf-scale snapshot — drives both the mirror-complexity safety net below and
+  // whether the v149 edge glow (a real Canvas 2D cost) runs at all.
+  const pf57 = S.exporting ? 1 : (S.perfScale || 1);
   ctx.save();
   ctx.globalAlpha = Math.max(0, Math.min(1, LB.opacity * (1 + LB.opLfo.depth * lfoWave(LB.opLfo.shape, LB._opPhase || 0))));
   ctx.globalCompositeOperation = LB.blend;
   ctx.lineWidth = Math.max(1, mn * 0.005);
   ctx.lineJoin = "round"; ctx.lineCap = "round";   // v40: smoother strokes across all types
+  // v149: subtle glow softens raw stroke edges across all 20 types; skipped under load since
+  // shadowBlur is a real cost in Canvas 2D — matches the mirror-complexity safety net below.
+  ctx.shadowBlur = pf57 < 0.6 ? 0 : mn * 0.01;
+  ctx.shadowColor = `hsla(${hue}, 80%, 65%, 0.6)`;
 
   // v20/v43/v148: global liveliness — beat scale-pulse (depth = lbPulse), drift sway + continuous
   // spin. v148 adds kickOnset (percussive attack from the sub/kick band, sharper than the
@@ -6890,8 +6901,10 @@ function drawLayerB(W, H, hue, dt) {
   // v43: optional kaleidoscopic mirror — render the chosen type once per reflection pass
   // v57: drop mirror passes under load (8/6/4-way → progressively lighter) so heavy types stay smooth
   // v120: added vertical, diagonal, and 6/8-way rotational-kaleidoscope patterns
-  const pf57 = S.exporting ? 1 : (S.perfScale || 1);
-  let mir = LB.mirror;
+  // v149: when Mirror is left at "Off" (the default), let the song phase drive kaleidoscope
+  // complexity automatically — Birth/Fade stay simple, Tension/Break get denser reflections.
+  // An explicit manual Mirror choice always wins (never overridden).
+  let mir = LB.mirror === "off" ? (LAYERB_PHASE_MIRROR[S.phase] || "off") : LB.mirror;
   if (pf57 < 0.75 && mir === "oct") mir = "hex";
   if (pf57 < 0.65 && mir === "hex") mir = "quad";
   if (pf57 < 0.55 && mir === "quad") mir = "h";
