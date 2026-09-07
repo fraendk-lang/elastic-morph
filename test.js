@@ -4599,6 +4599,28 @@ ok("Set to Gallery button is wired to addToGallery()", () => {
   return script.includes('$("galleryAddBtn").addEventListener("click", addToGallery)');
 });
 
+section("Layer B — 6-band reactivity (kick/snare/air)");
+
+ok("drawLayerB's shared pulse leans on kickOnset for a percussive attack, alongside the existing beat/bass/transient blend", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes("const lbPulse = 1 + (S.beat * 0.1 + S.kickOnset * 0.12 + S.bass * 0.08 + S.transient * 0.06) * liveMul(\"pulse\") * LB.pulse;");
+})());
+
+ok("drawLayerB's shared rotation gets a snare-driven twist on top of the existing sway/stereo/spin terms", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes("const baseRot = Math.sin(S.time * 0.15) * 0.06 * LB.sway + S.stereo * 0.05 + S.snareOnset * 0.05 + (LB._spin || 0);");
+})());
+
+ok("drawLayerB's colr() brightens every type a touch with S.bands.air (hi-hat/cymbal shimmer), clamped to [0,1]", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes("a = Math.max(0, Math.min(1, a + S.bands.air * 0.12));");
+})());
+
+ok("tentacle's counter-rotation still cancels+reverses baseRot regardless of the new snareOnset term (formula changed, contract unchanged)", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "tentacle": {') && fn.includes("ctx.rotate(-2 * baseRot);");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

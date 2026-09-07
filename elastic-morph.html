@@ -6852,6 +6852,10 @@ function drawLayerB(W, H, hue, dt) {
   // low-end multipliers) turns that into an unbounded/near-infinite loop and freezes the tab.
   const sc = Math.max(0.05, scRaw);
   const colr = (t, a) => {
+    // v148: shimmer — hi-hat/cymbal-band energy brightens every Layer B type a touch,
+    // on top of whatever alpha the caller passed in. Applies before the color-mode
+    // branches below so it's uniform across white/palette/rainbow/dna.
+    a = Math.max(0, Math.min(1, a + S.bands.air * 0.12));
     if (LB.color === "white") return `rgba(255,255,255,${a})`;
     if (LB.color === "dna" && S.palette.on && S.palette.mode === "named") {
       const pal = NAMED_PALETTES.find(p => p.id === S.palette.namedId);
@@ -6872,9 +6876,12 @@ function drawLayerB(W, H, hue, dt) {
   ctx.lineWidth = Math.max(1, mn * 0.005);
   ctx.lineJoin = "round"; ctx.lineCap = "round";   // v40: smoother strokes across all types
 
-  // v20/v43: global liveliness — beat scale-pulse (depth = lbPulse), drift sway + continuous spin
-  const lbPulse = 1 + (S.beat * 0.14 + S.bass * 0.1 + S.transient * 0.08) * liveMul("pulse") * LB.pulse;
-  const baseRot = Math.sin(S.time * 0.15) * 0.06 * LB.sway + S.stereo * 0.05 + (LB._spin || 0);
+  // v20/v43/v148: global liveliness — beat scale-pulse (depth = lbPulse), drift sway + continuous
+  // spin. v148 adds kickOnset (percussive attack from the sub/kick band, sharper than the
+  // smoother S.beat alone) to the pulse, and snareOnset (mid/high-mid band attack) as a brief
+  // rotational twist distinct from the kick's pulse — kick=pulse, snare=twist.
+  const lbPulse = 1 + (S.beat * 0.1 + S.kickOnset * 0.12 + S.bass * 0.08 + S.transient * 0.06) * liveMul("pulse") * LB.pulse;
+  const baseRot = Math.sin(S.time * 0.15) * 0.06 * LB.sway + S.stereo * 0.05 + S.snareOnset * 0.05 + (LB._spin || 0);
   ctx.translate(cx, cy);
   ctx.scale(lbPulse, lbPulse);
   ctx.rotate(baseRot);
