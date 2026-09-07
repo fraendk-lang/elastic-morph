@@ -1715,6 +1715,10 @@
       <option value="hue">Blend: Hue</option>
     </select>
     <div id="sliders"></div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn" id="undoBtnDna" title="Cmd/Ctrl+Z">↶ Undo</button>
+      <button class="btn" id="redoBtnDna" title="Cmd/Ctrl+Shift+Z">↷ Redo</button>
+    </div>
     <div class="divider"></div>
     <h3>Audio</h3>
     <div class="meter">
@@ -10648,6 +10652,9 @@ function updateHistButtons() {
   const u = $("undoBtn"), r = $("redoBtn");
   if (u) u.disabled = HIST.undo.length === 0;
   if (r) r.disabled = HIST.redo.length === 0;
+  const u2 = $("undoBtnDna"), r2 = $("redoBtnDna");
+  if (u2) u2.disabled = HIST.undo.length === 0;
+  if (r2) r2.disabled = HIST.redo.length === 0;
 }
 function histUndo() {
   if (!HIST.undo.length) return;
@@ -10669,6 +10676,8 @@ setTimeout(() => { HIST.last = histSnap(); updateHistButtons(); }, 600);
 setInterval(histCapture, 900);
 $("undoBtn").addEventListener("click", histUndo);
 $("redoBtn").addEventListener("click", histRedo);
+$("undoBtnDna").addEventListener("click", histUndo);
+$("redoBtnDna").addEventListener("click", histRedo);
 
 /* v38: quick templates — one-click starting points (look + palette + motion) */
 const TEMPLATES = [

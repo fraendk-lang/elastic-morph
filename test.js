@@ -4501,6 +4501,33 @@ ok("initImageLayerV99 still falls through to the previous drawImageLayer for non
   return !!fn && fn.includes('_drawImageLayer(IM, W, H, baseHue, dt, opMul);\n  };');
 })());
 
+section("DNA panel Undo/Redo buttons");
+
+ok("DNA Control panel has its own Undo/Redo buttons right after the sliders", (() => {
+  return html.includes('<div id="sliders"></div>')
+    && html.includes('id="undoBtnDna"')
+    && html.includes('id="redoBtnDna"');
+})());
+
+ok("the new DNA panel buttons show the same keyboard-shortcut tooltips as the Settings-page ones", (() => {
+  return html.includes('id="undoBtnDna" title="Cmd/Ctrl+Z"')
+    && html.includes('id="redoBtnDna" title="Cmd/Ctrl+Shift+Z"');
+})());
+
+ok("updateHistButtons syncs both the Settings-page and DNA-panel Undo/Redo buttons", (() => {
+  const fn = extractFn("updateHistButtons");
+  return !!fn
+    && fn.includes('const u = $("undoBtn"), r = $("redoBtn");')
+    && fn.includes('const u2 = $("undoBtnDna"), r2 = $("redoBtnDna");')
+    && fn.includes("if (u2) u2.disabled = HIST.undo.length === 0;")
+    && fn.includes("if (r2) r2.disabled = HIST.redo.length === 0;");
+})());
+
+ok("the DNA panel Undo/Redo buttons are wired to the existing histUndo/histRedo functions", (() => {
+  return script.includes('$("undoBtnDna").addEventListener("click", histUndo);')
+    && script.includes('$("redoBtnDna").addEventListener("click", histRedo);');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
