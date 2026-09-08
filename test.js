@@ -4658,6 +4658,61 @@ ok("drawLayerB's mirror perf-scale safety net (the 4 pf57 checks) still runs aft
   return mirIdx >= 0 && checksIdx > mirIdx;
 })());
 
+section("Layer B — color gradients (Ring/Bars/Tunnel/Pulse Rings/Tentacle)");
+
+ok("spectrumRing strokes each spike with a linear gradient (inner dim -> outer bright), not one flat color", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn
+    && fn.includes('case "spectrumRing": {')
+    && fn.includes("const grad = ctx.createLinearGradient(x1, y1, x2, y2);")
+    && fn.includes("grad.addColorStop(0, colr(i / n, 0.12));")
+    && fn.includes("grad.addColorStop(1, colr(i / n, 0.3 + v * 0.6));");
+})());
+
+ok("bars fills each bar with a vertical gradient (dim base -> bright tip), and its glow shadowColor is a concrete color, not the gradient object", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn
+    && fn.includes('case "bars": {')
+    && fn.includes("const grad = ctx.createLinearGradient(0, H, 0, H - h);")
+    && fn.includes("grad.addColorStop(0, colr(i / n, 0.12));")
+    && fn.includes("grad.addColorStop(1, colr(i / n, 0.35 + v * 0.55));")
+    && fn.includes("ctx.shadowColor = colr(i / n, 0.35 + v * 0.55);");
+})());
+
+ok("tunnel uses one shared radial gradient for all 18 rings in a frame, not a flat color per ring", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn
+    && fn.includes('case "tunnel": {')
+    && fn.includes("const tgrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, tunnelR);")
+    && fn.includes("tgrad.addColorStop(0, colr(0, 0.55));")
+    && fn.includes("tgrad.addColorStop(1, colr(1, 0));")
+    && fn.includes("ctx.strokeStyle = tgrad;");
+})());
+
+ok("pulseRings uses one shared radial gradient for every visible ring, not a flat color per ring", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn
+    && fn.includes('case "pulseRings": {')
+    && fn.includes("const pgrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, pulseMaxR);")
+    && fn.includes("pgrad.addColorStop(0, colr(0, 0.6));")
+    && fn.includes("pgrad.addColorStop(1, colr(1, 0));")
+    && fn.includes("ctx.strokeStyle = pgrad;");
+})());
+
+ok("tentacle's spine uses a head-to-tail linear gradient matching the beads' own per-point gradation, not one flat color for the whole line", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn
+    && fn.includes('case "tentacle": {')
+    && fn.includes("const tgrad = ctx.createLinearGradient(headP.x, headP.y, tailP.x, tailP.y);")
+    && fn.includes("tgrad.addColorStop(0, colr(0, 0.35));")
+    && fn.includes("tgrad.addColorStop(1, colr(1, 0.35));");
+})());
+
+ok("tentacle's counter-rotation contract (-2 * baseRot) still survives the spine gradient change", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "tentacle": {') && fn.includes("ctx.rotate(-2 * baseRot);");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
