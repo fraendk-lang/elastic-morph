@@ -3531,7 +3531,7 @@ ok("initGL's GL.loc gains scale/colorBias uniform locations", (() => {
 ok("renderShader scales the uTime uniform by SH.speed and sets the new uScale/uColorBias uniforms", (() => {
   const idx = script.indexOf("function renderShader(W, H, hue){");
   if (idx < 0) return false;
-  const body = script.slice(idx, idx + 2000);
+  const body = script.slice(idx, idx + 2500);
   return body.includes("gl.uniform1f(L.time, S.time * (SH.speed != null ? SH.speed : 1));")
     && body.includes("gl.uniform1f(L.scale, SH.scale != null ? SH.scale : 1);")
     && body.includes("gl.uniform1f(L.colorBias, SH.colorBias != null ? SH.colorBias : 0);");
@@ -4774,6 +4774,25 @@ for (const [name, src] of Object.entries(_dnaBlendEngines)) {
 ok("drawDance is left alone — it still contains its intentional source-over passes", (() => {
   const fn = extractFn("drawDance");
   return !!fn && fn.includes('ctx.globalCompositeOperation = "source-over";');
+})());
+
+section("Shader uniform feeds blend in the finer band/onset signals");
+
+ok("uBass feed adds the sub-bass band on top of the coarse S.bass", (() => {
+  return script.includes('gl.uniform1f(L.bass, Math.min(1.8, (S.bass * S.gain + S.bands.subBass * 0.35) * (0.85 + liveMul("pulse") * 0.35)));');
+})());
+
+ok("uHighs feed adds the air band (6-16 kHz) on top of the coarse S.highs", (() => {
+  return script.includes('gl.uniform1f(L.highs, Math.min(1.8, (S.highs * S.gain + S.bands.air * 0.4) * (0.85 + liveMul("pulse") * 0.2)));');
+})());
+
+ok("uBeat feed adds S.kickOnset for a sharper percussive attack", (() => {
+  return script.includes('gl.uniform1f(L.beat, Math.min(1.5, (S.beat + S.dropFlash + S.kickOnset * 0.6) * (0.7 + liveMul("pulse") * 0.5)));');
+})());
+
+ok("uMids and uLoud shader feeds are left unchanged", (() => {
+  return script.includes('gl.uniform1f(L.mids, Math.min(1.8, S.mids * S.gain * (0.85 + liveMul("pulse") * 0.25)));')
+    && script.includes('gl.uniform1f(L.loud, Math.min(1.8, S.loudness * S.gain * (0.85 + liveMul("pulse") * 0.3)));');
 })());
 
 /* ---------------- summary ---------------- */

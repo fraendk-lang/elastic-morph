@@ -4250,10 +4250,14 @@ function renderShader(W, H, hue){
   const L = GL.loc;
   gl.uniform2f(L.res, gw, gh);
   gl.uniform1f(L.time, S.time * (SH.speed != null ? SH.speed : 1));
-  gl.uniform1f(L.bass, Math.min(1.8, S.bass * S.gain * (0.85 + liveMul("pulse") * 0.35)));
+  // v152: blend the finer 6-band / kick-onset signals (shipped 2026-08-24, gain-scaled +
+  // clamped in updateAudioFeatures) into the three most-consumed shader feeds — sub-bass
+  // depth on uBass, 6-16 kHz air on uHighs, kick attack on uBeat. No GLSL change; all 17
+  // styles inherit the sharper reaction. uMids / uLoud unchanged.
+  gl.uniform1f(L.bass, Math.min(1.8, (S.bass * S.gain + S.bands.subBass * 0.35) * (0.85 + liveMul("pulse") * 0.35)));
   gl.uniform1f(L.mids, Math.min(1.8, S.mids * S.gain * (0.85 + liveMul("pulse") * 0.25)));
-  gl.uniform1f(L.highs, Math.min(1.8, S.highs * S.gain * (0.85 + liveMul("pulse") * 0.2)));
-  gl.uniform1f(L.beat, Math.min(1.5, (S.beat + S.dropFlash) * (0.7 + liveMul("pulse") * 0.5)));
+  gl.uniform1f(L.highs, Math.min(1.8, (S.highs * S.gain + S.bands.air * 0.4) * (0.85 + liveMul("pulse") * 0.2)));
+  gl.uniform1f(L.beat, Math.min(1.5, (S.beat + S.dropFlash + S.kickOnset * 0.6) * (0.7 + liveMul("pulse") * 0.5)));
   gl.uniform1f(L.loud, Math.min(1.8, S.loudness * S.gain * (0.85 + liveMul("pulse") * 0.3)));
   gl.uniform1f(L.hue, ((hue % 360) + 360) % 360 / 360);
   gl.uniform1f(L.style, SHADER_STYLE_ID[SH.style] ?? 0);
