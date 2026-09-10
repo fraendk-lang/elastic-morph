@@ -4795,6 +4795,43 @@ ok("uMids and uLoud shader feeds are left unchanged", (() => {
     && script.includes('gl.uniform1f(L.loud, Math.min(1.8, S.loudness * S.gain * (0.85 + liveMul("pulse") * 0.3)));');
 })());
 
+section("Device-engine gradients (EQ bars / Tape VU bars / VU Wall needles)");
+
+ok("drawEqualizer fills each band bar with a vertical dim-base -> bright-tip gradient", (() => {
+  const fn = extractFn("drawEqualizer");
+  return !!fn
+    && fn.includes("const bg = ctx.createLinearGradient(0, h / 2, 0, h / 2 - bh);")
+    && fn.includes("bg.addColorStop(0, `hsl(${bhue},${P.sat}%,26%)`);")
+    && fn.includes("bg.addColorStop(1, `hsl(${bhue},${P.sat}%,62%)`);");
+})());
+
+ok("drawEqualizer's peak-hold cap stays flat white (not gradiented)", (() => {
+  const fn = extractFn("drawEqualizer");
+  return !!fn && fn.includes('ctx.fillStyle = "rgba(255,255,255,0.85)";');
+})());
+
+ok("drawTape fills each VU bar with a vertical dim-base -> bright-tip gradient", (() => {
+  const fn = extractFn("drawTape");
+  return !!fn
+    && fn.includes("const bg = ctx.createLinearGradient(0, mn * 0.36, 0, mn * 0.36 - bh);")
+    && fn.includes("bg.addColorStop(0, `hsl(${bhue},${P.sat}%,26%)`);")
+    && fn.includes("bg.addColorStop(1, `hsl(${bhue},${P.sat}%,62%)`);");
+})());
+
+ok("drawVuWall strokes each needle with a pivot-dim -> tip-bright gradient along its length", (() => {
+  const fn = extractFn("drawVuWall");
+  return !!fn
+    && fn.includes("const ng = ctx.createLinearGradient(cx, cy, ntx, nty);")
+    && fn.includes("ng.addColorStop(0, `hsla(${mhue}, ${P.sat}%, 45%, 0.55)`);")
+    && fn.includes("ng.addColorStop(1, `hsla(${mhue}, ${P.sat}%, 88%, 0.95)`);")
+    && fn.includes("ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ntx, nty); ctx.stroke();");
+})());
+
+ok("the 6 out-of-scope device engines keep their flat/existing fills (spot-check: no new createLinearGradient in drawSequencer or drawPatchbay)", (() => {
+  const seq = extractFn("drawSequencer"), pb = extractFn("drawPatchbay");
+  return !!seq && !!pb && !seq.includes("createLinearGradient") && !pb.includes("createLinearGradient");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

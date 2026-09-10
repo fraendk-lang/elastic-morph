@@ -4773,7 +4773,14 @@ function drawTape(base, hue, growthF, energySize, seed) {
   // VU meters
   ctx.globalCompositeOperation = "lighter";
   const bands = [S.bass, S.mids, S.highs];
-  for (let i = 0; i < 3; i++) { const v = bands[i], bx = (i - 1) * mn * 0.13, bw = mn * 0.09, bh = mn * 0.16 * v; ctx.fillStyle = `hsl(${(hue + i * 40) % 360},${P.sat}%,56%)`; ctx.fillRect(bx - bw / 2, mn * 0.36 - bh, bw, bh); }
+  for (let i = 0; i < 3; i++) {
+    const v = bands[i], bx = (i - 1) * mn * 0.13, bw = mn * 0.09, bh = mn * 0.16 * v, bhue = (hue + i * 40) % 360;
+    const bg = ctx.createLinearGradient(0, mn * 0.36, 0, mn * 0.36 - bh);
+    bg.addColorStop(0, `hsl(${bhue},${P.sat}%,26%)`);
+    bg.addColorStop(1, `hsl(${bhue},${P.sat}%,62%)`);
+    ctx.fillStyle = bg;
+    ctx.fillRect(bx - bw / 2, mn * 0.36 - bh, bw, bh);
+  }
   ctx.restore();
 }
 
@@ -4796,7 +4803,11 @@ function drawEqualizer(base, hue, growthF, energySize, seed) {
     const v = Math.max(0, Math.min(1, bands[i]));
     const bh = v * h * 0.92;
     const bx = -w / 2 + i * bw + bw * 0.12;
-    ctx.fillStyle = `hsl(${(hue + i * 22) % 360},${P.sat}%,56%)`;
+    const bhue = (hue + i * 22) % 360;
+    const bg = ctx.createLinearGradient(0, h / 2, 0, h / 2 - bh);
+    bg.addColorStop(0, `hsl(${bhue},${P.sat}%,26%)`);
+    bg.addColorStop(1, `hsl(${bhue},${P.sat}%,62%)`);
+    ctx.fillStyle = bg;
     ctx.fillRect(bx, h / 2 - bh, bw * 0.76, bh);
     eqPeaks[i] = Math.max(v + onset * 0.15, eqPeaks[i] - 0.012);
     const py = h / 2 - eqPeaks[i] * h * 0.92;
@@ -5035,9 +5046,13 @@ function drawVuWall(base, hue, growthF, energySize, seed) {
     ctx.beginPath(); ctx.arc(cx, cy, r, startA + sweepA - 0.3, startA + sweepA); ctx.stroke();
 
     const na = startA + vuNeedle[i] * sweepA;
-    ctx.strokeStyle = `hsla(${mhue}, ${P.sat}%, 82%, 0.9)`;
+    const ntx = cx + Math.cos(na) * r * 0.92, nty = cy + Math.sin(na) * r * 0.92;
+    const ng = ctx.createLinearGradient(cx, cy, ntx, nty);
+    ng.addColorStop(0, `hsla(${mhue}, ${P.sat}%, 45%, 0.55)`);
+    ng.addColorStop(1, `hsla(${mhue}, ${P.sat}%, 88%, 0.95)`);
+    ctx.strokeStyle = ng;
     ctx.lineWidth = Math.max(1.5, mn * 0.0035);
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(na) * r * 0.92, cy + Math.sin(na) * r * 0.92); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ntx, nty); ctx.stroke();
     ctx.fillStyle = `hsla(${mhue}, ${P.sat}%, 85%, 0.9)`;
     ctx.beginPath(); ctx.arc(cx, cy, mn * 0.004, 0, Math.PI * 2); ctx.fill();
 
