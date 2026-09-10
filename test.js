@@ -4847,6 +4847,28 @@ ok("energySize still keeps its loudness / transient / dropFlash terms and dnaBoo
     && script.includes("+ S.dropFlash * 0.35);");
 })());
 
+section("UX copy polish bundle");
+
+ok("Creator export hint no longer calls HQ export 'stumm' (silent) and states it has sound", (() => {
+  return html.includes('Direkt = schnell, mit Ton · Stop = nochmal tippen · HQ = beste Qualität, mit Ton, dauert länger')
+    && !html.includes('HQ = lang, stumm, beste Qualität');
+})());
+
+ok("the audio-load button is labelled 'Track laden', not 'Upload Audio'", (() => {
+  return html.includes('<button class="btn" id="uploadBtn">Track laden</button>')
+    && !html.includes('<button class="btn" id="uploadBtn">Upload Audio</button>');
+})());
+
+ok("the drag/drop help sentence names only 'Track laden', not the removed 'Upload Audio' label", (() => {
+  return html.includes('Audio auf das Canvas ziehen oder <b>Track laden</b>. Das Visual entsteht aus dem Song-Fingerabdruck. Ohne Datei: <b>🎤 Live Input</b> für Mikro/Line-In.')
+    && !html.includes('<b>Upload Audio</b> / <b>Track laden</b>');
+})());
+
+ok("the WebGL badge fallback text is user-friendly, not the terse technical warning", (() => {
+  return html.includes('el.textContent = ok ? "" : "Erweiterter Grafikmodus nicht verfügbar — kompatibler Modus aktiv";')
+    && !html.includes('"⚠ WebGL Shader nicht verfügbar"');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

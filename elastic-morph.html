@@ -1033,7 +1033,7 @@
     <button class="btn" id="micBtn" title="Visualize microphone / line-in — no file needed">🎤 Live Input</button>
     <button class="btn" id="tabAudioBtn" title="Tab-/System-Audio visualisieren (nur Chrome/Edge)">🖥️ Tab-/System-Audio</button>
     <button class="btn" id="uiModeBtn" title="Creator-Modus: Track → Look → Export">Pro-Modus →</button>
-    <button class="btn" id="uploadBtn">Upload Audio</button>
+    <button class="btn" id="uploadBtn">Track laden</button>
     <input type="file" id="fileInput" accept="audio/*" hidden>
     <button class="btn" id="exportBtn" title="Realtime capture at screen resolution. For true 1080p HD use “HQ Export” in Creator Cuts (Chrome/Edge).">● Export</button>
     <button class="btn" id="installBtn" title="Install Elastic Morph as an app" style="display:none">⤓ Install</button>
@@ -1115,7 +1115,7 @@
             <button type="button" class="btn primary" id="creatorExportCTAQuick">● Direkt Export</button>
             <button type="button" class="btn" id="creatorExportCTAHQ">⤓ HQ Export</button>
           </div>
-          <span class="cr-export-hint">Direkt = schnell mit Ton · Stop = nochmal tippen · HQ = lang, stumm, beste Qualität</span>
+          <span class="cr-export-hint">Direkt = schnell, mit Ton · Stop = nochmal tippen · HQ = beste Qualität, mit Ton, dauert länger</span>
         </div>
         <div class="cr-zoom">
           <span>Zoom</span>
@@ -2077,7 +2077,7 @@
     <div class="help-cols">
       <div>
         <h4>Start</h4>
-        <p>Audio auf das Canvas ziehen oder <b>Upload Audio</b> / <b>Track laden</b>. Das Visual entsteht aus dem Song-Fingerabdruck. Ohne Datei: <b>🎤 Live Input</b> für Mikro/Line-In.</p>
+        <p>Audio auf das Canvas ziehen oder <b>Track laden</b>. Das Visual entsteht aus dem Song-Fingerabdruck. Ohne Datei: <b>🎤 Live Input</b> für Mikro/Line-In.</p>
         <h4>Creator Mode (Standard)</h4>
         <p><b>Track → Look → Export</b> im Dock unten. Looks per Tipp oder Wischgeste wechseln. <b>Auto-Look</b> wählt nach Analyse automatisch — abschaltbar.</p>
         <h4>Ebenen (stapelbar)</h4>
@@ -13155,7 +13155,7 @@ function updateWebGLBadge() {
   }
   const ok = GL.ok === true || (GL.ok === null && initGL());
   el.classList.toggle("show", !ok);
-  el.textContent = ok ? "" : "⚠ WebGL Shader nicht verfügbar";
+  el.textContent = ok ? "" : "Erweiterter Grafikmodus nicht verfügbar — kompatibler Modus aktiv";
 }
 
 function focusTrapModal(overlay, enable) {
