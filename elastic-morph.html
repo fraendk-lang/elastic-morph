@@ -2956,6 +2956,7 @@ const S = {
   virtualT: 0,        // virtual track time in mic/demo mode
   quality: 1,
   exportRes: null,    // [w,h] while recording at true resolution
+  rtExportArming: false,  // v151: true only during the realtime-export setup window (exportRes set, recorder not yet recording) so resize() keeps exportRes
   realtimeRecording: false,  // v89: MediaRecorder session — full render fidelity
   drops: [],          // progress positions of detected drops
   lastDropHit: null,
@@ -10228,7 +10229,7 @@ $("exportBtn").addEventListener("click", async () => {
     // (Backing res is fixed BEFORE the stream is created; changing it mid-record would
     //  freeze captureStream, which the resize() guard prevents.)
     const res = resolveExportPixels();
-    if (res && res.length === 2 && res[0] > 0 && res[1] > 0) { S.exportRes = res; resize(); }
+    if (res && res.length === 2 && res[0] > 0 && res[1] > 0) { S.rtExportArming = true; S.exportRes = res; resize(); }
     const rw = S.exportRes?.[0] || canvas.width;
     const rh = S.exportRes?.[1] || canvas.height;
     const fps = typeof realtimeExportFps === "function" ? realtimeExportFps() : 30;
@@ -10288,6 +10289,7 @@ $("exportBtn").addEventListener("click", async () => {
       S.exportRes = null; resize();   // back to on-screen display resolution
     };
     recorder.start(2000);   // 2s slices — fewer main-thread hits on long exports
+    S.rtExportArming = false;   // recorder is now recording — exportResActive()'s normal signal takes over
     if (typeof startRtChunkMerge === "function") startRtChunkMerge(mime);
     showAppToast(`Echtzeit ${rw}×${rh} @ ${fps}fps · Ziel ~${Math.round(vbps / 1e6)} Mbit/s · ${mime.includes("mp4") ? "MP4" : "WebM"}`, 5200);
     $("exportBtn").classList.add("recording");
@@ -10316,6 +10318,7 @@ $("exportBtn").addEventListener("click", async () => {
       $("exportBtn").textContent = "■ Stop & Save";
     }
   } catch (err) {
+    S.rtExportArming = false;
     if (typeof stopRtChunkMerge === "function") stopRtChunkMerge();
     if (typeof endRealtimeCapture === "function") endRealtimeCapture();
     S.exportRes = null; resize();
@@ -10374,7 +10377,7 @@ function resize() {
     return;
   }
 
-  if (S.exportRes && (S.exporting || (recorder && recorder.state === "recording"))) {
+  if (S.exportRes && (S.exporting || S.rtExportArming || (recorder && recorder.state === "recording"))) {
     // recording / HQ: render internally at the true export resolution
     canvas.width = S.exportRes[0];
     canvas.height = S.exportRes[1];
@@ -14353,7 +14356,7 @@ function resetVisualExposure() {
 }
 
 function exportResActive() {
-  return !!(S.exporting || (typeof recorder !== "undefined" && recorder && recorder.state === "recording"));
+  return !!(S.exporting || S.rtExportArming || (typeof recorder !== "undefined" && recorder && recorder.state === "recording"));
 }
 
 function patchVisualRecovery() {

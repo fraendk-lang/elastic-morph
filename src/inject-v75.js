@@ -8,7 +8,7 @@ function resetVisualExposure() {
 }
 
 function exportResActive() {
-  return !!(S.exporting || (typeof recorder !== "undefined" && recorder && recorder.state === "recording"));
+  return !!(S.exporting || S.rtExportArming || (typeof recorder !== "undefined" && recorder && recorder.state === "recording"));
 }
 
 function patchVisualRecovery() {

@@ -4713,6 +4713,37 @@ ok("tentacle's counter-rotation contract (-2 * baseRot) still survives the spine
   return !!fn && fn.includes('case "tentacle": {') && fn.includes("ctx.rotate(-2 * baseRot);");
 })());
 
+section("Realtime export resolution race (S.rtExportArming)");
+
+ok("S is initialised with rtExportArming: false", () => {
+  return /rtExportArming:\s*false/.test(script);
+});
+
+ok("exportResActive() honours S.rtExportArming alongside S.exporting and a recording recorder", (() => {
+  const injSrc = injectSrc("inject-v75.js");
+  const fn = extractFn("exportResActive", injSrc);
+  return !!fn
+    && fn.includes("S.exporting")
+    && fn.includes("S.rtExportArming")
+    && fn.includes('recorder.state === "recording"');
+})());
+
+ok("base resize()'s inline export-resolution guard also accepts S.rtExportArming", () => {
+  return script.includes('if (S.exportRes && (S.exporting || S.rtExportArming || (recorder && recorder.state === "recording"))) {');
+});
+
+ok("the exportBtn handler arms S.rtExportArming when it sets S.exportRes, before resize()", () => {
+  return script.includes("S.rtExportArming = true; S.exportRes = res; resize();");
+});
+
+ok("the exportBtn handler disarms S.rtExportArming right after recorder.start()", () => {
+  return script.includes("recorder.start(2000);") && /recorder\.start\(2000\);[\s\S]{0,120}S\.rtExportArming = false;/.test(script);
+});
+
+ok("the exportBtn handler's catch block also disarms S.rtExportArming", () => {
+  return /catch \(err\) \{[\s\S]{0,200}S\.rtExportArming = false;/.test(script);
+});
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
