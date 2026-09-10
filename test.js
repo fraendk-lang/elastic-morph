@@ -4832,6 +4832,21 @@ ok("the 6 out-of-scope device engines keep their flat/existing fills (spot-check
   return !!seq && !!pb && !seq.includes("createLinearGradient") && !pb.includes("createLinearGradient");
 })());
 
+section("Organic DNA engines — energySize gains a sharp kick-onset term");
+
+ok("energySize splits the beat term into a smaller S.beat term plus an S.kickOnset term", (() => {
+  return script.includes("const energySize = dnaBoost * (1 + S.loudness * lp * 0.68 + S.transient * lp * 0.38 + S.beat * lp * 0.32 + S.kickOnset * lp * 0.28 + S.dropFlash * 0.35);");
+})());
+
+ok("the old flat 'S.beat * lp * 0.45' energySize term is gone", (() => {
+  return !script.includes("S.transient * lp * 0.38 + S.beat * lp * 0.45 + S.dropFlash * 0.35");
+})());
+
+ok("energySize still keeps its loudness / transient / dropFlash terms and dnaBoost structure", (() => {
+  return script.includes("const energySize = dnaBoost * (1 + S.loudness * lp * 0.68 + S.transient * lp * 0.38 +")
+    && script.includes("+ S.dropFlash * 0.35);");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

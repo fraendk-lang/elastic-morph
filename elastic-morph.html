@@ -6057,7 +6057,11 @@ function drawScene(dt) {
   /* --- central morphing organism (v99: S.dnaOn === false skips shape + preset particles) --- */
   if (S.dnaOn !== false) {
   const mutationJitter = ctrl.mutation * (1 - ctrl.identity * 0.7);
-  const energySize = dnaBoost * (1 + S.loudness * lp * 0.68 + S.transient * lp * 0.38 + S.beat * lp * 0.45 + S.dropFlash * 0.35);
+  // v153: split the smoothed-beat energy term into S.beat + S.kickOnset so the organism
+  // pops sharper on the actual kick and sits calmer between kicks (S.kickOnset is a
+  // fast-decaying impulse, near-zero off the kick). All 8 organic engines multiply their
+  // scale by energySize, so they all inherit the sharper attack — no per-engine change.
+  const energySize = dnaBoost * (1 + S.loudness * lp * 0.68 + S.transient * lp * 0.38 + S.beat * lp * 0.32 + S.kickOnset * lp * 0.28 + S.dropFlash * 0.35);
   const dnaEngine = P.engine || "blob";
 
   if (dnaEngine === "filament") {
