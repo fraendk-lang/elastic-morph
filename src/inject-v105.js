@@ -32,7 +32,7 @@ function drawCassette(base, hue, growthF, energySize, seed) {
   const w = mn * 0.68 * growthF, h = mn * 0.4 * (0.92 + growthF * 0.08), y0 = -mn * 0.04;
   const rot = S.time * 1.05 + S.beat * 0.09;
   ctx.save();
-  ctx.globalCompositeOperation = "source-over";
+  ctx.globalCompositeOperation = S.dnaBlend || "screen";
   ctx.fillStyle = "#14110c";
   ctx.fillRect(-w / 2 - mn * 0.02, y0 - h / 2 - mn * 0.02, w + mn * 0.04, h + mn * 0.04);
   ctx.fillStyle = "#221c14";
@@ -75,7 +75,7 @@ function drawWaveformMonitor(base, hue, growthF, energySize, seed) {
   const P = currentDNA(), mn = Math.min(canvas.width, canvas.height);
   const W = mn * 0.82, H = mn * 0.34 * growthF, y0 = -mn * 0.02;
   ctx.save();
-  ctx.globalCompositeOperation = "source-over";
+  ctx.globalCompositeOperation = S.dnaBlend || "screen";
   ctx.fillStyle = "#06080c";
   ctx.fillRect(-W / 2 - 4, y0 - H / 2 - 4, W + 8, H + 8);
   ctx.strokeStyle = "rgba(100,120,150,0.4)";

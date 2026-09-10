@@ -4744,6 +4744,38 @@ ok("the exportBtn handler's catch block also disarms S.rtExportArming", () => {
   return /catch \(err\) \{[\s\S]{0,200}S\.rtExportArming = false;/.test(script);
 });
 
+section("DNA device engines honour S.dnaBlend (no forced source-over chassis)");
+
+const _dnaBlendEngines = {
+  drawEqualizer: script,
+  drawSequencer: script,
+  drawRadioTuner: script,
+  drawTape: script,
+  drawVuWall: script,
+  drawPatchbay: script,
+  drawVinyl: injectSrc("inject-v81.js"),
+  drawCassette: injectSrc("inject-v105.js"),
+  drawWaveformMonitor: injectSrc("inject-v105.js"),
+};
+
+for (const [name, src] of Object.entries(_dnaBlendEngines)) {
+  ok(name + "'s top-of-function composite adopts S.dnaBlend instead of forcing source-over", (() => {
+    const fn = extractFn(name, src);
+    if (!fn) return false;
+    const save = fn.indexOf("ctx.save();");
+    const adopt = fn.indexOf('ctx.globalCompositeOperation = S.dnaBlend || "screen";');
+    // the adopt line must exist and sit right after the first ctx.save()
+    if (save < 0 || adopt < 0 || adopt < save) return false;
+    // and there must be no forced source-over between that save() and the adopt line
+    return !fn.slice(save, adopt).includes('ctx.globalCompositeOperation = "source-over";');
+  })());
+}
+
+ok("drawDance is left alone — it still contains its intentional source-over passes", (() => {
+  const fn = extractFn("drawDance");
+  return !!fn && fn.includes('ctx.globalCompositeOperation = "source-over";');
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

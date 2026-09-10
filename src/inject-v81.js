@@ -9,7 +9,7 @@ drawVinyl = function (base, hue, growthF, energySize, seed) {
   const rpm = S.bpm > 0 ? (S.bpm / 120) * 0.55 : 0.65;
 
   ctx.save();
-  ctx.globalCompositeOperation = "source-over";
+  ctx.globalCompositeOperation = S.dnaBlend || "screen";
 
   const shadow = ctx.createRadialGradient(0, 0, R * 0.82, 0, 0, R * 1.1);
   shadow.addColorStop(0, "rgba(0,0,0,0)");
