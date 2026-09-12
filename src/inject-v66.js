@@ -19,7 +19,7 @@ function updateWebGLBadge() {
   }
   const ok = GL.ok === true || (GL.ok === null && initGL());
   el.classList.toggle("show", !ok);
-  el.textContent = ok ? "" : "⚠ WebGL Shader nicht verfügbar";
+  el.textContent = ok ? "" : "Erweiterter Grafikmodus nicht verfügbar — kompatibler Modus aktiv";
 }
 
 function focusTrapModal(overlay, enable) {
