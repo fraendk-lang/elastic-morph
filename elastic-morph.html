@@ -7220,7 +7220,10 @@ function drawLayerB(W, H, hue, dt) {
     }
     case "hexgrid": {
       const R = mn * 0.05 * sc, hw = R * Math.sqrt(3), vh2 = R * 1.5;
-      const cols = Math.ceil(W / hw) + 1, rows = Math.ceil(H / vh2) + 1;
+      // v154: same cols/rows cap as isoGrid (see that case's comment) — the brightness-threshold
+      // skip below already limits hexgrid's actual fill count in practice, but the iteration
+      // count itself is unbounded the same 1/sc way, so it's capped too for consistency.
+      const cols = Math.min(90, Math.ceil(W / hw) + 1), rows = Math.min(90, Math.ceil(H / vh2) + 1);
       for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
         const x = col * hw + (row % 2) * hw / 2, y = row * vh2;
         const v = specAt((col + row * 3) % 48, 48) * (0.5 + 0.5 * Math.sin(col * 0.6 + row * 0.5 + S.time * 2));
@@ -7246,7 +7249,12 @@ function drawLayerB(W, H, hue, dt) {
     }
     case "isoGrid": {
       const cell = mn * 0.055 * sc, drift = (S.time * 0.3) % cell;
-      const cols = Math.ceil(W / cell) + 3, rows = Math.ceil(H / cell) + 3;
+      // v154: cap cols/rows directly — the sc floor (0.05, v122) stops a literal Infinity, but a
+      // small cell can still blow this up to hundreds of thousands of stroked diamonds in one
+      // frame, stalling the tab for a visible beat whenever Layer B switches into isoGrid while
+      // Scale (or Scale LFO / Progress Zoom) has pushed sc down near its floor. 90 sits well
+      // above the sc=1 default density, so the "denser as you zoom in" effect is unaffected.
+      const cols = Math.min(90, Math.ceil(W / cell) + 3), rows = Math.min(90, Math.ceil(H / cell) + 3);
       ctx.lineWidth = Math.max(1, mn * 0.0018);
       for (let row = -1; row < rows; row++) {
         for (let col = -1; col < cols; col++) {
@@ -7291,7 +7299,9 @@ function drawLayerB(W, H, hue, dt) {
         ctx.translate(cx, cy); ctx.rotate(angle); ctx.translate(-cx, -cy);
         ctx.strokeStyle = colr(angle, alpha);
         ctx.lineWidth = Math.max(1, mn * 0.0012);
-        const n = Math.ceil((W + H) / spacing) + 2;
+        // v154: cap the line count — same 1/sc blowup as isoGrid/hexgrid (see that case's
+        // comment), here driving how many parallel lines each of the 2 rotated grids strokes.
+        const n = Math.min(300, Math.ceil((W + H) / spacing) + 2);
         for (let i = -n; i < n; i++) {
           const x = i * spacing + offset;
           ctx.beginPath(); ctx.moveTo(x, -H); ctx.lineTo(x, H * 2); ctx.stroke();

@@ -4869,6 +4869,36 @@ ok("the WebGL badge fallback text is user-friendly, not the terse technical warn
     && !html.includes('"⚠ WebGL Shader nicht verfügbar"');
 })());
 
+section("Layer B — isoGrid/hexgrid/moire grid-density cap (perf fix)");
+
+ok("isoGrid's cols/rows are capped at 90 regardless of how small cell (1/sc) gets", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "isoGrid": {')
+    && fn.includes("const cols = Math.min(90, Math.ceil(W / cell) + 3), rows = Math.min(90, Math.ceil(H / cell) + 3);");
+})());
+
+ok("hexgrid's cols/rows are capped at 90 regardless of how small hw/vh2 (1/sc) get", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "hexgrid": {')
+    && fn.includes("const cols = Math.min(90, Math.ceil(W / hw) + 1), rows = Math.min(90, Math.ceil(H / vh2) + 1);");
+})());
+
+ok("moire's per-grid line count n is capped at 300 regardless of how small spacing (1/sc) gets", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes('case "moire": {')
+    && fn.includes("const n = Math.min(300, Math.ceil((W + H) / spacing) + 2);");
+})());
+
+ok("the existing sc floor (Math.max(0.05, scRaw)) is untouched — the cap is additive, not a replacement", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes("const sc = Math.max(0.05, scRaw);");
+})());
+
+ok("hexgrid's brightness-threshold skip is untouched", (() => {
+  const fn = extractFn("drawLayerB");
+  return !!fn && fn.includes("if (v < 0.18) continue;");
+})());
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
