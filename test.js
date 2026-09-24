@@ -5143,6 +5143,15 @@ okf("drawSculpture derives uGrow from sculptureGrowth (absolute progress), not f
   return !!fn && fn.includes("sculptureGrowth(S.progress, dur, songMap())") && !fn.includes("growthF * 0.6");
 });
 
+section("Obsidian Bloom stage C3 — snare has a visible signature");
+
+okf("uSnare drives a surface-ripple burst and a rim lift (not just roughness)", () => {
+  const s = injectSrc("inject-v114.js");
+  return s.includes("d+=rip*(0.006+0.020*uSurf+0.016*uSnare);")
+    && s.includes("fres*0.10*(0.4+0.6*uGloss+1.2*uSnare)")
+    && s.includes("0.22*uGloss-0.06*uSnare");
+});
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);

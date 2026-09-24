@@ -40,7 +40,7 @@ float map(vec3 p){
   float big=sin(p.x*2.3+uT*0.21+uSeed.x*9.0)*sin(p.y*2.1-uT*0.17+uSeed.y*9.0)*sin(p.z*2.6+uT*0.13+uSeed.z*9.0);
   d+=big*(0.035+0.11*uForm);
   float rip=sin(p.x*9.0+uT*0.9)*sin(p.y*8.0-uT*0.7)*sin(p.z*10.0+uT*0.6);
-  d+=rip*(0.006+0.020*uSurf);
+  d+=rip*(0.006+0.020*uSurf+0.016*uSnare);
   // kick: one local bump, deterministic direction, quick decay
   vec3 kd=kickDir()*0.55; float kb=exp(-dot(p-kd,p-kd)*4.0);
   d-=kb*uKick*uKick*0.13;
@@ -97,7 +97,7 @@ void main(){
       vec3 spec=env(r)*vec3(0.62,0.64,0.68)*mix(1.0,0.6,rough*1.6);
       vec3 col=base*(vec3(1.0,0.72,0.5)*dif*sh*1.6+vec3(0.30,0.52,1.0)*pow(rim,3.0)*0.5+0.04)*ao;
       col+=spec*(0.55+0.9*fres)*ao*mix(0.45,1.0,sh);
-      col+=vec3(0.30,0.52,1.0)*fres*0.10*(0.4+0.6*uGloss);
+      col+=vec3(0.30,0.52,1.0)*fres*0.10*(0.4+0.6*uGloss+1.2*uSnare);
       col*=uTint;
       col*=0.9+0.25*uLoud;
       // filmic tonemap once + gamma once (finish path of this look)
