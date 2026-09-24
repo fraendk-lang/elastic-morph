@@ -4911,6 +4911,107 @@ okf("SHADER_STYLE_ID still maps raymarch to 7 (saved scenes unchanged)", () => {
   return script.includes("raymarch:7,");
 });
 
+section("Sculpture audio/time contract (Obsidian Bloom stage B)");
+
+let SC = null;
+try {
+  SC = loadFns(["fftRadix2", "sculptureTaus", "sculptureTimelineInit", "sculptureTimelineStep", "sculptureTimelineFinish",
+    "buildSculptureTimeline", "sculptureTimelineBuildAsync", "sampleSculptureTimeline", "sculptureLiveStep",
+    "sculptureSongTime", "sculptureNeeded"]);
+  ok("extract sculpture contract functions", true);
+} catch (e) { ok("extract sculpture contract functions", false, e.message); }
+
+if (SC) {
+  const mkBuf = (sr, secs, fn) => {
+    const n = Math.round(sr * secs), d = new Float32Array(n);
+    for (let i = 0; i < n; i++) d[i] = fn(i / sr);
+    return { sampleRate: sr, duration: secs, numberOfChannels: 1, getChannelData: () => d };
+  };
+  const at = (a, t) => a[Math.round(t * 60)];
+
+  const sine = SC.buildSculptureTimeline(mkBuf(44100, 1, t => 0.5 * Math.sin(2 * Math.PI * 100 * t)));
+  ok("timeline is on a 60 Hz grid with one frame per 1/60 s", sine.fps === 60 && sine.frames === 60);
+  okf("a 100 Hz sine lands in the bass band, not in mid/highMid/air", () => true && at(sine.bass, 0.5) > 0.5
+    && at(sine.mid, 0.5) < 0.05 && at(sine.highMid, 0.5) < 0.05 && at(sine.air, 0.5) < 0.05);
+
+  const silent = SC.buildSculptureTimeline(mkBuf(44100, 1, () => 0));
+  okf("silence produces an all-zero timeline (calm, no NaN)", () => {
+    const keys = ["subBass", "bass", "lowMid", "mid", "highMid", "air", "form", "surf", "gloss", "kick", "snare", "loud"];
+    return keys.every(k => silent[k].every(v => v === 0));
+  });
+
+  const burst = SC.buildSculptureTimeline(mkBuf(44100, 2, t => (t >= 0.5 && t < 0.6) ? 0.8 * Math.sin(2 * Math.PI * 60 * t) : 0));
+  okf("a low burst triggers a kick onset that is 0 before, high during, and decayed long after", () =>
+    at(burst.kick, 0.2) === 0 && at(burst.kick, 0.55) > 0.5 && at(burst.kick, 1.2) < 0.05);
+  okf("the slow 'form' follower rises after the burst but stays below the instantaneous kick peak", () =>
+    at(burst.form, 0.7) > 0.1 && at(burst.form, 0.7) < at(burst.kick, 0.55));
+
+  const again = SC.buildSculptureTimeline(mkBuf(44100, 2, t => (t >= 0.5 && t < 0.6) ? 0.8 * Math.sin(2 * Math.PI * 60 * t) : 0));
+  okf("two builds of the same audio are bit-identical (deterministic)", () =>
+    burst.form.every((v, i) => v === again.form[i]) && burst.kick.every((v, i) => v === again.kick[i]));
+
+  const fake = { fps: 60, frames: 3, subBass: [0, 1, 2], bass: [0, 1, 2], lowMid: [0, 1, 2], mid: [0, 1, 2], highMid: [0, 1, 2],
+    air: [0, 1, 2], form: [0, 1, 2], surf: [0, 1, 2], gloss: [0, 1, 2], kick: [0, 1, 2], snare: [0, 1, 2], loud: [0, 1, 2] };
+  okf("sampler clamps before the start and after the end", () =>
+    SC.sampleSculptureTimeline(fake, -5).form === 0 && SC.sampleSculptureTimeline(fake, 99).form === 2);
+  okf("sampler interpolates linearly between grid frames", () =>
+    Math.abs(SC.sampleSculptureTimeline(fake, 1 / 120).form - 0.5) < 1e-9);
+  okf("sampler treats NaN time as 0 and reuses a passed-in out object", () => {
+    const out = {};
+    return SC.sampleSculptureTimeline(fake, NaN, out) === out && out.form === 0;
+  });
+  okf("sampling depends only on absolute time, not on which grid the caller steps by (30 fps vs 60 fps)", () => {
+    for (let k = 0; k < 20; k++) {
+      const a = SC.sampleSculptureTimeline(burst, k / 30).form, b = SC.sampleSculptureTimeline(burst, (2 * k) / 60).form;
+      if (a !== b) return false;
+    }
+    return true;
+  });
+
+  okf("sculptureSongTime prefers the exact HQ frame time, else the media clock, else 0", () =>
+    SC.sculptureSongTime(2.5, 9) === 2.5 && SC.sculptureSongTime(null, 9) === 9 && SC.sculptureSongTime(undefined, NaN) === 0);
+  okf("sculptureNeeded is true only for the sculpture engine", () =>
+    SC.sculptureNeeded({ engine: "sculpture" }) === true && SC.sculptureNeeded({ engine: "blob" }) === false && SC.sculptureNeeded(null) === false);
+
+  okf("live adapter: a sustained bass rises toward 1 and releases back down slowly", () => {
+    const st = { form: 0, surf: 0, gloss: 0, loud: 0 }, out = {};
+    const on = { subBass: 1, bass: 1, lowMid: 0, mid: 0, highMid: 0, air: 0 }, off = { subBass: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, air: 0 };
+    for (let i = 0; i < 60; i++) SC.sculptureLiveStep(st, on, 0, 0, 1 / 60, out);
+    const high = out.form;
+    for (let i = 0; i < 90; i++) SC.sculptureLiveStep(st, off, 0, 0, 1 / 60, out);
+    return high > 0.9 && out.form < 0.2 && out.form > 0;
+  });
+  okf("live adapter passes the given onsets through and ignores a bad dt", () => {
+    const st = { form: 0, surf: 0, gloss: 0, loud: 0 };
+    const out = SC.sculptureLiveStep(st, { subBass: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, air: 0 }, 0.7, 0.3, NaN);
+    return out.kick === 0.7 && out.snare === 0.3 && out.form === 0;
+  });
+
+  pendingAsyncChecks.push(
+    SC.sculptureTimelineBuildAsync(mkBuf(44100, 6, t => 0.4 * Math.sin(2 * Math.PI * 80 * t)), () => Promise.resolve()).then(asyncTl => {
+      const syncTl = SC.buildSculptureTimeline(mkBuf(44100, 6, t => 0.4 * Math.sin(2 * Math.PI * 80 * t)));
+      ok("the chunked async build yields exactly the same timeline as the synchronous build",
+        asyncTl.frames === syncTl.frames && asyncTl.form.every((v, i) => v === syncTl.form[i]) && asyncTl.bass.every((v, i) => v === syncTl.bass[i]));
+    }));
+}
+
+okf("renderExportFrame hands drawScene the exact frame time via S._hqT and always clears it", () => {
+  const fn = extractFn("renderExportFrame");
+  return !!fn && fn.includes("S._hqT = t;") && fn.includes("try { drawScene(dt); } finally { S._hqT = null; }");
+});
+okf("exportHQ awaits the sculpture timeline when the preset needs it", () => {
+  const fn = extractFn("exportHQ");
+  return !!fn && fn.includes("if (sculptureNeeded(S.preset)) await ensureSculptureTimeline();");
+});
+okf("build.js lists the sculpture contract module and it exists", () => {
+  const b = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
+  return b.includes('"src/inject-v113.js"') && fs.existsSync(path.join(__dirname, "src", "inject-v113.js"));
+});
+okf("no Math.random or wall-clock in the sculpture contract module", () => {
+  const s = injectSrc("inject-v113.js");
+  return !s.includes("Math.random") && !s.includes("performance.now") && !s.includes("Date.now");
+});
+
 /* ---------------- summary ---------------- */
 (async () => {
   if (pendingAsyncChecks.length) await Promise.all(pendingAsyncChecks);
