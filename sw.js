@@ -1,7 +1,7 @@
 /* Elastic Morph — service worker (cache-first, offline-ready).
    Only active when the app is served over http(s)/localhost.
    When opened directly via file:// this script is simply ignored. */
-const CACHE = "elastic-morph-v113";
+const CACHE = "elastic-morph-v114";
 const SHELL_ASSETS = [
   "elastic-morph.html",
   "manifest.webmanifest",
