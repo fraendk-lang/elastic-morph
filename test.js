@@ -5001,7 +5001,7 @@ okf("renderExportFrame hands drawScene the exact frame time via S._hqT and alway
 });
 okf("exportHQ awaits the sculpture timeline when the preset needs it", () => {
   const fn = extractFn("exportHQ");
-  return !!fn && fn.includes("if (sculptureNeeded(S.preset)) await ensureSculptureTimeline();");
+  return !!fn && fn.includes("if (sculptureNeeded(currentDNA())) await ensureSculptureTimeline();");
 });
 okf("build.js lists the sculpture contract module and it exists", () => {
   const b = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
@@ -5010,6 +5010,93 @@ okf("build.js lists the sculpture contract module and it exists", () => {
 okf("no Math.random or wall-clock in the sculpture contract module", () => {
   const s = injectSrc("inject-v113.js");
   return !s.includes("Math.random") && !s.includes("performance.now") && !s.includes("Date.now");
+});
+
+section("Obsidian Bloom renderer + preset (stage C)");
+
+let OB = null;
+try {
+  OB = loadFns(["sculptureSeedFromHash", "sculptureQuality", "sculptureRenderSize", "sculptureTint"]);
+  ok("extract Obsidian Bloom pure functions", true);
+} catch (e) { ok("extract Obsidian Bloom pure functions", false, e.message); }
+
+if (OB) {
+  okf("seed: deterministic, four values in [0,1), differs per hash and per version, hash 0 works", () => {
+    const a = OB.sculptureSeedFromHash(123456789, 1), b = OB.sculptureSeedFromHash(123456789, 1);
+    const c = OB.sculptureSeedFromHash(987654321, 1), d = OB.sculptureSeedFromHash(123456789, 2), z = OB.sculptureSeedFromHash(0, 1);
+    const inRange = s => s.length === 4 && s.every(v => v >= 0 && v < 1);
+    return a.every((v, i) => v === b[i]) && inRange(a) && inRange(z)
+      && a.some((v, i) => v !== c[i]) && a.some((v, i) => v !== d[i]);
+  });
+  okf("quality: export always high; explicit modes win; auto follows perfScale; bad perfScale falls back to high", () =>
+    OB.sculptureQuality("low", 1, true) === 2 && OB.sculptureQuality("high", 0.3, false) === 2
+    && OB.sculptureQuality("med", 1, false) === 1 && OB.sculptureQuality("low", 1, false) === 0
+    && OB.sculptureQuality("auto", 1, false) === 2 && OB.sculptureQuality("auto", 0.6, false) === 1
+    && OB.sculptureQuality("auto", 0.4, false) === 0 && OB.sculptureQuality("auto", NaN, false) === 2);
+  okf("render size: preview is capped per quality and keeps aspect; export is full size up to 4096; never below 2px", () => {
+    const p = OB.sculptureRenderSize(1920, 1080, 2, false), l = OB.sculptureRenderSize(1920, 1080, 0, false);
+    const e = OB.sculptureRenderSize(3840, 2160, 2, true), big = OB.sculptureRenderSize(8000, 4500, 2, true), tiny = OB.sculptureRenderSize(1, 1, 0, false);
+    return p.w === 1280 && p.h === 720 && l.w === 640 && l.h === 360 && e.w === 3840 && e.h === 2160
+      && big.w === 4096 && tiny.w >= 2 && tiny.h >= 2;
+  });
+  okf("tint: subtle (0.9..1.1), red hue warmer than blue hue, wraps negative/large hues", () => {
+    const red = OB.sculptureTint(0), blue = OB.sculptureTint(240), neg = OB.sculptureTint(-120), wrap = OB.sculptureTint(600);
+    const sub = t => t.length === 3 && t.every(v => v >= 0.9 && v <= 1.1);
+    return sub(red) && sub(blue) && red[0] > red[2] && blue[2] > blue[0]
+      && neg.every((v, i) => Math.abs(v - blue[i]) < 1e-9) && wrap.every((v, i) => Math.abs(v - blue[i]) < 1e-9);
+  });
+}
+
+okf("PRESETS gains exactly one Obsidian Bloom entry with the sculpture engine and a calm, clean-background setup", () => {
+  const m = html.match(/id: "sculpture", name: "Obsidian Bloom",[\s\S]*?gradient: \[[^\]]*\]\s*\}/);
+  if (!m) return false;
+  const p = m[0];
+  return (html.match(/id: "sculpture"/g) || []).length === 1
+    && p.includes('engine: "sculpture"') && p.includes("bgFade: 0.9") && p.includes("bloom: 0") && p.includes("particles: 0")
+    && p.includes("layers: 1") && p.includes("petals: 0") && p.includes("glass: false") && !p.includes("bank:");
+});
+okf("drawScene dispatches to drawSculpture and ticks the GPU idle release", () => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes('sculptureIdleTick(dnaEngine === "sculpture");')
+    && fn.includes('} else if (dnaEngine === "sculpture") {') && fn.includes("drawSculpture(base, hue, growthF, energySize, seed);");
+});
+okf("drawSculpture composites with an identity transform and source-over (no double camera, opaque body)", () => {
+  const fn = extractFn("drawSculpture");
+  return !!fn && fn.includes("ctx.setTransform(1, 0, 0, 1, 0, 0);") && fn.includes('ctx.globalCompositeOperation = "source-over";')
+    && fn.includes("ctx.drawImage(SCULPT.canvas, 0, 0, W, H);");
+});
+okf("the fragment shader tonemaps and gamma-corrects exactly once and outputs alpha 0 outside the body", () => {
+  const s = injectSrc("inject-v114.js");
+  return (s.split("pow(clamp(col,0.0,1.0),vec3(1.0/2.2))").length - 1) === 1
+    && s.includes("vec4 outc=vec4(0.0);") && s.includes("gl_FragColor=outc;") && s.includes("uniform vec4 uSeed;");
+});
+okf("the renderer module has no Math.random/Date.now and its feature path has no clock call", () => {
+  const s = injectSrc("inject-v114.js"), f = extractFn("sculptureCollectFeatures", s);
+  return !s.includes("Math.random") && !s.includes("Date.now") && !!f && !f.includes("performance.now");
+});
+okf("GPU failure path: 2D fallback orb + badge, and the context is released after idle", () => {
+  const s = injectSrc("inject-v114.js");
+  return s.includes("if (!sculptureInitGL()) { sculptureFallback(base, growthF); sculptureBadge(true); return; }")
+    && s.includes("function sculptureRelease()") && s.includes('getExtension("WEBGL_lose_context")');
+});
+okf("Weniger Flackern damps kick/snare for Obsidian Bloom", () => {
+  const s = injectSrc("inject-v114.js");
+  return s.includes("const calm = S.reduceFlash ? 0.35 : 1;");
+});
+okf("badge element + CSS and the quality select (4 options) exist", () =>
+  html.includes('<div id="sculptBadge" role="status" aria-live="polite"></div>') && html.includes("#sculptBadge.show { display: block; }")
+  && html.includes('<select id="sculptQuality"') && ["auto", "high", "med", "low"].every(v => html.includes('<option value="' + v + '"')));
+okf("the DNA preset card gets an Obsidian Bloom preview branch", () => {
+  const fn = extractFn("renderPreviews");
+  return !!fn && fn.includes('} else if (p.engine === "sculpture") {');
+});
+okf("exportHQ waits for the timeline based on the ACTIVE DNA (blends keep their engine), not just S.preset", () => {
+  const fn = extractFn("exportHQ");
+  return !!fn && fn.includes("if (sculptureNeeded(currentDNA())) await ensureSculptureTimeline();");
+});
+okf("build.js lists the renderer module and it exists", () => {
+  const b = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
+  return b.includes('"src/inject-v114.js"') && fs.existsSync(path.join(__dirname, "src", "inject-v114.js"));
 });
 
 /* ---------------- summary ---------------- */
