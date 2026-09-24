@@ -652,6 +652,12 @@
     border: 1px solid var(--amber); border-radius: 8px; padding: 4px 10px; pointer-events: none;
   }
   #webglBadge.show { display: block; }
+  #sculptBadge {
+    display: none; position: absolute; top: 66px; left: 50%; transform: translateX(-50%); z-index: 12;
+    font-size: 10px; color: var(--amber); background: rgba(10,10,18,.88);
+    border: 1px solid var(--amber); border-radius: 8px; padding: 4px 10px; pointer-events: none;
+  }
+  #sculptBadge.show { display: block; }
   #fpsBadge {
     position: absolute; bottom: 14px; right: 14px;
     background: rgba(10,10,18,0.7);
@@ -1084,6 +1090,7 @@
     <div id="fpsBadge">60 fps</div>
     <div id="zoomBadge">1.0×</div>
     <div id="webglBadge" role="status" aria-live="polite"></div>
+    <div id="sculptBadge" role="status" aria-live="polite"></div>
     <div id="touchZoom" aria-label="Zoom">
       <button type="button" id="zoomOutBtn" title="Zoom out" aria-label="Zoom out">−</button>
       <button type="button" id="zoomResetBtn" title="Zoom 1×" aria-label="Zoom reset">1×</button>
@@ -1659,7 +1666,7 @@
       <option value="electric">Style: Electric / Blitz</option>
       <option value="chrome">Style: Liquid Chrome</option>
       <option value="gyroid">Style: Gyroid (3D Raymarch)</option>
-      <option value="raymarch">Style: SDF Blob (Raymarch)</option>
+      <option value="raymarch">Style: Triangular Light Grid</option>
       <option value="feedback">Style: Feedback Fractal</option>
       <option value="strobe">Style: Club Strobe Grid</option>
       <option value="warehouse">Style: Warehouse Fog</option>
@@ -1715,6 +1722,12 @@
       <option value="color-dodge">Blend: Color Dodge</option>
       <option value="hard-light">Blend: Hard Light</option>
       <option value="hue">Blend: Hue</option>
+    </select>
+    <select id="sculptQuality" class="pm-select" style="margin-bottom:10px" title="Nur für Obsidian Bloom: Detailstufe (ändert nicht die Form)">
+      <option value="auto" selected>Obsidian-Qualität: Auto</option>
+      <option value="high">Obsidian-Qualität: Hoch</option>
+      <option value="med">Obsidian-Qualität: Mittel</option>
+      <option value="low">Obsidian-Qualität: Niedrig</option>
     </select>
     <div id="sliders"></div>
     <div style="display:flex;gap:6px;margin-top:8px">
@@ -2788,6 +2801,17 @@ const PRESETS = [
     motion: "orbit", flowBias: 0, constellation: false, bloom: 0.35, waveRing: false,
     engine: "mazeGrid",
     gradient: ["#081c18", "#123c30", "#4bffb0"]
+  },
+  {
+    id: "sculpture", name: "Obsidian Bloom",
+    desc: "Eine dunkle, geschliffene Skulptur mit eigener Silhouette aus deinem Track. Räumlich, ruhig, filmisch.",
+    hue: 215, hueEnd: 250, sat: 20, bgFade: 0.9,
+    layers: 1, points: 0, noiseAmp: 0, speed: 0.3,
+    particles: 0, particleStyle: "dust", symmetry: 1,
+    verticalStretch: 1.0, grain: 0, lineMode: false, petals: 0, glass: false,
+    motion: "orbit", flowBias: 0, constellation: false, bloom: 0, waveRing: false,
+    engine: "sculpture",
+    gradient: ["#050508", "#12141c", "#8aa0c8"]
   }
 ];
 
@@ -5381,7 +5405,8 @@ async function renderExportFrame(i, fps, feat, dur, t0) {
   const pending = updateBgVideoTimeline(t);
   if (pending.length) await Promise.all(pending);
   tickCueTransition(dt);
-  drawScene(dt);
+  S._hqT = t;   // exact frame time for the sculpture renderer (absolute song time, not S.time)
+  try { drawScene(dt); } finally { S._hqT = null; }
 }
 
 /* Stage 2b: deterministic HQ export via WebCodecs + mp4-muxer.
@@ -5446,6 +5471,7 @@ async function exportHQ() {
     const codec = await pickAvcCodec(Wpx, Hpx, fps, bitrate);
     if (!codec) throw new Error(`Auflösung ${Wpx}×${Hpx} @${fps}fps wird vom Encoder nicht unterstützt — versuch 1080p oder Chrome/Edge.`);
     const feat = buildFeatureTimeline(buf, fps);
+    if (sculptureNeeded(currentDNA())) await ensureSculptureTimeline();
     const muxer = new Muxer({
       target: new ArrayBufferTarget(),
       video: { codec: "avc", width: Wpx, height: Hpx },
@@ -6053,6 +6079,7 @@ function drawScene(dt) {
   ctx.translate(0, gravOff);
 
   ctx.globalCompositeOperation = S.dnaBlend || "screen";
+  sculptureIdleTick(S.dnaOn !== false && P.engine === "sculpture");
 
   /* --- central morphing organism (v99: S.dnaOn === false skips shape + preset particles) --- */
   if (S.dnaOn !== false) {
@@ -6110,6 +6137,8 @@ function drawScene(dt) {
     drawMazeGrid(base, hue, growthF, energySize, seed);
   } else if (dnaEngine === "patchbay") {
     drawPatchbay(base, hue, growthF, energySize, seed);
+  } else if (dnaEngine === "sculpture") {
+    drawSculpture(base, hue, growthF, energySize, seed);
   } else {
   for (let L = 0; L < P.layers; L++) {
     const lf = 1 - L / P.layers * 0.45;
@@ -7965,6 +7994,17 @@ function renderPreviews() {
         const nn = noise2(x * 0.05 + pv.seed, y * 0.05 - t * 0.3);
         if (nn > 0.12) { c.fillStyle = `hsla(${(hue + nn * 60) % 360}, ${p.sat}%, ${52 + nn * 24}%, 0.5)`; c.beginPath(); c.arc(x, y, 1.5, 0, 6.2832); c.fill(); }
       }
+    } else if (p.engine === "sculpture") {
+      // Obsidian Bloom card: two graphite lobes + a softbox highlight (seeded 2D stand-in for the GPU look)
+      c.globalCompositeOperation = "source-over";
+      const s1 = fract1(Math.sin(pv.seed * 12.9898) * 43758.5), wob = Math.sin(t * 0.4 + pv.seed) * 0.06;
+      for (let k = 0; k < 2; k++) {
+        const ox = (k ? 1 : -1) * R * (0.55 + 0.25 * s1), oy = (k ? -1 : 1) * R * 0.12, rr = R * (k ? 0.85 : 1.05) * (1 + wob);
+        const g = c.createRadialGradient(ox - rr * 0.3, oy - rr * 0.35, rr * 0.05, ox, oy, rr);
+        g.addColorStop(0, "#6b7384"); g.addColorStop(0.3, "#20232d"); g.addColorStop(1, "#06070b");
+        c.fillStyle = g; c.beginPath(); c.arc(ox, oy, rr, 0, 6.2832); c.fill();
+      }
+      c.fillStyle = "rgba(255,190,130,0.55)"; c.fillRect(-R * 1.15, -R * 0.55, R * 0.32, R * 0.2);
     } else if (p.engine === "hyperspace") {
       const ty = Math.floor(fract1(Math.sin(pv.seed * 2.17 + 0.3) * 4391.7) * 4) & 3;
       const cfg = [{ dt: 0.006, sc: 24, cz: 25 }, { dt: 0.012, sc: 1.5, cz: 0.6 }, { dt: 0.05, sc: 4.6, cz: 0 }, { dt: 0.007, sc: 13, cz: -2.5 }][ty];
@@ -19222,6 +19262,431 @@ function initBgVidFilterFixV112() {
     ctx.restore();
   };
 }
+
+
+/* ============================================================
+   v113 — Sculpture audio/time contract (Obsidian Bloom foundation)
+   One feature source for live file playback, realtime capture and HQ/range export:
+   a per-track timeline on a fixed 60 Hz grid, sampled by ABSOLUTE song time.
+   No random or clock sources in here — same audio + same time => same numbers.
+   ============================================================ */
+
+function sculptureTaus() {
+  return { form: [0.25, 0.6], surf: [0.10, 0.25], gloss: [0.06, 0.30], loud: [0.08, 0.4] };
+}
+
+function sculptureTimelineInit(buf) {
+  const fps = 60, FFT = 2048, half = FFT >> 1, frames = Math.max(1, Math.round(buf.duration * fps));
+  const hann = new Float32Array(FFT);
+  for (let i = 0; i < FFT; i++) hann[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FFT - 1));
+  const mk = () => new Float32Array(frames);
+  return {
+    buf, fps, FFT, half, frames, hann, re: new Float32Array(FFT), im: new Float32Array(FFT), next: 0,
+    tl: { fps, frames, srcBuffer: buf, subBass: mk(), bass: mk(), lowMid: mk(), mid: mk(), highMid: mk(), air: mk(),
+          form: mk(), surf: mk(), gloss: mk(), kick: mk(), snare: mk(), loud: mk() }
+  };
+}
+
+/* processes up to `count` grid frames; returns true once every frame is done */
+function sculptureTimelineStep(st, count) {
+  const edges = [[20, 60, "subBass"], [60, 160, "bass"], [160, 500, "lowMid"], [500, 2000, "mid"], [2000, 6000, "highMid"], [6000, 16000, "air"]];
+  const ch = st.buf.getChannelData(0), sr = st.buf.sampleRate, binHz = sr / st.FFT, half = st.half, tl = st.tl;
+  const end = Math.min(st.frames, st.next + count);
+  for (let f = st.next; f < end; f++) {
+    const start = Math.floor((f / st.fps) * sr) - half;
+    for (let i = 0; i < st.FFT; i++) { const s = start + i; st.re[i] = (s >= 0 && s < ch.length ? ch[s] : 0) * st.hann[i]; st.im[i] = 0; }
+    fftRadix2(st.re, st.im);
+    for (let b = 0; b < edges.length; b++) {
+      const lo = Math.max(1, Math.floor(edges[b][0] / binHz)), hi = Math.max(lo, Math.min(half - 1, Math.ceil(edges[b][1] / binHz)));
+      let sum = 0;
+      for (let i = lo; i <= hi; i++) {
+        const mag = Math.sqrt(st.re[i] * st.re[i] + st.im[i] * st.im[i]) / st.FFT;
+        const db = 20 * Math.log10(mag + 1e-12);
+        sum += Math.max(0, Math.min(1, (db + 100) / 70));
+      }
+      tl[edges[b][2]][f] = sum / (hi - lo + 1);
+    }
+  }
+  st.next = end;
+  return st.next >= st.frames;
+}
+
+/* bakes onsets + envelope followers (stepped once per grid frame => frame-rate independent) */
+function sculptureTimelineFinish(st) {
+  const tl = st.tl, dt = 1 / st.fps, T = sculptureTaus();
+  const rise = tau => 1 - Math.exp(-dt / tau);
+  const aF = rise(T.form[0]), rF = rise(T.form[1]), aS = rise(T.surf[0]), rS = rise(T.surf[1]);
+  const aG = rise(T.gloss[0]), rG = rise(T.gloss[1]), aL = rise(T.loud[0]), rL = rise(T.loud[1]);
+  let form = 0, surf = 0, gloss = 0, loud = 0, kick = 0, snare = 0, prevKick = 0, prevSnare = 0;
+  const follow = (v, x, a, r) => v + (x - v) * (x > v ? a : r);
+  for (let f = 0; f < st.frames; f++) {
+    const kE = (tl.subBass[f] + tl.bass[f]) * 0.5, mE = (tl.lowMid[f] + tl.mid[f]) * 0.5, hE = (tl.highMid[f] + tl.air[f]) * 0.5;
+    form = follow(form, kE, aF, rF); surf = follow(surf, mE, aS, rS); gloss = follow(gloss, hE, aG, rG);
+    loud = follow(loud, Math.min(1, kE * 0.5 + mE * 0.35 + hE * 0.15), aL, rL);
+    const kJ = Math.max(0, kE - prevKick);
+    kick = Math.max(kick * 0.88, kJ > 0.04 ? Math.min(1, kJ * 8) : 0);
+    prevKick = prevKick * 0.7 + kE * 0.3;
+    const sE = (tl.mid[f] + tl.highMid[f]) * 0.5, sJ = Math.max(0, sE - prevSnare);
+    snare = Math.max(snare * 0.88, sJ > 0.04 ? Math.min(1, sJ * 8) : 0);
+    prevSnare = prevSnare * 0.7 + sE * 0.3;
+    tl.form[f] = form; tl.surf[f] = surf; tl.gloss[f] = gloss; tl.loud[f] = loud; tl.kick[f] = kick; tl.snare[f] = snare;
+  }
+  return tl;
+}
+
+function buildSculptureTimeline(buf) {
+  const st = sculptureTimelineInit(buf);
+  sculptureTimelineStep(st, st.frames);
+  return sculptureTimelineFinish(st);
+}
+
+/* chunked (240 frames per slice, then yield) so a 4-minute track never freezes the UI */
+function sculptureTimelineBuildAsync(buf, yieldFn) {
+  const st = sculptureTimelineInit(buf);
+  const y = yieldFn || (() => new Promise(r => setTimeout(r, 0)));
+  const loop = () => sculptureTimelineStep(st, 240) ? Promise.resolve(sculptureTimelineFinish(st)) : y().then(loop);
+  return loop();
+}
+
+function sampleSculptureTimeline(tl, t, out) {
+  out = out || {};
+  const last = tl.frames - 1, x = Math.max(0, Math.min(last, (t > 0 ? t : 0) * tl.fps));
+  const i0 = Math.floor(x), i1 = Math.min(last, i0 + 1), k = x - i0;
+  const keys = ["subBass", "bass", "lowMid", "mid", "highMid", "air", "form", "surf", "gloss", "kick", "snare", "loud"];
+  for (let n = 0; n < keys.length; n++) { const a = tl[keys[n]]; out[keys[n]] = a[i0] + (a[i1] - a[i0]) * k; }
+  return out;
+}
+
+/* mic / tab audio: causal followers with the same time constants; NOT reproducible by design */
+function sculptureLiveStep(st, bands, kickOnset, snareOnset, dt, out) {
+  out = out || {};
+  dt = dt > 0 ? dt : 0;
+  const T = sculptureTaus();
+  const follow = (v, x, tau) => v + (x - v) * (1 - Math.exp(-dt / (x > v ? tau[0] : tau[1])));
+  const kE = (bands.subBass + bands.bass) * 0.5, mE = (bands.lowMid + bands.mid) * 0.5, hE = (bands.highMid + bands.air) * 0.5;
+  st.form = follow(st.form, kE, T.form); st.surf = follow(st.surf, mE, T.surf); st.gloss = follow(st.gloss, hE, T.gloss);
+  st.loud = follow(st.loud, Math.min(1, kE * 0.5 + mE * 0.35 + hE * 0.15), T.loud);
+  out.subBass = bands.subBass; out.bass = bands.bass; out.lowMid = bands.lowMid; out.mid = bands.mid; out.highMid = bands.highMid; out.air = bands.air;
+  out.form = st.form; out.surf = st.surf; out.gloss = st.gloss; out.loud = st.loud;
+  out.kick = kickOnset; out.snare = snareOnset;
+  return out;
+}
+
+function sculptureSongTime(hqT, mediaT) {
+  return hqT != null ? hqT : (mediaT > 0 ? mediaT : 0);
+}
+
+function sculptureNeeded(preset) {
+  return !!(preset && preset.engine === "sculpture");
+}
+
+/* cached per decoded buffer; concurrent callers share one build */
+function ensureSculptureTimeline(yieldFn) {
+  const buf = S.audioBuffer;
+  if (!buf) return Promise.resolve(null);
+  if (S._sculptTL && S._sculptTL.srcBuffer === buf) return Promise.resolve(S._sculptTL);
+  if (S._sculptTLP && S._sculptTLB === buf) return S._sculptTLP;
+  S._sculptTLB = buf;
+  S._sculptTLP = sculptureTimelineBuildAsync(buf, yieldFn).then(tl => { if (S._sculptTLB === buf) S._sculptTL = tl; return tl; });
+  return S._sculptTLP;
+}
+
+
+/* ============================================================
+   v114 — Obsidian Bloom renderer (DNA engine "sculpture")
+   Own WebGL context (isolated from the Shader Engine's), bounded SDF raymarcher:
+   4 smooth-unioned lobes + bloom ridges, polished graphite material lit by a warm key
+   softbox and a cool rim strip. Reads ONE feature source (v113 contract): the per-track
+   timeline sampled by absolute song time (file), or the live adapter (mic / tab audio).
+   Filmic tonemap + gamma happen once, inside the shader (this look's own finish path).
+   ============================================================ */
+
+const SCULPT_VERSION = 1;
+
+const SCULPT_VERT = "attribute vec2 p;void main(){gl_Position=vec4(p,0.0,1.0);}";
+
+const SCULPT_FRAG = `precision highp float;
+uniform vec2 uRes; uniform float uT; uniform vec4 uSeed;
+uniform float uForm,uSurf,uGloss,uKick,uSnare,uLoud,uGrow; uniform vec3 uTint; uniform float uQ; // uQ: 0 low,1 med,2 high
+float hash1(float n){return fract(sin(n*127.1)*43758.5453);}
+float smin(float a,float b,float k){float h=clamp(0.5+0.5*(b-a)/k,0.0,1.0);return mix(b,a,h)-k*h*(1.0-h);}
+mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+vec3 kickDir(){float a=uT*0.31+uSeed.x*6.283,b=uT*0.17+uSeed.y*6.283;return normalize(vec3(sin(a)*cos(b),sin(b),cos(a)*cos(b)));}
+float map(vec3 p){
+  // slow, inert turntable + seed-dependent orientation
+  p.xz*=rot(uT*0.05+uSeed.z*6.283); p.yz*=rot(0.35+uSeed.w*0.6);
+  float spread=0.34+0.16*uForm+0.10*uGrow;
+  float k=0.42;
+  float d=1e5;
+  for(int i=0;i<4;i++){
+    float fi=float(i);
+    float ph=uSeed.x*6.283+fi*1.7;
+    vec3 c=spread*vec3(sin(ph+uT*0.11*(1.0+0.3*fi)),0.75*cos(ph*1.3+uT*0.09),cos(ph*0.8-uT*0.13));
+    vec3 q=p-c;
+    q.y*=1.0+0.25*(uSeed.y-0.5)*(fi-1.5);
+    float r=0.46-0.05*fi+0.05*hash1(fi+uSeed.z*10.0);
+    d=smin(d,length(q)-r,k);
+  }
+  // bloom ridges: 5 soft petals around the vertical axis, seed-phased, fade towards the poles
+  float ang=atan(p.z,p.x);
+  d+=0.055*cos(ang*5.0+uSeed.w*6.283+uT*0.07)*(1.0-smoothstep(0.2,0.75,abs(p.y)))*smoothstep(0.1,0.5,length(p.xz));
+  // large slow deformation (bass), small ripple (mids)
+  float big=sin(p.x*2.3+uT*0.21+uSeed.x*9.0)*sin(p.y*2.1-uT*0.17+uSeed.y*9.0)*sin(p.z*2.6+uT*0.13+uSeed.z*9.0);
+  d+=big*(0.035+0.11*uForm);
+  float rip=sin(p.x*9.0+uT*0.9)*sin(p.y*8.0-uT*0.7)*sin(p.z*10.0+uT*0.6);
+  d+=rip*(0.006+0.020*uSurf+0.016*uSnare);
+  // kick: one local bump, deterministic direction, quick decay
+  vec3 kd=kickDir()*0.55; float kb=exp(-dot(p-kd,p-kd)*4.0);
+  d-=kb*uKick*uKick*0.13;
+  return d;
+}
+vec3 calcN(vec3 p){const vec2 e=vec2(1.0,-1.0)*0.0022;return normalize(e.xyy*map(p+e.xyy)+e.yyx*map(p+e.yyx)+e.yxy*map(p+e.yxy)+e.xxx*map(p+e.xxx));}
+float boxL(vec3 r,vec3 dir,vec2 ext,float soft){
+  vec3 x=normalize(cross(dir,vec3(0.0,1.0,0.0))); vec3 y=cross(x,dir);
+  float f=dot(r,dir); if(f<=0.02) return 0.0;
+  vec2 q=vec2(dot(r,x),dot(r,y))/f;
+  return smoothstep(ext.x+soft,ext.x-soft,abs(q.x))*smoothstep(ext.y+soft,ext.y-soft,abs(q.y));
+}
+vec3 env(vec3 r){ // dark studio: large warm softbox (key), tall cool strip (rim), floor bounce
+  float up=r.y*0.5+0.5;
+  vec3 col=vec3(0.006,0.007,0.010)+0.03*vec3(0.25,0.32,0.45)*smoothstep(0.3,1.0,up);
+  col+=vec3(1.0,0.70,0.44)*3.0*boxL(r,normalize(vec3(-0.55,0.60,0.58)),vec2(0.55,0.34),0.12);
+  col+=vec3(0.36,0.60,1.0)*3.4*boxL(r,normalize(vec3(0.80,0.10,-0.60)),vec2(0.10,0.85),0.06);
+  col+=vec3(0.85,0.88,1.0)*0.5*boxL(r,normalize(vec3(0.05,-0.85,0.45)),vec2(0.7,0.25),0.2);
+  return col;
+}
+float softShadow(vec3 ro,vec3 rd){float res=1.0,t=0.03;int n=uQ>1.5?28:12;for(int i=0;i<28;i++){if(i>=n)break;float h=map(ro+rd*t);res=min(res,7.0*h/t);t+=clamp(h,0.02,0.2);if(res<0.002||t>2.5)break;}return clamp(res,0.0,1.0);}
+float calcAO(vec3 p,vec3 n){float o=0.0,s=1.0;for(int i=0;i<5;i++){float h=0.02+0.07*float(i);o+=(h-map(p+n*h))*s;s*=0.72;}return clamp(1.0-2.2*o,0.0,1.0);}
+void main(){
+  vec2 uv=(gl_FragCoord.xy*2.0-uRes)/min(uRes.x,uRes.y);
+  vec3 ro=vec3(0.0,0.0,3.2), rd=normalize(vec3(uv,-2.4));
+  // bounding sphere
+  float b=dot(ro,rd), c0=dot(ro,ro)-1.9*1.9, disc=b*b-c0;
+  vec4 outc=vec4(0.0);
+  if(disc>0.0){
+    float t=-b-sqrt(disc); t=max(t,0.0);
+    float tmax=-b+sqrt(disc);
+    int maxSteps=uQ>1.5?96:(uQ>0.5?64:40);
+    float md=1e5, hit=-1.0;
+    for(int i=0;i<96;i++){
+      if(i>=maxSteps)break;
+      float h=map(ro+rd*t);
+      md=min(md,h/ max(t,0.1));
+      if(h<0.0012*t){hit=t;break;}
+      t+=h*0.72; // conservative: displaced SDF is not exact
+      if(t>tmax)break;
+    }
+    float px=2.0/min(uRes.x,uRes.y);   // ~pixel size in uv units at unit depth
+    if(hit>0.0){
+      vec3 p=ro+rd*hit; vec3 n=calcN(p);
+      vec3 v=-rd; vec3 r=reflect(rd,n);
+      float fres=pow(1.0-clamp(dot(n,v),0.0,1.0),4.0);
+      vec3 kdir=normalize(vec3(-0.55,0.65,0.55)); vec3 rdir=normalize(vec3(0.75,0.25,-0.62));
+      float sh=uQ>0.5?softShadow(p+n*0.02,kdir):1.0;
+      float ao=uQ>0.5?calcAO(p,n):1.0;
+      float dif=clamp(dot(n,kdir)*0.85+0.15,0.0,1.0);
+      float rim=clamp(dot(n,rdir)*0.5+0.5,0.0,1.0);
+      float rough=clamp(0.42-0.22*uGloss-0.06*uSnare,0.14,0.5);
+      vec3 base=vec3(0.020,0.021,0.026);
+      vec3 spec=env(r)*vec3(0.62,0.64,0.68)*mix(1.0,0.6,rough*1.6);
+      vec3 col=base*(vec3(1.0,0.72,0.5)*dif*sh*1.6+vec3(0.30,0.52,1.0)*pow(rim,3.0)*0.5+0.04)*ao;
+      col+=spec*(0.55+0.9*fres)*ao*mix(0.45,1.0,sh);
+      col+=vec3(0.30,0.52,1.0)*fres*0.10*(0.4+0.6*uGloss+1.2*uSnare);
+      col*=uTint;
+      col*=0.9+0.25*uLoud;
+      // filmic tonemap once + gamma once (finish path of this look)
+      col=(col*(2.51*col+0.03))/(col*(2.43*col+0.59)+0.14);
+      col=pow(clamp(col,0.0,1.0),vec3(1.0/2.2));
+      outc=vec4(col,1.0);
+    } else {
+      // soft analytic edge from the minimum normalized distance seen along the ray
+      float a=1.0-smoothstep(0.0,px*1.6,md);
+      if(a>0.0){vec3 col=vec3(0.02,0.022,0.03);outc=vec4(col*a,a);}
+    }
+  }
+  gl_FragColor=outc;
+}`;
+
+const SCULPT = { ok: null, canvas: null, gl: null, prog: null, loc: null, w: 0, h: 0, lastUse: 0, lastT: 0,
+                 live: { form: 0, surf: 0, gloss: 0, loud: 0 }, feat: {}, badge: false };
+
+/* xorshift32 -> 4 floats in [0,1); same hash + version => same shape parameters */
+function sculptureSeedFromHash(h, version) {
+  let x = (((h >>> 0) ^ Math.imul(version || 1, 0x9E3779B1)) >>> 0) || 0x9E3779B9;
+  const out = [];
+  for (let i = 0; i < 4; i++) {
+    x ^= x << 13; x >>>= 0;
+    x ^= x >>> 17;
+    x ^= x << 5; x >>>= 0;
+    out.push(x / 4294967296);
+  }
+  return out;
+}
+
+/* detail level only (steps / shadow / AO / resolution) — never changes form, seed or motion phase */
+function sculptureQuality(mode, perfScale, exporting) {
+  if (exporting) return 2;
+  if (mode === "high") return 2;
+  if (mode === "med") return 1;
+  if (mode === "low") return 0;
+  const p = perfScale > 0 ? perfScale : 1;
+  return p >= 0.75 ? 2 : (p >= 0.5 ? 1 : 0);
+}
+
+function sculptureRenderSize(W, H, q, exporting) {
+  const cap = exporting ? Math.min(Math.max(W, H), 4096) : ([640, 960, 1280][q] || 960);
+  const s = Math.min(1, cap / Math.max(W, H));
+  return { w: Math.max(2, Math.round(W * s)), h: Math.max(2, Math.round(H * s)) };
+}
+
+/* ±9% neutral tint from the DNA hue, so palette/hue drift is felt without recolouring the material */
+function sculptureTint(hueDeg) {
+  const h = (((hueDeg % 360) + 360) % 360) / 60, c = 0.5, x = c * (1 - Math.abs(h % 2 - 1));
+  const seg = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(h) % 6];
+  return seg.map(v => 1 + (v + 0.5 - 0.75) * 0.36);
+}
+
+/* stateless composition growth: the song-phase target (same curve as evolutionTargets) averaged over the
+   last ~2.25 s at 4 points — depends only on absolute progress, so a range export equals a full export */
+function sculptureGrowth(prog, durSec, map) {
+  const target = p => {
+    p = Math.max(0, Math.min(1, p));
+    let i = map.length - 1;
+    for (let k = 0; k < map.length; k++) { if (p >= map[k].a && p < map[k].b) { i = k; break; } }
+    const seg = map[i], t = Math.max(0, Math.min(1, (p - seg.a) / Math.max(0.001, seg.b - seg.a)));
+    switch (seg.label) {
+      case "Birth": return 0.15 + t * 0.25;
+      case "Grow": return 0.40 + t * 0.30;
+      case "Tension": return 0.70 + t * 0.25;
+      case "Break": return 0.45;
+      case "Return": return 0.85;
+      default: return 0.85 - t * 0.6;
+    }
+  };
+  const step = durSec > 0 ? 0.75 / durSec : 0;
+  return (target(prog) + target(prog - step) + target(prog - 2 * step) + target(prog - 3 * step)) / 4;
+}
+
+function sculptureCollectFeatures(out, dt) {
+  if (S.audioBuffer && !S.micMode && !S.tabAudioMode) {
+    if (!(S._sculptTL && S._sculptTL.srcBuffer === S.audioBuffer)) ensureSculptureTimeline();
+    if (S._sculptTL && S._sculptTL.srcBuffer === S.audioBuffer) {
+      const t = sculptureSongTime(S._hqT, audioEl.currentTime);
+      sampleSculptureTimeline(S._sculptTL, t, out);
+      out.t = t;
+      return out;
+    }
+  }
+  sculptureLiveStep(SCULPT.live, S.bands, S.kickOnset, S.snareOnset, dt, out);
+  out.t = S.virtualT;
+  return out;
+}
+
+function sculptureInitGL() {
+  if (SCULPT.ok !== null) return SCULPT.ok;
+  try {
+    const cv = document.createElement("canvas");
+    const gl = cv.getContext("webgl", { antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: true, alpha: true });
+    if (!gl) { SCULPT.ok = false; return false; }
+    cv.addEventListener("webglcontextlost", e => { e.preventDefault(); if (SCULPT.canvas !== cv) return; SCULPT.ok = null; SCULPT.prog = null; SCULPT.w = SCULPT.h = 0; }, false);
+    cv.addEventListener("webglcontextrestored", () => { if (SCULPT.canvas !== cv) return; SCULPT.ok = null; }, false);
+    const vs = glCompile(gl, gl.VERTEX_SHADER, SCULPT_VERT);
+    const fs = glCompile(gl, gl.FRAGMENT_SHADER, SCULPT_FRAG);
+    if (!vs || !fs) { SCULPT.ok = false; return false; }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn("sculpture link:", gl.getProgramInfoLog(prog)); SCULPT.ok = false; return false; }
+    gl.useProgram(prog);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const ploc = gl.getAttribLocation(prog, "p");
+    gl.enableVertexAttribArray(ploc);
+    gl.vertexAttribPointer(ploc, 2, gl.FLOAT, false, 0, 0);
+    const loc = {};
+    ["uRes", "uT", "uSeed", "uForm", "uSurf", "uGloss", "uKick", "uSnare", "uLoud", "uGrow", "uTint", "uQ"].forEach(n => { loc[n] = gl.getUniformLocation(prog, n); });
+    SCULPT.canvas = cv; SCULPT.gl = gl; SCULPT.prog = prog; SCULPT.loc = loc; SCULPT.w = SCULPT.h = 0;
+    SCULPT.ok = true;
+    return true;
+  } catch (e) { console.warn("sculpture GL init failed:", e); SCULPT.ok = false; return false; }
+}
+
+function sculptureRenderGL(f, q, W, H, seedArr, grow, tint, calm) {
+  const gl = SCULPT.gl, L = SCULPT.loc, sz = sculptureRenderSize(W, H, q, S.exporting);
+  if (sz.w !== SCULPT.w || sz.h !== SCULPT.h) {
+    SCULPT.canvas.width = sz.w; SCULPT.canvas.height = sz.h; SCULPT.w = sz.w; SCULPT.h = sz.h;
+    gl.viewport(0, 0, sz.w, sz.h);
+  }
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniform2f(L.uRes, sz.w, sz.h);
+  gl.uniform1f(L.uT, f.t);
+  gl.uniform4f(L.uSeed, seedArr[0], seedArr[1], seedArr[2], seedArr[3]);
+  gl.uniform1f(L.uForm, f.form); gl.uniform1f(L.uSurf, f.surf); gl.uniform1f(L.uGloss, f.gloss);
+  gl.uniform1f(L.uKick, Math.min(1, f.kick * calm)); gl.uniform1f(L.uSnare, Math.min(1, f.snare * calm));
+  gl.uniform1f(L.uLoud, f.loud); gl.uniform1f(L.uGrow, grow);
+  gl.uniform3f(L.uTint, tint[0], tint[1], tint[2]);
+  gl.uniform1f(L.uQ, q);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+/* no-GPU fallback: a calm graphite orb so the frame is never empty (drawn inside the camera transform) */
+function sculptureFallback(base, growthF) {
+  const r = base * Math.max(0.4, growthF) * 1.15;
+  const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.05, 0, 0, r);
+  g.addColorStop(0, "#5b6270"); g.addColorStop(0.35, "#1a1d26"); g.addColorStop(1, "#050508");
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function sculptureBadge(fail) {
+  const el = $("sculptBadge");
+  if (!el || SCULPT.badge === fail) return;
+  SCULPT.badge = fail;
+  el.textContent = fail ? "Obsidian Bloom: GPU nicht verfügbar — 2D-Ersatzbild aktiv" : "";
+  el.classList.toggle("show", fail);
+}
+
+function sculptureRelease() {
+  try { if (SCULPT.gl) { const ext = SCULPT.gl.getExtension("WEBGL_lose_context"); if (ext) ext.loseContext(); } } catch (e) { }
+  SCULPT.gl = null; SCULPT.canvas = null; SCULPT.prog = null; SCULPT.loc = null; SCULPT.w = SCULPT.h = 0; SCULPT.ok = null;
+}
+
+/* called every frame from the DNA dispatch: frees the GPU context ~5 s after leaving the look */
+function sculptureIdleTick(active) {
+  if (active) return;
+  if (SCULPT.badge) sculptureBadge(false);
+  if (SCULPT.gl && performance.now() - SCULPT.lastUse > 5000) sculptureRelease();
+}
+
+/* the engine: one GL render per output frame, composited screen-space with an identity transform
+   (the scene's 2D camera must NOT be applied twice — the 3D look owns its camera in the shader) */
+function drawSculpture(base, hue, growthF, energySize, seed) {
+  const W = canvas.width, H = canvas.height, now = performance.now();
+  const dt = SCULPT.lastT ? Math.min(0.1, (now - SCULPT.lastT) / 1000) : 1 / 60;
+  SCULPT.lastT = now; SCULPT.lastUse = now;
+  const f = sculptureCollectFeatures(SCULPT.feat, dt);
+  if (!sculptureInitGL()) { sculptureFallback(base, growthF); sculptureBadge(true); return; }
+  sculptureBadge(false);
+  const q = sculptureQuality(S.sculptQuality || "auto", S.perfScale, S.exporting);
+  const seedArr = sculptureSeedFromHash(S.fpHash || 0x9E3779B9, SCULPT_VERSION);
+  const calm = S.reduceFlash ? 0.35 : 1;
+  const dur = S.audioBuffer ? S.audioBuffer.duration : ((S.micMode || S.tabAudioMode) ? 240 : 180);
+  const grow = Math.max(0, Math.min(1, sculptureGrowth(S.progress, dur, songMap()) * 0.6));
+  sculptureRenderGL(f, q, W, H, seedArr, grow, sculptureTint(hue), calm);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.drawImage(SCULPT.canvas, 0, 0, W, H);
+  ctx.restore();
+}
+
+(function initSculptureUI() {
+  const sel = $("sculptQuality");
+  if (sel) sel.addEventListener("change", e => { S.sculptQuality = e.target.value; });
+})();
 
 
 /* ---- boot ---- */

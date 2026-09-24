@@ -27,6 +27,7 @@ let pass = 0, fail = 0;
 const pendingAsyncChecks = [];
 const ok = (name, cond, extra) => { if (cond) { pass++; console.log("  ✓ " + name); } else { fail++; console.log("  ✗ " + name + (extra ? "  → " + extra : "")); } };
 const section = s => console.log("\n" + s);
+const okf = (name, fn) => { let v = false, err; try { v = !!fn(); } catch (e) { err = e.message; } ok(name, v, err); };   // test.js ok() takes a VALUE, not a function
 
 /* pull a named top-level function's full source via brace matching.
    src defaults to the app's own script; overridable for testing the fallback logic below
@@ -925,8 +926,8 @@ ok("welSkip listener uses dynamic lookup (arrow fn), not a direct function refer
   return line.includes('() => closeWelcome()');
 })());
 
-/* ---------------- SDF Blob (raymarchStyle): triangular lattice network-glow ---------------- */
-section("SDF Blob shader: glowing triangular-lattice network with pulsing nodes");
+/* ---------------- Triangular Light Grid (raymarchStyle): triangular lattice network-glow ---------------- */
+section("Triangular Light Grid shader: glowing triangular-lattice network with pulsing nodes");
 ok("raymarchStyle builds a triangular lattice (3 line families) with node glow at their crossings", (() => {
   const fn = extractGlslFn("vec3 raymarchStyle(vec2 uv){");
   return !!fn
@@ -938,7 +939,7 @@ ok("raymarchStyle builds a triangular lattice (3 line families) with node glow a
 })());
 
 /* ---------------- Shader eye-catcher palette + FX ---------------- */
-section("Shader eye-catcher palette + FX (Aurora/Gyroid/Feedback/SDF Blob)");
+section("Shader eye-catcher palette + FX (Aurora/Gyroid/Feedback/Triangular Light Grid)");
 
 ok("applyEyeCatcherFX helper defined with self-bloom, chromatic-tilt, and grain", (() => {
   const fn = extractGlslFn("vec3 applyEyeCatcherFX(vec3 col, vec2 uv){");
@@ -4898,6 +4899,258 @@ ok("hexgrid's brightness-threshold skip is untouched", (() => {
   const fn = extractFn("drawLayerB");
   return !!fn && fn.includes("if (v < 0.18) continue;");
 })());
+
+section("Shader label honesty: raymarch style is a triangular light grid");
+
+okf("the raymarch option is labelled 'Triangular Light Grid' and keeps its stored value", () => {
+  return html.includes('<option value="raymarch">Style: Triangular Light Grid</option>')
+    && !html.includes("SDF Blob");
+});
+
+okf("SHADER_STYLE_ID still maps raymarch to 7 (saved scenes unchanged)", () => {
+  return script.includes("raymarch:7,");
+});
+
+section("Sculpture audio/time contract (Obsidian Bloom stage B)");
+
+let SC = null;
+try {
+  SC = loadFns(["fftRadix2", "sculptureTaus", "sculptureTimelineInit", "sculptureTimelineStep", "sculptureTimelineFinish",
+    "buildSculptureTimeline", "sculptureTimelineBuildAsync", "sampleSculptureTimeline", "sculptureLiveStep",
+    "sculptureSongTime", "sculptureNeeded"]);
+  ok("extract sculpture contract functions", true);
+} catch (e) { ok("extract sculpture contract functions", false, e.message); }
+
+if (SC) {
+  const mkBuf = (sr, secs, fn) => {
+    const n = Math.round(sr * secs), d = new Float32Array(n);
+    for (let i = 0; i < n; i++) d[i] = fn(i / sr);
+    return { sampleRate: sr, duration: secs, numberOfChannels: 1, getChannelData: () => d };
+  };
+  const at = (a, t) => a[Math.round(t * 60)];
+
+  const sine = SC.buildSculptureTimeline(mkBuf(44100, 1, t => 0.5 * Math.sin(2 * Math.PI * 100 * t)));
+  ok("timeline is on a 60 Hz grid with one frame per 1/60 s", sine.fps === 60 && sine.frames === 60);
+  okf("a 100 Hz sine lands in the bass band, not in mid/highMid/air", () => true && at(sine.bass, 0.5) > 0.5
+    && at(sine.mid, 0.5) < 0.05 && at(sine.highMid, 0.5) < 0.05 && at(sine.air, 0.5) < 0.05);
+
+  const silent = SC.buildSculptureTimeline(mkBuf(44100, 1, () => 0));
+  okf("silence produces an all-zero timeline (calm, no NaN)", () => {
+    const keys = ["subBass", "bass", "lowMid", "mid", "highMid", "air", "form", "surf", "gloss", "kick", "snare", "loud"];
+    return keys.every(k => silent[k].every(v => v === 0));
+  });
+
+  const burst = SC.buildSculptureTimeline(mkBuf(44100, 2, t => (t >= 0.5 && t < 0.6) ? 0.8 * Math.sin(2 * Math.PI * 60 * t) : 0));
+  okf("a low burst triggers a kick onset that is 0 before, high during, and decayed long after", () =>
+    at(burst.kick, 0.2) === 0 && at(burst.kick, 0.55) > 0.5 && at(burst.kick, 1.2) < 0.05);
+  okf("the slow 'form' follower rises after the burst but stays below the instantaneous kick peak", () =>
+    at(burst.form, 0.7) > 0.1 && at(burst.form, 0.7) < at(burst.kick, 0.55));
+
+  const again = SC.buildSculptureTimeline(mkBuf(44100, 2, t => (t >= 0.5 && t < 0.6) ? 0.8 * Math.sin(2 * Math.PI * 60 * t) : 0));
+  okf("two builds of the same audio are bit-identical (deterministic)", () =>
+    burst.form.every((v, i) => v === again.form[i]) && burst.kick.every((v, i) => v === again.kick[i]));
+
+  const fake = { fps: 60, frames: 3, subBass: [0, 1, 2], bass: [0, 1, 2], lowMid: [0, 1, 2], mid: [0, 1, 2], highMid: [0, 1, 2],
+    air: [0, 1, 2], form: [0, 1, 2], surf: [0, 1, 2], gloss: [0, 1, 2], kick: [0, 1, 2], snare: [0, 1, 2], loud: [0, 1, 2] };
+  okf("sampler clamps before the start and after the end", () =>
+    SC.sampleSculptureTimeline(fake, -5).form === 0 && SC.sampleSculptureTimeline(fake, 99).form === 2);
+  okf("sampler interpolates linearly between grid frames", () =>
+    Math.abs(SC.sampleSculptureTimeline(fake, 1 / 120).form - 0.5) < 1e-9);
+  okf("sampler treats NaN time as 0 and reuses a passed-in out object", () => {
+    const out = {};
+    return SC.sampleSculptureTimeline(fake, NaN, out) === out && out.form === 0;
+  });
+  okf("sampling depends only on absolute time, not on which grid the caller steps by (30 fps vs 60 fps)", () => {
+    for (let k = 0; k < 20; k++) {
+      const a = SC.sampleSculptureTimeline(burst, k / 30).form, b = SC.sampleSculptureTimeline(burst, (2 * k) / 60).form;
+      if (a !== b) return false;
+    }
+    return true;
+  });
+
+  okf("sculptureSongTime prefers the exact HQ frame time, else the media clock, else 0", () =>
+    SC.sculptureSongTime(2.5, 9) === 2.5 && SC.sculptureSongTime(null, 9) === 9 && SC.sculptureSongTime(undefined, NaN) === 0);
+  okf("sculptureNeeded is true only for the sculpture engine", () =>
+    SC.sculptureNeeded({ engine: "sculpture" }) === true && SC.sculptureNeeded({ engine: "blob" }) === false && SC.sculptureNeeded(null) === false);
+
+  okf("live adapter: a sustained bass rises toward 1 and releases back down slowly", () => {
+    const st = { form: 0, surf: 0, gloss: 0, loud: 0 }, out = {};
+    const on = { subBass: 1, bass: 1, lowMid: 0, mid: 0, highMid: 0, air: 0 }, off = { subBass: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, air: 0 };
+    for (let i = 0; i < 60; i++) SC.sculptureLiveStep(st, on, 0, 0, 1 / 60, out);
+    const high = out.form;
+    for (let i = 0; i < 90; i++) SC.sculptureLiveStep(st, off, 0, 0, 1 / 60, out);
+    return high > 0.9 && out.form < 0.2 && out.form > 0;
+  });
+  okf("live adapter passes the given onsets through and ignores a bad dt", () => {
+    const st = { form: 0, surf: 0, gloss: 0, loud: 0 };
+    const out = SC.sculptureLiveStep(st, { subBass: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, air: 0 }, 0.7, 0.3, NaN);
+    return out.kick === 0.7 && out.snare === 0.3 && out.form === 0;
+  });
+
+  pendingAsyncChecks.push(
+    SC.sculptureTimelineBuildAsync(mkBuf(44100, 6, t => 0.4 * Math.sin(2 * Math.PI * 80 * t)), () => Promise.resolve()).then(asyncTl => {
+      const syncTl = SC.buildSculptureTimeline(mkBuf(44100, 6, t => 0.4 * Math.sin(2 * Math.PI * 80 * t)));
+      ok("the chunked async build yields exactly the same timeline as the synchronous build",
+        asyncTl.frames === syncTl.frames && asyncTl.form.every((v, i) => v === syncTl.form[i]) && asyncTl.bass.every((v, i) => v === syncTl.bass[i]));
+    }));
+}
+
+okf("renderExportFrame hands drawScene the exact frame time via S._hqT and always clears it", () => {
+  const fn = extractFn("renderExportFrame");
+  return !!fn && fn.includes("S._hqT = t;") && fn.includes("try { drawScene(dt); } finally { S._hqT = null; }");
+});
+okf("exportHQ awaits the sculpture timeline when the preset needs it", () => {
+  const fn = extractFn("exportHQ");
+  return !!fn && fn.includes("if (sculptureNeeded(currentDNA())) await ensureSculptureTimeline();");
+});
+okf("build.js lists the sculpture contract module and it exists", () => {
+  const b = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
+  return b.includes('"src/inject-v113.js"') && fs.existsSync(path.join(__dirname, "src", "inject-v113.js"));
+});
+okf("no Math.random or wall-clock in the sculpture contract module", () => {
+  const s = injectSrc("inject-v113.js");
+  return !s.includes("Math.random") && !s.includes("performance.now") && !s.includes("Date.now");
+});
+
+section("Obsidian Bloom renderer + preset (stage C)");
+
+let OB = null;
+try {
+  OB = loadFns(["sculptureSeedFromHash", "sculptureQuality", "sculptureRenderSize", "sculptureTint"]);
+  ok("extract Obsidian Bloom pure functions", true);
+} catch (e) { ok("extract Obsidian Bloom pure functions", false, e.message); }
+
+if (OB) {
+  okf("seed: deterministic, four values in [0,1), differs per hash and per version, hash 0 works", () => {
+    const a = OB.sculptureSeedFromHash(123456789, 1), b = OB.sculptureSeedFromHash(123456789, 1);
+    const c = OB.sculptureSeedFromHash(987654321, 1), d = OB.sculptureSeedFromHash(123456789, 2), z = OB.sculptureSeedFromHash(0, 1);
+    const inRange = s => s.length === 4 && s.every(v => v >= 0 && v < 1);
+    return a.every((v, i) => v === b[i]) && inRange(a) && inRange(z)
+      && a.some((v, i) => v !== c[i]) && a.some((v, i) => v !== d[i]);
+  });
+  okf("quality: export always high; explicit modes win; auto follows perfScale; bad perfScale falls back to high", () =>
+    OB.sculptureQuality("low", 1, true) === 2 && OB.sculptureQuality("high", 0.3, false) === 2
+    && OB.sculptureQuality("med", 1, false) === 1 && OB.sculptureQuality("low", 1, false) === 0
+    && OB.sculptureQuality("auto", 1, false) === 2 && OB.sculptureQuality("auto", 0.6, false) === 1
+    && OB.sculptureQuality("auto", 0.4, false) === 0 && OB.sculptureQuality("auto", NaN, false) === 2);
+  okf("render size: preview is capped per quality and keeps aspect; export is full size up to 4096; never below 2px", () => {
+    const p = OB.sculptureRenderSize(1920, 1080, 2, false), l = OB.sculptureRenderSize(1920, 1080, 0, false);
+    const e = OB.sculptureRenderSize(3840, 2160, 2, true), big = OB.sculptureRenderSize(8000, 4500, 2, true), tiny = OB.sculptureRenderSize(1, 1, 0, false);
+    return p.w === 1280 && p.h === 720 && l.w === 640 && l.h === 360 && e.w === 3840 && e.h === 2160
+      && big.w === 4096 && tiny.w >= 2 && tiny.h >= 2;
+  });
+  okf("tint: subtle (0.9..1.1), red hue warmer than blue hue, wraps negative/large hues", () => {
+    const red = OB.sculptureTint(0), blue = OB.sculptureTint(240), neg = OB.sculptureTint(-120), wrap = OB.sculptureTint(600);
+    const sub = t => t.length === 3 && t.every(v => v >= 0.9 && v <= 1.1);
+    return sub(red) && sub(blue) && red[0] > red[2] && blue[2] > blue[0]
+      && neg.every((v, i) => Math.abs(v - blue[i]) < 1e-9) && wrap.every((v, i) => Math.abs(v - blue[i]) < 1e-9);
+  });
+}
+
+okf("PRESETS gains exactly one Obsidian Bloom entry with the sculpture engine and a calm, clean-background setup", () => {
+  const m = html.match(/id: "sculpture", name: "Obsidian Bloom",[\s\S]*?gradient: \[[^\]]*\]\s*\}/);
+  if (!m) return false;
+  const p = m[0];
+  return (html.match(/id: "sculpture"/g) || []).length === 1
+    && p.includes('engine: "sculpture"') && p.includes("bgFade: 0.9") && p.includes("bloom: 0") && p.includes("particles: 0")
+    && p.includes("layers: 1") && p.includes("petals: 0") && p.includes("glass: false") && !p.includes("bank:");
+});
+okf("drawScene dispatches to drawSculpture and ticks the GPU idle release", () => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes('sculptureIdleTick(S.dnaOn !== false && P.engine === "sculpture");')
+    && fn.includes('} else if (dnaEngine === "sculpture") {') && fn.includes("drawSculpture(base, hue, growthF, energySize, seed);");
+});
+okf("drawSculpture composites with an identity transform and source-over (no double camera, opaque body)", () => {
+  const fn = extractFn("drawSculpture");
+  return !!fn && fn.includes("ctx.setTransform(1, 0, 0, 1, 0, 0);") && fn.includes('ctx.globalCompositeOperation = "source-over";')
+    && fn.includes("ctx.drawImage(SCULPT.canvas, 0, 0, W, H);");
+});
+okf("the fragment shader tonemaps and gamma-corrects exactly once and outputs alpha 0 outside the body", () => {
+  const s = injectSrc("inject-v114.js");
+  return (s.split("pow(clamp(col,0.0,1.0),vec3(1.0/2.2))").length - 1) === 1
+    && s.includes("vec4 outc=vec4(0.0);") && s.includes("gl_FragColor=outc;") && s.includes("uniform vec4 uSeed;");
+});
+okf("the renderer module has no Math.random/Date.now and its feature path has no clock call", () => {
+  const s = injectSrc("inject-v114.js"), f = extractFn("sculptureCollectFeatures", s);
+  return !s.includes("Math.random") && !s.includes("Date.now") && !!f && !f.includes("performance.now");
+});
+okf("GPU failure path: 2D fallback orb + badge, and the context is released after idle", () => {
+  const s = injectSrc("inject-v114.js");
+  return s.includes("if (!sculptureInitGL()) { sculptureFallback(base, growthF); sculptureBadge(true); return; }")
+    && s.includes("function sculptureRelease()") && s.includes('getExtension("WEBGL_lose_context")');
+});
+okf("Weniger Flackern damps kick/snare for Obsidian Bloom", () => {
+  const s = injectSrc("inject-v114.js");
+  return s.includes("const calm = S.reduceFlash ? 0.35 : 1;");
+});
+okf("badge element + CSS and the quality select (4 options) exist", () =>
+  html.includes('<div id="sculptBadge" role="status" aria-live="polite"></div>') && html.includes("#sculptBadge.show { display: block; }")
+  && html.includes('<select id="sculptQuality"') && ["auto", "high", "med", "low"].every(v => html.includes('<option value="' + v + '"')));
+okf("the DNA preset card gets an Obsidian Bloom preview branch", () => {
+  const fn = extractFn("renderPreviews");
+  return !!fn && fn.includes('} else if (p.engine === "sculpture") {');
+});
+okf("exportHQ waits for the timeline based on the ACTIVE DNA (blends keep their engine), not just S.preset", () => {
+  const fn = extractFn("exportHQ");
+  return !!fn && fn.includes("if (sculptureNeeded(currentDNA())) await ensureSculptureTimeline();");
+});
+okf("build.js lists the renderer module and it exists", () => {
+  const b = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
+  return b.includes('"src/inject-v114.js"') && fs.existsSync(path.join(__dirname, "src", "inject-v114.js"));
+});
+
+section("Obsidian Bloom stage C2 — stateless growth");
+
+let GR = null;
+try { GR = loadFns(["sculptureGrowth"]); ok("extract sculptureGrowth", true); }
+catch (e) { ok("extract sculptureGrowth", false, e.message); }
+
+if (GR) {
+  const MAP = [
+    { a: 0.00, b: 0.15, label: "Birth" }, { a: 0.15, b: 0.35, label: "Grow" }, { a: 0.35, b: 0.55, label: "Tension" },
+    { a: 0.55, b: 0.70, label: "Break" }, { a: 0.70, b: 0.90, label: "Return" }, { a: 0.90, b: 1.01, label: "Fade" }
+  ];
+  okf("start of the song sits at the Birth floor (window clamps at progress 0)", () => Math.abs(GR.sculptureGrowth(0, 100, MAP) - 0.15) < 1e-9);
+  okf("deep inside Return the value is exactly 0.85 when the window stays in the segment", () => Math.abs(GR.sculptureGrowth(0.8, 1000, MAP) - 0.85) < 1e-9);
+  okf("deep inside Break the value is exactly 0.45", () => Math.abs(GR.sculptureGrowth(0.62, 1000, MAP) - 0.45) < 1e-9);
+  okf("crossing Break -> Return the low-pass lands strictly between 0.45 and 0.85", () => {
+    const g = GR.sculptureGrowth(0.7, 100, MAP);   // step = 0.0075 progress, window reaches back into Break
+    return g > 0.45 && g < 0.85;
+  });
+  okf("a zero/invalid duration disables smoothing and equals the raw target", () =>
+    Math.abs(GR.sculptureGrowth(0.8, 0, MAP) - 0.85) < 1e-9 && Math.abs(GR.sculptureGrowth(0.8, NaN, MAP) - 0.85) < 1e-9);
+  okf("it is a pure function of its arguments (same inputs, same output, any call order)", () => {
+    const a = GR.sculptureGrowth(0.42, 180, MAP); GR.sculptureGrowth(0.9, 180, MAP);
+    return a === GR.sculptureGrowth(0.42, 180, MAP);
+  });
+  okf("progress outside 0..1 is clamped, never NaN", () => {
+    const lo = GR.sculptureGrowth(-3, 100, MAP), hi = GR.sculptureGrowth(9, 100, MAP);
+    return Number.isFinite(lo) && Number.isFinite(hi);
+  });
+}
+
+okf("GL context-loss/restore handlers only act for the CURRENT canvas (no wipe after release or from an orphaned canvas)", () => {
+  const src = injectSrc("inject-v114.js");
+  return (src.split("if (SCULPT.canvas !== cv) return;").length - 1) === 2;
+});
+okf("the idle release tick runs every frame outside the DNA-on block, so DNA-off also releases the GPU", () => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes('sculptureIdleTick(S.dnaOn !== false && P.engine === "sculpture");')
+    && !fn.includes('sculptureIdleTick(dnaEngine === "sculpture");');
+});
+okf("drawSculpture derives uGrow from sculptureGrowth (absolute progress), not from the stateful growthF", () => {
+  const fn = extractFn("drawSculpture", injectSrc("inject-v114.js"));
+  return !!fn && fn.includes("sculptureGrowth(S.progress, dur, songMap())") && !fn.includes("growthF * 0.6");
+});
+
+section("Obsidian Bloom stage C3 — snare has a visible signature");
+
+okf("uSnare drives a surface-ripple burst and a rim lift (not just roughness)", () => {
+  const s = injectSrc("inject-v114.js");
+  return s.includes("d+=rip*(0.006+0.020*uSurf+0.016*uSnare);")
+    && s.includes("fres*0.10*(0.4+0.6*uGloss+1.2*uSnare)")
+    && s.includes("0.22*uGloss-0.06*uSnare");
+});
 
 /* ---------------- summary ---------------- */
 (async () => {
