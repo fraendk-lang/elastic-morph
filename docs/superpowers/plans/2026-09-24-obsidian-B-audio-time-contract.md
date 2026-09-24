@@ -158,7 +158,7 @@ Expected: `extract sculpture contract functions` prints `✗` ("could not extrac
    v113 — Sculpture audio/time contract (Obsidian Bloom foundation)
    One feature source for live file playback, realtime capture and HQ/range export:
    a per-track timeline on a fixed 60 Hz grid, sampled by ABSOLUTE song time.
-   No Math.random / wall-clock in here — same audio + same time => same numbers.
+   No random or clock sources in here — same audio + same time => same numbers.
    ============================================================ */
 
 function sculptureTaus() {
