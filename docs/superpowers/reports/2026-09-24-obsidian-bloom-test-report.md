@@ -23,7 +23,7 @@ Alle Befunde aus dem Auftrag bestätigt (Canvas2D + separater WebGL-Canvas; `ray
 ## 3. Tests
 
 **Automatisiert:** `npm run ci` → **933 bestanden, 0 fehlgeschlagen** (inkl. Verhaltenstests für Timeline, Sampler, Live-Adapter, Seed, Qualität, Render-Größe, Tint, stateless Growth). Fünf unabhängige Reviews (A selbst geprüft; B, C: Approved, keine Critical/Important).
-**E2E (`npm run test:e2e`):** nicht ausgeführt — Playwright ist lokal nicht installiert (Download nicht angefragt).
+**E2E (`npm run test:e2e`, Playwright/Chromium headless):** 3 von 3 bestanden (Landingpage lädt, App-Shell + Creator-Dock, Welcome/Canvas sichtbar). Der Smoke-Test prüft nur die Oberfläche und deckt Obsidian Bloom nicht ab.
 
 **Live im App-Build (Chromium, Claude-Browser-Pane, Apple M2 / ANGLE-Metal):**
 
