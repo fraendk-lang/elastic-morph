@@ -27,6 +27,7 @@ let pass = 0, fail = 0;
 const pendingAsyncChecks = [];
 const ok = (name, cond, extra) => { if (cond) { pass++; console.log("  ✓ " + name); } else { fail++; console.log("  ✗ " + name + (extra ? "  → " + extra : "")); } };
 const section = s => console.log("\n" + s);
+const okf = (name, fn) => { let v = false, err; try { v = !!fn(); } catch (e) { err = e.message; } ok(name, v, err); };   // test.js ok() takes a VALUE, not a function
 
 /* pull a named top-level function's full source via brace matching.
    src defaults to the app's own script; overridable for testing the fallback logic below
@@ -925,8 +926,8 @@ ok("welSkip listener uses dynamic lookup (arrow fn), not a direct function refer
   return line.includes('() => closeWelcome()');
 })());
 
-/* ---------------- SDF Blob (raymarchStyle): triangular lattice network-glow ---------------- */
-section("SDF Blob shader: glowing triangular-lattice network with pulsing nodes");
+/* ---------------- Triangular Light Grid (raymarchStyle): triangular lattice network-glow ---------------- */
+section("Triangular Light Grid shader: glowing triangular-lattice network with pulsing nodes");
 ok("raymarchStyle builds a triangular lattice (3 line families) with node glow at their crossings", (() => {
   const fn = extractGlslFn("vec3 raymarchStyle(vec2 uv){");
   return !!fn
@@ -938,7 +939,7 @@ ok("raymarchStyle builds a triangular lattice (3 line families) with node glow a
 })());
 
 /* ---------------- Shader eye-catcher palette + FX ---------------- */
-section("Shader eye-catcher palette + FX (Aurora/Gyroid/Feedback/SDF Blob)");
+section("Shader eye-catcher palette + FX (Aurora/Gyroid/Feedback/Triangular Light Grid)");
 
 ok("applyEyeCatcherFX helper defined with self-bloom, chromatic-tilt, and grain", (() => {
   const fn = extractGlslFn("vec3 applyEyeCatcherFX(vec3 col, vec2 uv){");
@@ -4898,6 +4899,17 @@ ok("hexgrid's brightness-threshold skip is untouched", (() => {
   const fn = extractFn("drawLayerB");
   return !!fn && fn.includes("if (v < 0.18) continue;");
 })());
+
+section("Shader label honesty: raymarch style is a triangular light grid");
+
+okf("the raymarch option is labelled 'Triangular Light Grid' and keeps its stored value", () => {
+  return html.includes('<option value="raymarch">Style: Triangular Light Grid</option>')
+    && !html.includes("SDF Blob");
+});
+
+okf("SHADER_STYLE_ID still maps raymarch to 7 (saved scenes unchanged)", () => {
+  return script.includes("raymarch:7,");
+});
 
 /* ---------------- summary ---------------- */
 (async () => {
