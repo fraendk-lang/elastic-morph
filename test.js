@@ -5057,7 +5057,7 @@ okf("PRESETS gains exactly one Obsidian Bloom entry with the sculpture engine an
 });
 okf("drawScene dispatches to drawSculpture and ticks the GPU idle release", () => {
   const fn = extractFn("drawScene");
-  return !!fn && fn.includes('sculptureIdleTick(dnaEngine === "sculpture");')
+  return !!fn && fn.includes('sculptureIdleTick(S.dnaOn !== false && P.engine === "sculpture");')
     && fn.includes('} else if (dnaEngine === "sculpture") {') && fn.includes("drawSculpture(base, hue, growthF, energySize, seed);");
 });
 okf("drawSculpture composites with an identity transform and source-over (no double camera, opaque body)", () => {
@@ -5097,6 +5097,50 @@ okf("exportHQ waits for the timeline based on the ACTIVE DNA (blends keep their 
 okf("build.js lists the renderer module and it exists", () => {
   const b = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
   return b.includes('"src/inject-v114.js"') && fs.existsSync(path.join(__dirname, "src", "inject-v114.js"));
+});
+
+section("Obsidian Bloom stage C2 — stateless growth");
+
+let GR = null;
+try { GR = loadFns(["sculptureGrowth"]); ok("extract sculptureGrowth", true); }
+catch (e) { ok("extract sculptureGrowth", false, e.message); }
+
+if (GR) {
+  const MAP = [
+    { a: 0.00, b: 0.15, label: "Birth" }, { a: 0.15, b: 0.35, label: "Grow" }, { a: 0.35, b: 0.55, label: "Tension" },
+    { a: 0.55, b: 0.70, label: "Break" }, { a: 0.70, b: 0.90, label: "Return" }, { a: 0.90, b: 1.01, label: "Fade" }
+  ];
+  okf("start of the song sits at the Birth floor (window clamps at progress 0)", () => Math.abs(GR.sculptureGrowth(0, 100, MAP) - 0.15) < 1e-9);
+  okf("deep inside Return the value is exactly 0.85 when the window stays in the segment", () => Math.abs(GR.sculptureGrowth(0.8, 1000, MAP) - 0.85) < 1e-9);
+  okf("deep inside Break the value is exactly 0.45", () => Math.abs(GR.sculptureGrowth(0.62, 1000, MAP) - 0.45) < 1e-9);
+  okf("crossing Break -> Return the low-pass lands strictly between 0.45 and 0.85", () => {
+    const g = GR.sculptureGrowth(0.7, 100, MAP);   // step = 0.0075 progress, window reaches back into Break
+    return g > 0.45 && g < 0.85;
+  });
+  okf("a zero/invalid duration disables smoothing and equals the raw target", () =>
+    Math.abs(GR.sculptureGrowth(0.8, 0, MAP) - 0.85) < 1e-9 && Math.abs(GR.sculptureGrowth(0.8, NaN, MAP) - 0.85) < 1e-9);
+  okf("it is a pure function of its arguments (same inputs, same output, any call order)", () => {
+    const a = GR.sculptureGrowth(0.42, 180, MAP); GR.sculptureGrowth(0.9, 180, MAP);
+    return a === GR.sculptureGrowth(0.42, 180, MAP);
+  });
+  okf("progress outside 0..1 is clamped, never NaN", () => {
+    const lo = GR.sculptureGrowth(-3, 100, MAP), hi = GR.sculptureGrowth(9, 100, MAP);
+    return Number.isFinite(lo) && Number.isFinite(hi);
+  });
+}
+
+okf("GL context-loss/restore handlers only act for the CURRENT canvas (no wipe after release or from an orphaned canvas)", () => {
+  const src = injectSrc("inject-v114.js");
+  return (src.split("if (SCULPT.canvas !== cv) return;").length - 1) === 2;
+});
+okf("the idle release tick runs every frame outside the DNA-on block, so DNA-off also releases the GPU", () => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes('sculptureIdleTick(S.dnaOn !== false && P.engine === "sculpture");')
+    && !fn.includes('sculptureIdleTick(dnaEngine === "sculpture");');
+});
+okf("drawSculpture derives uGrow from sculptureGrowth (absolute progress), not from the stateful growthF", () => {
+  const fn = extractFn("drawSculpture", injectSrc("inject-v114.js"));
+  return !!fn && fn.includes("sculptureGrowth(S.progress, dur, songMap())") && !fn.includes("growthF * 0.6");
 });
 
 /* ---------------- summary ---------------- */

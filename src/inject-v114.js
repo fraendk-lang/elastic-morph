@@ -152,6 +152,27 @@ function sculptureTint(hueDeg) {
   return seg.map(v => 1 + (v + 0.5 - 0.75) * 0.36);
 }
 
+/* stateless composition growth: the song-phase target (same curve as evolutionTargets) averaged over the
+   last ~2.25 s at 4 points — depends only on absolute progress, so a range export equals a full export */
+function sculptureGrowth(prog, durSec, map) {
+  const target = p => {
+    p = Math.max(0, Math.min(1, p));
+    let i = map.length - 1;
+    for (let k = 0; k < map.length; k++) { if (p >= map[k].a && p < map[k].b) { i = k; break; } }
+    const seg = map[i], t = Math.max(0, Math.min(1, (p - seg.a) / Math.max(0.001, seg.b - seg.a)));
+    switch (seg.label) {
+      case "Birth": return 0.15 + t * 0.25;
+      case "Grow": return 0.40 + t * 0.30;
+      case "Tension": return 0.70 + t * 0.25;
+      case "Break": return 0.45;
+      case "Return": return 0.85;
+      default: return 0.85 - t * 0.6;
+    }
+  };
+  const step = durSec > 0 ? 0.75 / durSec : 0;
+  return (target(prog) + target(prog - step) + target(prog - 2 * step) + target(prog - 3 * step)) / 4;
+}
+
 function sculptureCollectFeatures(out, dt) {
   if (S.audioBuffer && !S.micMode && !S.tabAudioMode) {
     if (!(S._sculptTL && S._sculptTL.srcBuffer === S.audioBuffer)) ensureSculptureTimeline();
@@ -173,8 +194,8 @@ function sculptureInitGL() {
     const cv = document.createElement("canvas");
     const gl = cv.getContext("webgl", { antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: true, alpha: true });
     if (!gl) { SCULPT.ok = false; return false; }
-    cv.addEventListener("webglcontextlost", e => { e.preventDefault(); SCULPT.ok = null; SCULPT.prog = null; SCULPT.w = SCULPT.h = 0; }, false);
-    cv.addEventListener("webglcontextrestored", () => { SCULPT.ok = null; }, false);
+    cv.addEventListener("webglcontextlost", e => { e.preventDefault(); if (SCULPT.canvas !== cv) return; SCULPT.ok = null; SCULPT.prog = null; SCULPT.w = SCULPT.h = 0; }, false);
+    cv.addEventListener("webglcontextrestored", () => { if (SCULPT.canvas !== cv) return; SCULPT.ok = null; }, false);
     const vs = glCompile(gl, gl.VERTEX_SHADER, SCULPT_VERT);
     const fs = glCompile(gl, gl.FRAGMENT_SHADER, SCULPT_FRAG);
     if (!vs || !fs) { SCULPT.ok = false; return false; }
@@ -257,7 +278,9 @@ function drawSculpture(base, hue, growthF, energySize, seed) {
   const q = sculptureQuality(S.sculptQuality || "auto", S.perfScale, S.exporting);
   const seedArr = sculptureSeedFromHash(S.fpHash || 0x9E3779B9, SCULPT_VERSION);
   const calm = S.reduceFlash ? 0.35 : 1;
-  sculptureRenderGL(f, q, W, H, seedArr, Math.max(0, Math.min(1, growthF * 0.6)), sculptureTint(hue), calm);
+  const dur = S.audioBuffer ? S.audioBuffer.duration : ((S.micMode || S.tabAudioMode) ? 240 : 180);
+  const grow = Math.max(0, Math.min(1, sculptureGrowth(S.progress, dur, songMap()) * 0.6));
+  sculptureRenderGL(f, q, W, H, seedArr, grow, sculptureTint(hue), calm);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = "source-over";
