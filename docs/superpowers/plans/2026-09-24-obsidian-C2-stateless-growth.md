@@ -1,10 +1,12 @@
-# Obsidian Bloom Stage C2 — Stateless growth (range export == full export) Implementation Plan
+# Obsidian Bloom Stage C2 — Stateless growth + GPU-lifecycle hardening Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stage C feeds the shader's composition parameter `uGrow` from `growthF`, which is a *stateful* quantity (`S.growth` is smoothed frame by frame, and `growthF` also folds in the decaying `dropFlash`). In an HQ range export (e.g. 60–70 s) that state starts from scratch, so the first seconds differ from the same seconds of a full export. Replace it with a stateless function of absolute song progress so the sculpture is identical in both.
 
 **Architecture:** New pure function `sculptureGrowth(prog, durSec, map)` in `src/inject-v114.js`: the song-phase growth target (same piecewise curve as `evolutionTargets()`, keyed by the song-map segment label) averaged over 4 points spread across the last 2.25 s (a stateless low-pass, ≈ the live 0.7/s smoothing). `drawSculpture` uses it (`* 0.6`, clamped to 0..1, same scaling as before). `dropFlash`/charge no longer scale the sculpture (also honours "no blanket scaling on every beat"). The 2D fallback orb keeps using `growthF`.
+
+**Also in this stage (Stage-C review Minor findings that are real robustness):** (1) the WebGL `contextlost`/`contextrestored` handlers reset shared state without checking which canvas fired, so `sculptureRelease()`'s own async `loseContext()` (or a late restore of an orphaned canvas) can wipe a freshly initialised context — guard both handlers with `SCULPT.canvas !== cv`; (2) `sculptureIdleTick` sits inside the `S.dnaOn !== false` block of `drawScene`, so with "DNA aus" the GPU context is never released and the fallback badge never clears — call it once per frame outside that block.
 
 **Tech Stack:** Vanilla JS. The module's source of truth is the asset `docs/superpowers/plans/2026-09-24-obsidian-C-assets/inject-v114.js`; `src/inject-v114.js` is a byte-for-byte `cp` of it.
 
@@ -56,6 +58,15 @@ if (GR) {
   });
 }
 
+okf("GL context-loss/restore handlers only act for the CURRENT canvas (no wipe after release or from an orphaned canvas)", () => {
+  const src = injectSrc("inject-v114.js");
+  return (src.split("if (SCULPT.canvas !== cv) return;").length - 1) === 2;
+});
+okf("the idle release tick runs every frame outside the DNA-on block, so DNA-off also releases the GPU", () => {
+  const fn = extractFn("drawScene");
+  return !!fn && fn.includes('sculptureIdleTick(S.dnaOn !== false && P.engine === "sculpture");')
+    && !fn.includes('sculptureIdleTick(dnaEngine === "sculpture");');
+});
 okf("drawSculpture derives uGrow from sculptureGrowth (absolute progress), not from the stateful growthF", () => {
   const fn = extractFn("drawSculpture", injectSrc("inject-v114.js"));
   return !!fn && fn.includes("sculptureGrowth(S.progress, dur, songMap())") && !fn.includes("growthF * 0.6");
@@ -116,6 +127,66 @@ Replace with:
   sculptureRenderGL(f, q, W, H, seedArr, grow, sculptureTint(hue), calm);
 ```
 
+- [ ] **Step 3b: Implement — context-loss guards (asset)**
+
+In the same asset file find:
+
+```js
+    cv.addEventListener("webglcontextlost", e => { e.preventDefault(); SCULPT.ok = null; SCULPT.prog = null; SCULPT.w = SCULPT.h = 0; }, false);
+    cv.addEventListener("webglcontextrestored", () => { SCULPT.ok = null; }, false);
+```
+
+Replace with:
+
+```js
+    cv.addEventListener("webglcontextlost", e => { e.preventDefault(); if (SCULPT.canvas !== cv) return; SCULPT.ok = null; SCULPT.prog = null; SCULPT.w = SCULPT.h = 0; }, false);
+    cv.addEventListener("webglcontextrestored", () => { if (SCULPT.canvas !== cv) return; SCULPT.ok = null; }, false);
+```
+
+- [ ] **Step 3c: Implement — idle tick outside the DNA-on block (`elastic-morph.html`, `drawScene`)**
+
+Find:
+
+```js
+  ctx.globalCompositeOperation = S.dnaBlend || "screen";
+
+  /* --- central morphing organism (v99: S.dnaOn === false skips shape + preset particles) --- */
+```
+
+Replace with:
+
+```js
+  ctx.globalCompositeOperation = S.dnaBlend || "screen";
+  sculptureIdleTick(S.dnaOn !== false && P.engine === "sculpture");
+
+  /* --- central morphing organism (v99: S.dnaOn === false skips shape + preset particles) --- */
+```
+
+Then find (inside the DNA-on block):
+
+```js
+  const dnaEngine = P.engine || "blob";
+  sculptureIdleTick(dnaEngine === "sculpture");
+```
+
+Replace with:
+
+```js
+  const dnaEngine = P.engine || "blob";
+```
+
+In `test.js`, update the Stage-C assertion. Find:
+
+```js
+  return !!fn && fn.includes('sculptureIdleTick(dnaEngine === "sculpture");')
+```
+
+Replace with:
+
+```js
+  return !!fn && fn.includes('sculptureIdleTick(S.dnaOn !== false && P.engine === "sculpture");')
+```
+
 - [ ] **Step 4: Sync the module and verify**
 
 ```bash
@@ -130,7 +201,7 @@ Expected: `identical`; all assertions `✓`; `<N> passed, 0 failed`.
 
 ```bash
 git add docs/superpowers/plans/2026-09-24-obsidian-C-assets/inject-v114.js src/inject-v114.js elastic-morph.html test.js
-git commit -m "fix: Obsidian Bloom growth is now a stateless function of absolute progress
+git commit -m "fix: Obsidian Bloom growth is stateless; GPU lifecycle hardened
 
 uGrow used the stateful growthF (smoothed S.growth + decaying dropFlash),
 so the first seconds of an HQ range export differed from the same seconds
